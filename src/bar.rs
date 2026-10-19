@@ -121,7 +121,7 @@ impl Bars {
 
         window.set_child(Some(&self.build_content(ctx)));
         crate::menu::watch_bar(window.upcast_ref());
-        window.present();
+        window.set_visible(true);
         #[cfg(debug_assertions)]
         crate::menu::dev_open(window.upcast_ref());
         window

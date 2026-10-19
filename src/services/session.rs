@@ -123,7 +123,7 @@ impl Inhibitor {
                 wayland::with(|_| Some(()));
             }
         });
-        window.present();
+        window.set_visible(true);
         Some(Inhibitor { window })
     }
 }

@@ -194,7 +194,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     watch_motion(&window, &bar);
 
     place(&window, anchor);
-    window.present();
+    window.set_visible(true);
     anchor.add_css_class("menu-open");
     OPEN.replace(Some(Open {
         anchor: anchor.downgrade(),
@@ -234,7 +234,7 @@ fn catcher(monitor: &gdk::Monitor) -> gtk4::Window {
     click.set_button(0);
     click.connect_pressed(|_, _, _, _| close());
     catcher.add_controller(click);
-    catcher.present();
+    catcher.set_visible(true);
     catcher
 }
 

@@ -57,6 +57,11 @@ each section. Read before changing any of these.
   widget under the pointer runs its leave handler synchronously (a popup crashed this way).
   Take what you need out of the cell, drop the borrow, then touch widgets.
 
+- Show layer-shell windows with `set_visible(true)`, not `present()`: `present` asks for focus
+  through a blocking Wayland roundtrip (`gdk_wayland_toplevel_focus`), so a compositor that is
+  slow to answer freezes the whole shell. The menu gets the keyboard from its layer-shell
+  keyboard mode instead.
+
 ## Sandbox lessons
 
 - One nested niri at a time: GNOME stops drawing a covered nested window, and that niri then

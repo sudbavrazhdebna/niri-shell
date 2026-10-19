@@ -206,7 +206,7 @@ impl Osd {
         let card_height = 64;
         let margin = (f64::from(height) * (1.0 - POSITION)) as i32 - card_height / 2;
         window.set_margin(Edge::Bottom, margin.max(0));
-        window.present();
+        window.set_visible(true);
         Some(Shown { window, icon, level, text, hide: None })
     }
 }

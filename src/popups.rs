@@ -159,7 +159,7 @@ impl Popups {
         let column = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         column.add_css_class("popup-column");
         window.set_child(Some(&column));
-        window.present();
+        window.set_visible(true);
         self.window.replace(Some((window, column.clone())));
         Some(column)
     }
