@@ -2,13 +2,13 @@
 //! compositor state, plus one-shot requests for actions. No threads: the socket is read
 //! asynchronously by glib.
 
-use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use gtk4::gio;
 use gtk4::prelude::*;
 use niri_ipc::{Action, Event, KeyboardLayouts, Reply, Request, Response, Window, Workspace};
+
+use crate::watch::Watch;
 
 /// What the shell knows about niri, updated from the event stream.
 #[derive(Default)]
@@ -106,26 +106,19 @@ impl State {
     }
 }
 
-type Listener = Box<dyn Fn(&State) -> bool>;
-
-/// Shared handle to the niri connection. Cheap to clone.
+/// Handle to the niri connection. Cheap to clone.
 #[derive(Clone)]
-pub struct Niri(Rc<Inner>);
-
-struct Inner {
-    state: RefCell<State>,
-    listeners: RefCell<Vec<Listener>>,
+pub struct Niri {
+    pub state: Watch<State>,
 }
 
 impl Niri {
     /// Connects to the event stream in the background. Until the first events arrive,
     /// the state is empty.
     pub fn connect() -> Niri {
-        let niri = Niri(Rc::new(Inner {
-            state: RefCell::new(State::default()),
-            listeners: RefCell::new(Vec::new()),
-        }));
-
+        let niri = Niri {
+            state: Watch::new(State::default()),
+        };
         let this = niri.clone();
         gtk4::glib::spawn_future_local(async move {
             if let Err(err) = this.run_event_stream().await {
@@ -135,20 +128,7 @@ impl Niri {
         niri
     }
 
-    pub fn state(&self) -> Ref<'_, State> {
-        self.0.state.borrow()
-    }
-
-    /// Calls `listener` now and after every state change, for as long as it returns true.
-    /// Widgets return false once they are gone.
-    pub fn subscribe(&self, listener: impl Fn(&State) -> bool + 'static) {
-        if listener(&self.state()) {
-            self.0.listeners.borrow_mut().push(Box::new(listener));
-        }
-    }
-
     /// Sends an action to niri without waiting for the result.
-    #[allow(dead_code)] // first user: the keyboard module (step 3)
     pub fn action(&self, action: Action) {
         gtk4::glib::spawn_future_local(async move {
             let result = async {
@@ -183,20 +163,8 @@ impl Niri {
                     continue;
                 }
             };
-            if self.0.state.borrow_mut().apply(event) {
-                self.notify();
-            }
+            self.state.update(|state| state.apply(event));
         }
-    }
-
-    fn notify(&self) {
-        let state = self.0.state.borrow();
-        // A listener may subscribe others while running; collect those separately.
-        let listeners = std::mem::take(&mut *self.0.listeners.borrow_mut());
-        let mut alive: Vec<Listener> = listeners.into_iter().filter(|l| l(&state)).collect();
-        let mut listeners = self.0.listeners.borrow_mut();
-        alive.append(&mut listeners);
-        *listeners = alive;
     }
 }
 

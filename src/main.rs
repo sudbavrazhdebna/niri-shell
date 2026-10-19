@@ -3,7 +3,9 @@ mod bar;
 mod config;
 mod modules;
 mod niri;
+mod services;
 mod settings;
+mod watch;
 
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
@@ -29,14 +31,17 @@ fn main() -> glib::ExitCode {
         .flags(gio::ApplicationFlags::NON_UNIQUE)
         .build();
 
-    app.connect_startup(|_| load_css());
+    app.connect_startup(|_| {
+        load_css();
+        load_icons();
+    });
     app.connect_activate(|app| {
         // Without this the app quits as soon as the last bar goes away
         // (e.g. all monitors unplugged).
         std::mem::forget(app.hold());
         let (config, problem) = settings::Settings::initial_config();
-        let niri = niri::Niri::connect();
-        let bars = bar::Bars::start(app, config.clone(), niri);
+        let services = services::Services::new(niri::Niri::connect());
+        let bars = bar::Bars::start(app, config.clone(), services);
         // Lives as long as the app: it holds the file watcher.
         std::mem::forget(settings::Settings::start(bars, &config, problem));
     });
@@ -56,4 +61,13 @@ fn load_css() {
         &provider,
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
+}
+
+fn load_icons() {
+    gio::resources_register_include!("icons.gresource").unwrap_or_else(|err| {
+        tracing::error!("bundled icons: {err}");
+    });
+    if let Some(display) = gdk::Display::default() {
+        gtk4::IconTheme::for_display(&display).add_resource_path("/dev/nshell/icons");
+    }
 }

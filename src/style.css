@@ -25,3 +25,13 @@ window.bar {
 .bar-content .problem {
     color: #ffcc33;
 }
+
+/* Icons keep their own colors; opacity and shadow make them look like glass. */
+.bar-content .icon {
+    -gtk-icon-size: 20px;
+    opacity: 0.9;
+}
+
+.bar-content .keyboard {
+    font-weight: 600;
+}

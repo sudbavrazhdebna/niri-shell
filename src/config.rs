@@ -10,9 +10,9 @@ pub const DEFAULT_KDL: &str = include_str!("../config/default.kdl");
 
 /// Modules that exist in the code. Names from `PLANNED` are accepted and skipped,
 /// so a config written today keeps working as modules land.
-pub const MODULES: &[&str] = &["clock", "window-title"];
+pub const MODULES: &[&str] = &["clock", "window-title", "keyboard", "volume", "battery"];
 pub const PLANNED: &[&str] = &[
-    "tray", "keyboard", "network", "bluetooth", "volume", "battery", "control",
+    "tray", "network", "bluetooth", "control",
 ];
 
 /// Top-level sections of later steps, accepted and ignored for now.
@@ -23,6 +23,7 @@ pub struct Config {
     pub bar: BarConfig,
     pub clock: ClockConfig,
     pub window_title: WindowTitleConfig,
+    pub volume: VolumeConfig,
 }
 
 pub struct BarConfig {
@@ -36,6 +37,11 @@ pub struct BarConfig {
 pub struct ClockConfig {
     /// strftime-like format, see `glib::DateTime::format`.
     pub format: String,
+}
+
+pub struct VolumeConfig {
+    /// Percent per wheel step.
+    pub scroll_step: i32,
 }
 
 pub struct WindowTitleConfig {
@@ -61,6 +67,7 @@ impl Default for Config {
                 max_length: 80,
                 rewrite: Vec::new(),
             },
+            volume: VolumeConfig { scroll_step: 1 },
         }
     }
 }
@@ -136,6 +143,17 @@ impl Config {
                                 let re = Regex::new(pattern)
                                     .map_err(|e| at(child, format!("ошибка в шаблоне: {e}")))?;
                                 wt.rewrite.push((re, replace.clone()));
+                            }
+                            other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
+                "volume" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "scroll-step" => {
+                                config.volume.scroll_step =
+                                    int_arg(child, 1..=50).map_err(|e| at(child, e))?
                             }
                             other => return Err(at(child, unknown(other))),
                         }

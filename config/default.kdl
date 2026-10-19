@@ -31,3 +31,8 @@ window-title {
     rewrite "^(.*) - Sublime Text( \\(UNREGISTERED\\))?$" "$1"
     rewrite "^(.*) – GIMP$" "$1"
 }
+
+volume {
+    // Percent per mouse wheel step.
+    scroll-step 1
+}

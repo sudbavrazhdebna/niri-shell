@@ -9,11 +9,11 @@ use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use crate::config::Config;
 use crate::modules;
-use crate::niri::Niri;
+use crate::services::Services;
 
 pub struct Bars {
     app: gtk4::Application,
-    niri: Niri,
+    services: Rc<Services>,
     config: RefCell<Rc<Config>>,
     /// Shown as ⚠ on the bar, with the text in the tooltip.
     problems: RefCell<Vec<String>>,
@@ -21,10 +21,10 @@ pub struct Bars {
 }
 
 impl Bars {
-    pub fn start(app: &gtk4::Application, config: Rc<Config>, niri: Niri) -> Rc<Bars> {
+    pub fn start(app: &gtk4::Application, config: Rc<Config>, services: Rc<Services>) -> Rc<Bars> {
         let bars = Rc::new(Bars {
             app: app.clone(),
-            niri,
+            services,
             config: RefCell::new(config),
             problems: RefCell::new(Vec::new()),
             windows: RefCell::new(Vec::new()),
@@ -89,7 +89,7 @@ impl Bars {
             tracing::info!(output, "bar opened");
             let ctx = modules::Context {
                 config: self.config.borrow().clone(),
-                niri: self.niri.clone(),
+                services: self.services.clone(),
                 output,
             };
             let window = self.build_window(&monitor, &ctx);

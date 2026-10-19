@@ -54,7 +54,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
 
     let config = ctx.config.clone();
     let output = ctx.output.clone();
-    ctx.niri.subscribe(move |state| {
+    ctx.services.niri.state.subscribe(move |state| {
         if view.root.upgrade().is_none() {
             return false;
         }
