@@ -24,6 +24,10 @@ use crate::blur;
 type Opener = Rc<dyn Fn(&gtk4::Widget)>;
 
 thread_local! {
+    /// The anchor of the last closed menu and when it closed: the press of a click on
+    /// the module can close the menu (focus goes back to the app) before the release
+    /// toggles it, which would open it again.
+    static LAST_CLOSED: RefCell<Option<(glib::WeakRef<gtk4::Widget>, std::time::Instant)>> = const { RefCell::new(None) };
     /// Bumped on every open and close: a menu that loads its content first shows only if
     /// nothing else was asked for meanwhile.
     static REQUEST: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
@@ -95,7 +99,14 @@ pub fn on_button(anchor: &impl IsA<gtk4::Widget>, button: u32) {
 pub fn toggle(anchor: &gtk4::Widget) {
     if open_anchor().as_ref() == Some(anchor) {
         close();
-    } else {
+        return;
+    }
+    let just_closed = LAST_CLOSED.with_borrow(|last| {
+        last.as_ref().is_some_and(|(w, at)| {
+            w.upgrade().as_ref() == Some(anchor) && at.elapsed() < Duration::from_millis(300)
+        })
+    });
+    if !just_closed {
         open(anchor);
     }
 }
@@ -138,6 +149,7 @@ pub fn close() {
     let Some(open) = OPEN.take() else { return };
     if let Some(anchor) = open.anchor.upgrade() {
         anchor.remove_css_class("menu-open");
+        LAST_CLOSED.with_borrow_mut(|last| *last = Some((anchor.downgrade(), std::time::Instant::now())));
     }
     open.window.destroy();
     open.catcher.destroy();

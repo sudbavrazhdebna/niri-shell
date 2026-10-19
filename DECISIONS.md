@@ -37,6 +37,8 @@ each section. Read before changing any of these.
   the focus back, which the shell sees as a niri focus change and closes the menu
   (`menu::close_on_focus_change`). "No window focused" (focus went to the menu) must not close
   it — the first version did and closed every menu right after opening.
+- A second click on a module closes its menu: the press already closes it (focus goes back to
+  the app), so `toggle` doesn't reopen a menu of the same anchor that closed under 300 ms ago.
 - Switching menus keeps the catcher window and replaces only the menu window, and a menu is
   placed at its measured width before it shows, so it doesn't jump sideways.
 - Hover switching waits 250 ms when the pointer heads diagonally into the open menu (the fork's
