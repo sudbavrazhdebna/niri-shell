@@ -52,7 +52,7 @@ pub fn caps_lock() -> Watch<Option<bool>> {
             if n == 0 {
                 break;
             }
-            for event in buf[..n].chunks_exact(EVENT_SIZE) {
+            for event in buf[..n].as_chunks::<EVENT_SIZE>().0 {
                 let kind = u16::from_ne_bytes([event[16], event[17]]);
                 let code = u16::from_ne_bytes([event[18], event[19]]);
                 let value = i32::from_ne_bytes([event[20], event[21], event[22], event[23]]);
