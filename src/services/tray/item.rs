@@ -247,7 +247,7 @@ impl Item {
                 // The biggest one; GTK scales it down.
                 pixmaps
                     .into_iter()
-                    .filter(|(w, h, data)| *w > 0 && *h > 0 && data.len() == (*w * *h * 4) as usize)
+                    .filter(|(w, h, data)| pixmap_size(*w, *h) == Some(data.len()))
                     .max_by_key(|(w, _, _)| *w)
             })
             .map_or(TrayIcon::None, |(width, height, data)| TrayIcon::Pixels { width, height, data })
@@ -274,6 +274,13 @@ impl TrayIcon {
     }
 }
 
+/// Bytes of a `width`×`height` ARGB32 pixmap; None for sizes that make no sense
+/// (overflowing ones crashed the shell, a texture GDK refuses does too).
+fn pixmap_size(width: i32, height: i32) -> Option<usize> {
+    let (w, h) = (usize::try_from(width).ok()?, usize::try_from(height).ok()?);
+    (w > 0 && h > 0).then(|| w.checked_mul(h)?.checked_mul(4)).flatten()
+}
+
 fn has_themed_icon(name: &str) -> bool {
     gdk::Display::default().is_some_and(|d| gtk4::IconTheme::for_display(&d).has_icon(name))
 }
@@ -294,4 +301,15 @@ fn find_in_theme_path(dir: &str, name: &str) -> Option<PathBuf> {
             .flat_map(|size| names.iter().map(move |n| size.path().join("apps").join(n)))
             .find(|p| p.exists())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn pixmap_sizes() {
+        assert_eq!(super::pixmap_size(2, 3), Some(24));
+        assert_eq!(super::pixmap_size(0, 3), None);
+        assert_eq!(super::pixmap_size(-1, -1), None);
+        assert_eq!(super::pixmap_size(i32::MAX, i32::MAX), Some(4 * (i32::MAX as usize).pow(2)));
+    }
 }

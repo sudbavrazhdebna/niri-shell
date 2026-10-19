@@ -316,13 +316,17 @@ fn image(data: &Option<glib::Variant>, path: &Option<glib::Variant>) -> Option<I
 }
 
 /// `(iiibiiay)`: width, height, rowstride, has alpha, bits per sample, channels, data.
+/// Checked the way GDK checks it: a texture it refuses would take the shell down.
 fn pixels(v: &glib::Variant) -> Option<Image> {
     let (width, height, stride, alpha, bits, channels, data) =
         v.get::<(i32, i32, i32, bool, i32, i32, Vec<u8>)>()?;
-    let expected = usize::try_from(stride).ok()? * usize::try_from(height - 1).ok()?
-        + usize::try_from(width * channels).ok()?;
-    (width > 0 && height > 0 && bits == 8 && channels == if alpha { 4 } else { 3 } && data.len() >= expected)
-        .then_some(Image::Pixels { width, height, stride, alpha, data })
+    if width <= 0 || height <= 0 || bits != 8 || channels != if alpha { 4 } else { 3 } {
+        return None;
+    }
+    let row = usize::try_from(width).ok()?.checked_mul(usize::try_from(channels).ok()?)?;
+    let stride_bytes = usize::try_from(stride).ok().filter(|s| *s >= row)?;
+    let expected = stride_bytes.checked_mul(usize::try_from(height - 1).ok()?)?.checked_add(row)?;
+    (data.len() >= expected).then_some(Image::Pixels { width, height, stride, alpha, data })
 }
 
 /// An icon given as a path, a file:// URI or a theme name.
@@ -378,5 +382,10 @@ mod tests {
         assert!(matches!(pixels(&good), Some(Image::Pixels { .. })));
         let short = (2i32, 2i32, 8i32, true, 8i32, 4i32, vec![0u8; 4]).to_variant();
         assert!(pixels(&short).is_none());
+        // Rows overlapping each other: GDK refuses that texture.
+        let narrow = (2i32, 2i32, 0i32, true, 8i32, 4i32, vec![0u8; 16]).to_variant();
+        assert!(pixels(&narrow).is_none());
+        let huge = (i32::MAX, 2i32, i32::MAX, true, 8i32, 4i32, vec![0u8; 16]).to_variant();
+        assert!(pixels(&huge).is_none());
     }
 }
