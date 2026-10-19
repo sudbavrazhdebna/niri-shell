@@ -536,3 +536,9 @@ button.dock-button:hover {
     color: rgba(255, 255, 255, 0.75);
     font-feature-settings: "tnum";
 }
+
+.app-stream-name {
+    margin: 4px 8px 0;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.75);
+}
