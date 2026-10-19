@@ -22,4 +22,5 @@ stops the previous sandbox first), screenshot `scripts/dev-shot.sh <path>`, comm
 `pkill -f` with a pattern that may match the real session or your own shell), measure
 `scripts/dev-measure.sh 60`. Debug-build hooks: `NSHELL_DEV_MENU=<module>[@secs]` opens a
 menu, `NSHELL_DEV_TRAY_MENU=1` opens tray menus, `NSHELL_DEV_AWAKE=1` turns on Stay awake.
+Commands to the running shell: `nshell msg show-dock [secs]` (D-Bus `dev.nshell.Shell`).
 Fake apps: `scripts/test-tray-item.py`, `scripts/test-mpris-player.py`, `scripts/test-backdrop.py` (stripes to judge blur). One step — one commit.

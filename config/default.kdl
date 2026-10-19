@@ -48,6 +48,11 @@ dock {
     // Uncomment the next line to hide the dock.
     // off
 
+    // Slides away until the pointer touches the bottom edge of the screen.
+    // `nshell msg show-dock` shows it for 3 seconds: bind it in niri, e.g.
+    //   Mod+A { spawn "nshell" "msg" "show-dock"; }
+    autohide
+
     // App ids as niri reports them (`niri msg windows`), in order.
     // Right-click an app in the dock to pin or unpin it; this line is updated.
     pinned "com.mitchellh.ghostty" "dev.zed.Zed" "org.mozilla.firefox" "org.telegram.desktop" "sublime_text" "org.gnome.Nautilus" "clash-verge" "AmneziaVPN"

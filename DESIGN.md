@@ -141,7 +141,9 @@ sublime_text, nautilus, clash-verge, AmneziaVPN + running apps. Dots under icons
 focused — blue, needs attention — red. Clicks: left — focus/launch, middle — new window,
 right — menu (its windows by title, new window, pin/unpin, close), wheel — through the app's
 windows. An overview button. No previews. Pin/unpin rewrites the `pinned` line of config.kdl,
-keeping the rest of the file as it is. Autohide **[decide]** — needed?
+keeping the rest of the file as it is. A line between pinned and running apps.
+**Autohide** (decided 2026-10-19): slides out of sight, back when the pointer touches the bottom
+edge; `nshell msg show-dock` shows it for 3 s on the focused monitor (bind it, e.g. Mod+A).
 Later: an integration with niri binds (dock order ↔ Mod+1..9 in binds.kdl).
 
 ## 10. Config
@@ -277,4 +279,3 @@ After steps 7 and 8 swayosd and swaync can go.
 
 - window-title menu;
 - idle timings and the order on battery;
-- dock autohide;

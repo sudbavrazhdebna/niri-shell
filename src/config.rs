@@ -46,6 +46,8 @@ pub struct ClockConfig {
 
 pub struct DockConfig {
     pub enabled: bool,
+    /// Hidden until the pointer touches the bottom edge (or `nshell msg show-dock`).
+    pub autohide: bool,
     /// App ids (as niri reports them) or desktop entry ids, in dock order.
     pub pinned: Vec<String>,
 }
@@ -90,6 +92,7 @@ impl Default for Config {
             },
             dock: DockConfig {
                 enabled: true,
+                autohide: false,
                 pinned: Vec::new(),
             },
         }
@@ -194,6 +197,7 @@ impl Config {
                     for child in children(node) {
                         match child.name().value() {
                             "off" => config.dock.enabled = false,
+                            "autohide" => config.dock.autohide = true,
                             "pinned" => {
                                 config.dock.pinned = strings(child).map_err(|e| at(child, e))?
                             }

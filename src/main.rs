@@ -3,6 +3,7 @@ mod bar;
 mod blur;
 mod config;
 mod dock;
+mod ipc;
 mod launch;
 mod menu;
 mod modules;
@@ -23,6 +24,10 @@ use tracing_subscriber::EnvFilter;
 const APP_ID: &str = "dev.nshell.Shell";
 
 fn main() -> glib::ExitCode {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().is_some_and(|a| a == "msg") {
+        return ipc::client(&args[1..]);
+    }
     if std::env::var_os("GSK_RENDERER").is_none() {
         // GL: least CPU when text changes often (measured in the wayle fork), and GTK's
         // default Vulkan renderer was seen stalling for minutes while opening a bar window.
@@ -59,7 +64,8 @@ fn main() -> glib::ExitCode {
         let bars = bar::Bars::start(app, config.clone(), services.clone());
         // Lives as long as the app: the services hold its subscriptions.
         std::mem::forget(osd::Osd::start(services.clone()));
-        std::mem::forget(popups::Popups::start(services));
+        std::mem::forget(popups::Popups::start(services.clone()));
+        ipc::serve(services);
         // Lives as long as the app: it holds the file watcher.
         std::mem::forget(settings::Settings::start(bars, &config, problem));
     });
