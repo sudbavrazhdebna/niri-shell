@@ -56,19 +56,19 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     let a = audio.clone();
     mute.connect_clicked(move |_| a.toggle_mute());
     let a = audio.clone();
-    let slider = ui::slider(f64::from(MAX_PERCENT), move |value| a.set_percent(value.round() as u32));
+    let slider = ui::Slider::new(f64::from(MAX_PERCENT), move |value| a.set_percent(value.round() as u32));
     let percent = gtk4::Label::new(None);
     percent.add_css_class("menu-value");
     percent.set_width_chars(4);
     percent.set_xalign(1.0);
     row.append(&mute);
-    row.append(&slider);
+    row.append(slider.widget());
     row.append(&percent);
     column.append(&row);
 
     audio.state.bind(&row, move |_, state| {
         mute_icon.set_icon_name(Some(icon(state)));
-        slider.set_value(f64::from(state.percent));
+        slider.show(f64::from(state.percent));
         percent.set_label(&format!("{}%", state.percent));
     });
 

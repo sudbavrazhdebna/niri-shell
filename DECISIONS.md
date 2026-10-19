@@ -32,6 +32,13 @@ each section. Read before changing any of these.
   the menu on an outside click; it has exclusive zone 0 so the bar stays hoverable.
 - Tray menus are drawn with our own widgets from the dbusmenu tree, not `PopoverMenu`, so they
   look like the rest and live in the same windows. Submenus are stack pages.
+- Menu windows use the *on-demand* keyboard mode. niri gives a mapped on-demand layer surface
+  the keyboard (Escape works) and the app shows unfocused; a click on any app window gives it
+  the focus back, which the shell sees as a niri focus change and closes the menu
+  (`menu::close_on_focus_change`). "No window focused" (focus went to the menu) must not close
+  it — the first version did and closed every menu right after opening.
+- Switching menus keeps the catcher window and replaces only the menu window, and a menu is
+  placed at its measured width before it shows, so it doesn't jump sideways.
 - Hover switching waits 250 ms when the pointer heads diagonally into the open menu (the fork's
   "safe triangle"), switches at once along the bar.
 
@@ -67,6 +74,10 @@ each section. Read before changing any of these.
 
 ## Code rules learned the hard way
 
+- GTK windows grow with content but never shrink back. Layer windows (dock, menus, popup
+  column) call `ui::shrink_to_fit` when content gets smaller — `ui::clear` does it for every
+  rebuilt list — or they keep an empty, click-eating area (the dock showed a gap after an app
+  closed).
 - Never hold a `RefCell` borrow across a GTK call that can emit signals: removing or hiding a
   widget under the pointer runs its leave handler synchronously (a popup crashed this way).
   Take what you need out of the cell, drop the borrow, then touch widgets.

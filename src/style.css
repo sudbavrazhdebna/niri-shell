@@ -256,7 +256,7 @@ window.nshell-osd {
 }
 
 .osd-card {
-    min-width: 260px;
+    min-width: 208px;
     padding: 14px 18px;
     margin: 10px;
     border-radius: 18px;
@@ -271,7 +271,7 @@ window.nshell-osd {
 }
 
 .osd-level trough {
-    min-height: 6px;
+    min-height: 4px;
     border-radius: 3px;
     background: rgb(80, 80, 80);
     border: none;

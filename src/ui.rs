@@ -1,5 +1,10 @@
 //! Building blocks for menu contents, so every menu looks the same.
 
+use std::cell::Cell;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
+
+use gtk4::glib;
 use gtk4::prelude::*;
 
 /// Vertical column that holds a menu's rows.
@@ -54,17 +59,118 @@ pub fn item(text: &str, checked: bool, on_click: impl Fn() + 'static) -> gtk4::B
     button
 }
 
-/// Horizontal slider from 0 to `max`; `on_change` runs only for the user's moves.
-pub fn slider(max: f64, on_change: impl Fn(f64) + 'static) -> gtk4::Scale {
-    let scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, max, 1.0);
-    scale.add_css_class("menu-slider");
-    scale.set_hexpand(true);
-    scale.set_draw_value(false);
-    scale.connect_change_value(move |_, _, value| {
-        on_change(value.clamp(0.0, max));
-        gtk4::glib::Propagation::Proceed
-    });
-    scale
+/// A horizontal slider for a system value (volume, brightness).
+///
+/// While the user drags it — and for a moment after — values coming back from the
+/// system don't move it: they lag behind the pointer and made the knob jitter. Changes
+/// go out at most every [`SLIDER_THROTTLE`], always ending with the last one.
+#[derive(Clone)]
+pub struct Slider(Rc<SliderInner>);
+
+struct SliderInner {
+    scale: gtk4::Scale,
+    held: Cell<bool>,
+    let_go: Cell<Option<Instant>>,
+    last_sent: Cell<Option<Instant>>,
+    trailing: Cell<Option<glib::SourceId>>,
+    pending: Cell<Option<f64>>,
+    on_change: Box<dyn Fn(f64)>,
+}
+
+/// How often a dragged slider sends its value.
+const SLIDER_THROTTLE: Duration = Duration::from_millis(100);
+/// How long after letting go system updates are still ignored.
+const SLIDER_GRACE: Duration = Duration::from_millis(300);
+
+impl Slider {
+    pub fn new(max: f64, on_change: impl Fn(f64) + 'static) -> Slider {
+        let scale = gtk4::Scale::with_range(gtk4::Orientation::Horizontal, 0.0, max, 1.0);
+        scale.add_css_class("menu-slider");
+        scale.set_hexpand(true);
+        scale.set_draw_value(false);
+        scale.set_cursor_from_name(Some("pointer"));
+        let slider = Slider(Rc::new(SliderInner {
+            scale: scale.clone(),
+            held: Cell::new(false),
+            let_go: Cell::new(None),
+            last_sent: Cell::new(None),
+            trailing: Cell::new(None),
+            pending: Cell::new(None),
+            on_change: Box::new(on_change),
+        }));
+
+        // Raw button events: the scale's own drag gesture claims them, so a gesture of
+        // ours wouldn't see the release.
+        let events = gtk4::EventControllerLegacy::new();
+        events.set_propagation_phase(gtk4::PropagationPhase::Capture);
+        let weak = Rc::downgrade(&slider.0);
+        events.connect_event(move |_, event| {
+            if let Some(inner) = weak.upgrade() {
+                match event.event_type() {
+                    gtk4::gdk::EventType::ButtonPress | gtk4::gdk::EventType::TouchBegin => inner.held.set(true),
+                    gtk4::gdk::EventType::ButtonRelease | gtk4::gdk::EventType::TouchEnd => {
+                        inner.held.set(false);
+                        inner.let_go.set(Some(Instant::now()));
+                    }
+                    gtk4::gdk::EventType::Scroll => inner.let_go.set(Some(Instant::now())),
+                    _ => {}
+                }
+            }
+            glib::Propagation::Proceed
+        });
+        scale.add_controller(events);
+
+        let weak = Rc::downgrade(&slider.0);
+        scale.connect_change_value(move |_, _, value| {
+            if let Some(inner) = weak.upgrade() {
+                Slider(inner).send(value.clamp(0.0, max));
+            }
+            glib::Propagation::Proceed
+        });
+        slider
+    }
+
+    pub fn widget(&self) -> &gtk4::Scale {
+        &self.0.scale
+    }
+
+    /// Shows a value from the system, unless the user is moving the slider.
+    pub fn show(&self, value: f64) {
+        let inner = &self.0;
+        let recently = inner.let_go.get().is_some_and(|t| t.elapsed() < SLIDER_GRACE);
+        if !inner.held.get() && !recently && inner.pending.get().is_none() {
+            inner.scale.set_value(value);
+        }
+    }
+
+    fn send(&self, value: f64) {
+        let inner = &self.0;
+        let wait = inner
+            .last_sent
+            .get()
+            .map_or(Duration::ZERO, |t| SLIDER_THROTTLE.saturating_sub(t.elapsed()));
+        if wait.is_zero() {
+            inner.pending.set(None);
+            inner.last_sent.set(Some(Instant::now()));
+            (inner.on_change)(value);
+            return;
+        }
+        // A send is due later: it takes the newest value.
+        if inner.pending.replace(Some(value)).is_none() {
+            let weak = Rc::downgrade(&self.0);
+            let source = glib::timeout_add_local_once(wait, move || {
+                if let Some(inner) = weak.upgrade() {
+                    inner.trailing.set(None);
+                    if let Some(value) = inner.pending.take() {
+                        inner.last_sent.set(Some(Instant::now()));
+                        inner.let_go.set(Some(Instant::now()));
+                        (inner.on_change)(value);
+                    }
+                }
+            });
+            inner.trailing.set(Some(source));
+        }
+    }
 }
 
 /// Heading with an on/off switch on the right. `on_toggle` runs only when the user
@@ -130,9 +236,20 @@ pub fn launch(command: &str) {
     crate::launch::command(command);
 }
 
-/// Removes all children of a box.
+/// Removes all children of a box (to rebuild a list), and lets its window shrink in
+/// case the new list is shorter.
 pub fn clear(column: &gtk4::Box) {
     while let Some(child) = column.first_child() {
         column.remove(&child);
     }
+    if let Some(window) = column.root().and_downcast::<gtk4::Window>() {
+        shrink_to_fit(&window);
+    }
+}
+
+/// GTK windows grow with their content but never shrink back by themselves; a layer
+/// window that got smaller content would keep an empty (and click-eating) area. Call
+/// after content got smaller.
+pub fn shrink_to_fit(window: &gtk4::Window) {
+    window.set_default_size(1, 1);
 }

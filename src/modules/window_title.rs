@@ -8,7 +8,11 @@ use std::time::{Duration, Instant};
 use gtk4::glib;
 use gtk4::prelude::*;
 
+use niri_ipc::Action;
+
 use super::Context;
+use crate::niri::Niri;
+use crate::{menu, ui};
 
 /// Terminal titles animate (spinners, progress) many times a second, and every change
 /// redraws the bar. Title-only changes are shown at most this often; switching windows
@@ -50,6 +54,14 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         shown: RefCell::new(None),
         pending: RefCell::new(None),
         last_update: Cell::new(None),
+    });
+
+    let (niri, output) = (ctx.services.niri.clone(), ctx.output.clone());
+    menu::attach(&root, move |anchor| {
+        let window = niri.state.get().active_window_on(&output).cloned();
+        if let Some(window) = window {
+            menu::show(anchor, &window_menu(&window, &niri));
+        }
     });
 
     let config = ctx.config.clone();
@@ -142,4 +154,42 @@ impl View {
         }
         self.shown.replace(wanted);
     }
+}
+
+/// The app's own actions (from its desktop entry), then what niri can do with the window.
+fn window_menu(window: &niri_ipc::Window, niri: &Niri) -> gtk4::Box {
+    let column = ui::column();
+    let app_id = window.app_id.clone().unwrap_or_default();
+    let entry = crate::apps::entry(&app_id);
+    let name = entry.as_ref().map_or_else(|| app_id.clone(), |e| e.name().to_string());
+    column.append(&ui::title(&name));
+    if let Some(entry) = &entry {
+        for action in entry.list_actions() {
+            let label = entry.action_name(&action);
+            let (entry, action) = (entry.clone(), action.to_string());
+            column.append(&ui::item(&label, false, move || {
+                let context = gtk4::gdk::Display::default().map(|d| d.app_launch_context());
+                entry.launch_action(&action, context.as_ref());
+                menu::close();
+            }));
+        }
+        if !entry.list_actions().is_empty() {
+            column.append(&ui::separator());
+        }
+    }
+
+    let id = window.id;
+    let action = |label: &str, checked: bool, make: fn(u64) -> Action| {
+        let niri = niri.clone();
+        ui::item(label, checked, move || {
+            niri.action(make(id));
+            menu::close();
+        })
+    };
+    column.append(&action("Floating", window.is_floating, |id| Action::ToggleWindowFloating { id: Some(id) }));
+    column.append(&action("Maximize", false, |id| Action::MaximizeWindowToEdges { id: Some(id) }));
+    column.append(&action("Fullscreen", false, |id| Action::FullscreenWindow { id: Some(id) }));
+    column.append(&ui::separator());
+    column.append(&action("Close window", false, |id| Action::CloseWindow { id: Some(id) }));
+    column
 }

@@ -17,6 +17,8 @@ bar {
 clock {
     // %d day, %b month, %a weekday, %H:%M time, %S seconds.
     format "%d %b  %H:%M"
+    // "monday", or "locale" for whatever the system's language says.
+    week-starts "monday"
 }
 
 window-title {

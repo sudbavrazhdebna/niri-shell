@@ -69,6 +69,7 @@ pub fn attach(anchor: &impl IsA<gtk4::Widget>, opener: impl Fn(&gtk4::Widget) + 
 pub fn register(anchor: &impl IsA<gtk4::Widget>, opener: impl Fn(&gtk4::Widget) + 'static) {
     let anchor = anchor.as_ref();
     anchor.add_css_class("has-menu");
+    anchor.set_cursor_from_name(Some("pointer"));
     OPENERS.with_borrow_mut(|openers| {
         openers.retain(|(w, _)| w.upgrade().is_some());
         openers.push((anchor.downgrade(), Rc::new(opener)));
@@ -124,13 +125,44 @@ pub fn close() {
     open.catcher.destroy();
 }
 
+/// Closes the menu when the user goes back to work in niri: a window gets the focus
+/// (niri gives it to the menu while it shows, so clicking any app window, even the one
+/// that had it before, counts) or another workspace is focused.
+pub fn close_on_focus_change(niri: &crate::niri::Niri) {
+    let last = RefCell::new(None::<(Option<u64>, Option<u64>)>);
+    niri.state.subscribe(move |state| {
+        let window = state.windows.values().find(|w| w.is_focused).map(|w| w.id);
+        let workspace = state.workspaces.values().find(|w| w.is_focused).map(|w| w.id);
+        let before = last.replace(Some((window, workspace)));
+        let moved_on = before.is_some_and(|(old_window, old_workspace)| {
+            (window.is_some() && window != old_window) || workspace != old_workspace
+        });
+        if moved_on && is_open() {
+            // Not from inside this notification: closing touches widgets.
+            glib::idle_add_local_once(close);
+        }
+        true
+    });
+}
+
 /// Shows `content` as the menu of `anchor`, replacing any open menu.
 pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     let Some(bar) = anchor.root().and_downcast::<gtk4::Window>() else { return };
     let Some(monitor) = bar.monitor() else { return };
-    close();
 
-    let catcher = catcher(&monitor);
+    // Switching between menus keeps the catcher; only the menu window is replaced.
+    cancel_pending();
+    let catcher = match OPEN.take() {
+        Some(open) => {
+            if let Some(old) = open.anchor.upgrade() {
+                old.remove_css_class("menu-open");
+            }
+            open.window.destroy();
+            open.catcher
+        }
+        None => catcher(&monitor),
+    };
+
     let window = gtk4::Window::new();
     window.add_css_class("nshell-menu");
     window.init_layer_shell();
@@ -138,8 +170,9 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     // Above the catcher, which shares the screen area below the bar.
     window.set_layer(Layer::Overlay);
     window.set_monitor(Some(&monitor));
-    // Exclusive keyboard while open, so Escape and arrows reach the menu.
-    window.set_keyboard_mode(KeyboardMode::Exclusive);
+    // On demand, not exclusive: niri gives the menu the keyboard when it shows (Escape
+    // works) and gives it back to the app on a click there, which also closes the menu.
+    window.set_keyboard_mode(KeyboardMode::OnDemand);
     // Menus open away from the screen edge their owner sits on: below the bar, above
     // the dock.
     let upward = bar.is_anchor(Edge::Bottom) && !bar.is_anchor(Edge::Top);
@@ -166,7 +199,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         CARD_RADIUS,
         move || {
             if let (Some(window), Some(anchor)) = (window_weak.upgrade(), anchor_weak.upgrade()) {
-                place(&window, &anchor);
+                place(&window, &anchor, window.width());
             }
         },
     );
@@ -183,7 +216,9 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     window.add_controller(keys);
     watch_motion(&window, &bar);
 
-    place(&window, anchor);
+    // Placed at its real width before it shows, so it doesn't jump sideways.
+    let (_, natural, _, _) = wrapped.measure(gtk4::Orientation::Horizontal, -1);
+    place(&window, anchor, natural);
     window.set_visible(true);
     anchor.add_css_class("menu-open");
     OPEN.replace(Some(Open {
@@ -207,21 +242,37 @@ fn catcher(monitor: &gdk::Monitor) -> gtk4::Window {
     }
     // Zero exclusive zone keeps it below the bar, so the bar stays hoverable.
     catcher.set_exclusive_zone(0);
+    // Something to fill the window, so it surely has a size and takes input everywhere.
+    let fill = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    fill.set_hexpand(true);
+    fill.set_vexpand(true);
+    catcher.set_child(Some(&fill));
     let click = gtk4::GestureClick::new();
     click.set_button(0);
-    click.connect_pressed(|_, _, _, _| close());
+    click.connect_pressed(|_, _, x, y| {
+        tracing::debug!(x, y, "menu catcher clicked");
+        close();
+    });
     catcher.add_controller(click);
     catcher.set_visible(true);
     catcher
 }
 
-/// Centers the menu under its module, keeping it on screen.
-fn place(window: &gtk4::Window, anchor: &gtk4::Widget) {
-    let Some(bar) = anchor.root().and_downcast::<gtk4::Window>() else { return };
-    let Some(bounds) = anchor.compute_bounds(&bar) else { return };
-    let screen = bar.width();
-    let width = window.width().max(1);
-    let center = f64::from(bounds.x()) + f64::from(bounds.width()) / 2.0;
+/// Centers the menu (`width` wide) under its module, keeping it on the screen.
+fn place(window: &gtk4::Window, anchor: &gtk4::Widget, width: i32) {
+    let Some(owner) = anchor.root().and_downcast::<gtk4::Window>() else { return };
+    let Some(bounds) = anchor.compute_bounds(&owner) else { return };
+    let screen = owner.monitor().map_or(owner.width(), |m| m.geometry().width());
+    // Where the owner window starts on the screen: the bar spans it, the dock is centered.
+    let origin = if owner.is_anchor(Edge::Left) && owner.is_anchor(Edge::Right) {
+        0
+    } else if owner.is_anchor(Edge::Left) {
+        owner.margin(Edge::Left)
+    } else {
+        (screen - owner.width()) / 2
+    };
+    let width = width.max(1);
+    let center = f64::from(origin) + f64::from(bounds.x()) + f64::from(bounds.width()) / 2.0;
     let left = (center - f64::from(width) / 2.0).round() as i32;
     let left = left.clamp(EDGE_MARGIN, (screen - width - EDGE_MARGIN).max(EDGE_MARGIN));
     if window.margin(Edge::Left) != left {

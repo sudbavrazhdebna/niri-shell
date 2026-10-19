@@ -39,7 +39,6 @@ fn item_widget(item: &Rc<Item>) -> gtk4::Image {
     item.state.bind(&image, |image, state| {
         image.set_visible(state.status != Status::Passive);
         state.icon.apply(image);
-        image.set_tooltip_text(Some(&state.title).filter(|t| !t.is_empty()).map(|t| t.as_str()));
     });
 
     let i = item.clone();

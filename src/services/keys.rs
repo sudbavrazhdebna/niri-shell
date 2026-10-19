@@ -161,6 +161,7 @@ impl KeyboardLight {
             proxy.connect_local("g-signal", false, move |args| {
                 let name = args.get(2).and_then(|v| v.get::<String>().ok()).unwrap_or_default();
                 let params = args.get(3).and_then(|v| v.get::<glib::Variant>().ok());
+                tracing::debug!(name, ?params, "keyboard backlight signal");
                 match name.as_str() {
                     "BrightnessChanged" => {
                         if let Some((value,)) = params.and_then(|p| p.get::<(i32,)>()) {

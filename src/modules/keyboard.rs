@@ -11,8 +11,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     let label = gtk4::Label::new(None);
     label.add_css_class("module");
     label.add_css_class("keyboard");
-    // EN and RU differ in width; keep neighbours from shifting on switch.
-    label.set_width_chars(2);
+    label.set_xalign(0.5);
 
     let niri = ctx.services.niri.clone();
     niri.state.bind(&label, |label, state| {
@@ -23,6 +22,17 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         label.set_visible(current.is_some());
         if let Some(name) = current {
             label.set_label(&short_name(name));
+        }
+        // As wide as the widest layout's name (RU is wider than EN), so switching
+        // doesn't shift the neighbours.
+        if let Some(layouts) = &state.keyboard_layouts {
+            let widest = layouts
+                .names
+                .iter()
+                .map(|name| label.create_pango_layout(Some(&short_name(name))).pixel_size().0)
+                .max()
+                .unwrap_or(0);
+            label.set_size_request(widest, -1);
         }
     });
 

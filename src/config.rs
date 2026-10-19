@@ -40,6 +40,8 @@ pub struct BarConfig {
 pub struct ClockConfig {
     /// strftime-like format, see `glib::DateTime::format`.
     pub format: String,
+    /// The calendar's weeks start on Monday (else: as the locale says).
+    pub monday_first: bool,
 }
 
 pub struct DockConfig {
@@ -76,6 +78,7 @@ impl Default for Config {
             },
             clock: ClockConfig {
                 format: "%d %b  %H:%M".into(),
+                monday_first: true,
             },
             window_title: WindowTitleConfig {
                 max_length: 80,
@@ -144,6 +147,13 @@ impl Config {
                         match child.name().value() {
                             "format" => {
                                 config.clock.format = string_arg(child).map_err(|e| at(child, e))?
+                            }
+                            "week-starts" => {
+                                config.clock.monday_first = match string_arg(child).map_err(|e| at(child, e))?.as_str() {
+                                    "monday" => true,
+                                    "locale" => false,
+                                    _ => return Err(at(child, "needs \"monday\" or \"locale\"".into())),
+                                }
                             }
                             other => return Err(at(child, unknown(other))),
                         }

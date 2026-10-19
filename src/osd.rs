@@ -36,6 +36,9 @@ struct Shown {
     window: gtk4::Window,
     icon: gtk4::Image,
     level: gtk4::LevelBar,
+    /// Where the bar is heading; it slides there over a few frames.
+    target: Rc<std::cell::Cell<f64>>,
+    sliding: Rc<std::cell::Cell<bool>>,
     text: gtk4::Label,
     hide: Option<glib::SourceId>,
 }
@@ -119,7 +122,14 @@ impl Osd {
         match content {
             Content::Level { icon, percent } => {
                 shown.icon.set_icon_name(Some(&icon));
-                shown.level.set_value(f64::from(percent.min(100)) / 100.0);
+                let target = f64::from(percent.min(100)) / 100.0;
+                if shown.level.is_visible() {
+                    slide(&shown.level, &shown.target, &shown.sliding, target);
+                } else {
+                    // A fresh OSD starts at the value, no slide from zero.
+                    shown.target.set(target);
+                    shown.level.set_value(target);
+                }
                 shown.level.set_visible(true);
                 shown.text.set_visible(false);
             }
@@ -196,8 +206,38 @@ impl Osd {
         let margin = (f64::from(height) * (1.0 - POSITION)) as i32 - card_height / 2;
         window.set_margin(Edge::Bottom, margin.max(0));
         window.set_visible(true);
-        Some(Shown { window, icon, level, text, hide: None })
+        // Built hidden, so the first value doesn't slide in from zero.
+        level.set_visible(false);
+        Some(Shown {
+            window,
+            icon,
+            level,
+            target: Rc::default(),
+            sliding: Rc::default(),
+            text,
+            hide: None,
+        })
     }
+}
+
+/// Moves the bar towards `target` a little each frame (ease-out over ~150 ms) instead
+/// of jumping; the frame clock runs only while it moves.
+fn slide(level: &gtk4::LevelBar, target: &Rc<std::cell::Cell<f64>>, sliding: &Rc<std::cell::Cell<bool>>, to: f64) {
+    target.set(to);
+    if sliding.replace(true) {
+        return;
+    }
+    let (target, sliding) = (target.clone(), sliding.clone());
+    level.add_tick_callback(move |level, _| {
+        let (now, to) = (level.value(), target.get());
+        if (to - now).abs() < 0.004 {
+            level.set_value(to);
+            sliding.set(false);
+            return glib::ControlFlow::Break;
+        }
+        level.set_value(now + (to - now) * 0.3);
+        glib::ControlFlow::Continue
+    });
 }
 
 fn volume(state: &AudioState) -> Content {

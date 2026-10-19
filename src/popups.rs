@@ -76,6 +76,9 @@ impl Popups {
                 parent.remove(&card.widget);
             }
         }
+        if let Some((window, _)) = &*self.window.borrow() {
+            crate::ui::shrink_to_fit(window);
+        }
         if ids.is_empty() {
             if let Some((window, _)) = self.window.take() {
                 window.destroy();

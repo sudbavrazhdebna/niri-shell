@@ -183,20 +183,22 @@ fn sliders(services: &Rc<Services>) -> gtk4::Box {
 
     if let Some(audio) = services.audio() {
         let a = audio.clone();
-        let slider = ui::slider(f64::from(MAX_PERCENT), move |v| a.set_percent(v.round() as u32));
-        let row = slider_row("audio-volume-high-symbolic", &slider);
-        audio.state.bind(&slider, |slider, state| slider.set_value(f64::from(state.percent)));
+        let slider = ui::Slider::new(f64::from(MAX_PERCENT), move |v| a.set_percent(v.round() as u32));
+        let row = slider_row("audio-volume-high-symbolic", slider.widget());
+        let s = slider.clone();
+        audio.state.bind(slider.widget(), move |_, state| s.show(f64::from(state.percent)));
         column.append(&row);
     }
 
     let brightness = services.brightness();
     if brightness.percent.get().is_some() {
         let s = services.clone();
-        let slider = ui::slider(100.0, move |v| s.brightness().set_percent(v.round() as u32));
-        let row = slider_row("display-brightness-symbolic", &slider);
+        let slider = ui::Slider::new(100.0, move |v| s.brightness().set_percent(v.round() as u32));
+        let row = slider_row("display-brightness-symbolic", slider.widget());
+        let s = slider.clone();
         brightness
             .percent
-            .bind(&slider, |slider, percent| slider.set_value(f64::from(percent.unwrap_or(0))));
+            .bind(slider.widget(), move |_, percent| s.show(f64::from(percent.unwrap_or(0))));
         column.append(&row);
     }
     column

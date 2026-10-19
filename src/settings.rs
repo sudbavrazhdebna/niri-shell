@@ -37,6 +37,7 @@ impl Settings {
 
     pub fn start(bars: Rc<Bars>, config: &Config, config_problem: Option<String>) -> Rc<Settings> {
         apply_icon_theme(config);
+        apply_week_start(config);
 
         let user_css = gtk4::CssProvider::new();
         if let Some(display) = gdk::Display::default() {
@@ -109,6 +110,7 @@ impl Settings {
                 tracing::info!("config reloaded");
                 self.config_problem.replace(None);
                 apply_icon_theme(&config);
+                apply_week_start(&config);
                 self.bars.set_config(Rc::new(config), self.problems());
             }
             Err(err) => {
@@ -145,6 +147,23 @@ impl Settings {
     fn show_problems(&self) {
         self.bars.set_problems(self.problems());
     }
+}
+
+/// US English starts weeks on Sunday; for a Monday start the calendar is given British
+/// date rules (same English names). Other languages mostly start on Monday already.
+pub fn apply_week_start(config: &Config) {
+    let wanted = std::env::var("LC_ALL")
+        .or_else(|_| std::env::var("LC_TIME"))
+        .or_else(|_| std::env::var("LANG"))
+        .unwrap_or_default();
+    let locale = if config.clock.monday_first && wanted.starts_with("en_US") {
+        "en_GB.UTF-8".to_string()
+    } else {
+        wanted
+    };
+    let Ok(locale) = std::ffi::CString::new(locale) else { return };
+    // SAFETY: called on the main thread; nothing else changes the locale.
+    unsafe { libc::setlocale(libc::LC_TIME, locale.as_ptr()) };
 }
 
 fn apply_icon_theme(config: &Config) {
