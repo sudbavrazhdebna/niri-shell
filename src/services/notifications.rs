@@ -300,12 +300,81 @@ impl Notifications {
     }
 }
 
-/// The body as Pango markup: kept if it parses, escaped otherwise (apps send stray `&`).
+/// The body as Pango markup with only what the notification spec allows: bold, italic,
+/// underline. Links keep their text; images and anything else (Pango's `span` could
+/// make a card cover the screen) are dropped. Stray `<` and `&` are escaped; if the
+/// result still doesn't parse (unclosed tags), the body shows as plain text.
 fn checked_markup(body: &str) -> String {
-    if gtk4::pango::parse_markup(body, '\0').is_ok() {
-        body.to_string()
-    } else {
-        glib::markup_escape_text(body).to_string()
+    let mut out = String::with_capacity(body.len());
+    let mut rest = body;
+    while let Some(i) = rest.find(['<', '&']) {
+        out.push_str(&rest[..i]);
+        rest = &rest[i..];
+        if rest.starts_with('&') {
+            // Entities are short; looking further would make long bodies slow.
+            let end = rest.char_indices().take(12).find(|(_, c)| *c == ';').map(|(i, _)| i);
+            let entity = end.map(|end| &rest[..=end]).filter(|e| is_entity(e));
+            match entity {
+                Some(entity) => {
+                    out.push_str(entity);
+                    rest = &rest[entity.len()..];
+                }
+                None => {
+                    out.push_str("&amp;");
+                    rest = &rest[1..];
+                }
+            }
+            continue;
+        }
+        let Some(tag) = rest.find('>').map(|end| &rest[..=end]).filter(|t| is_tag(t)) else {
+            out.push_str("&lt;");
+            rest = &rest[1..];
+            continue;
+        };
+        rest = &rest[tag.len()..];
+        let closing = tag.starts_with("</");
+        let name: String = tag
+            .trim_start_matches(['<', '/'])
+            .chars()
+            .take_while(char::is_ascii_alphanumeric)
+            .collect::<String>()
+            .to_ascii_lowercase();
+        match name.as_str() {
+            "b" | "i" | "u" => {
+                out.push_str(if closing { "</" } else { "<" });
+                out.push_str(&name);
+                out.push('>');
+            }
+            "br" => out.push('\n'),
+            _ => {}
+        }
+    }
+    out.push_str(rest);
+    if gtk4::pango::parse_markup(&out, '\0').is_err() {
+        // Only these tags are left, everything else is escaped already.
+        for tag in ["<b>", "</b>", "<i>", "</i>", "<u>", "</u>"] {
+            out = out.replace(tag, "");
+        }
+    }
+    out
+}
+
+/// `<name …>` or `</name>`: a tag rather than a lone `<` ("I <3 you").
+fn is_tag(text: &str) -> bool {
+    text.trim_start_matches('<')
+        .trim_start_matches('/')
+        .starts_with(|c: char| c.is_ascii_alphabetic())
+}
+
+/// `&amp;`, `&#38;`, `&#x26;`: an entity Pango understands.
+fn is_entity(text: &str) -> bool {
+    let inner = &text[1..text.len() - 1];
+    match inner.strip_prefix('#') {
+        Some(num) => match num.strip_prefix(['x', 'X']) {
+            Some(hex) => !hex.is_empty() && hex.chars().all(|c| c.is_ascii_hexdigit()),
+            None => !num.is_empty() && num.chars().all(|c| c.is_ascii_digit()),
+        },
+        None => ["amp", "lt", "gt", "quot", "apos"].contains(&inner),
     }
 }
 
@@ -374,6 +443,12 @@ mod tests {
     fn markup_is_kept_or_escaped() {
         assert_eq!(checked_markup("<b>hi</b>"), "<b>hi</b>");
         assert_eq!(checked_markup("Tom & Jerry"), "Tom &amp; Jerry");
+        assert_eq!(checked_markup("a &amp; b &#38; c &bogus; d"), "a &amp; b &#38; c &amp;bogus; d");
+        assert_eq!(checked_markup("I <3 you"), "I &lt;3 you");
+        assert_eq!(checked_markup(r#"<span font="300">big</span>"#), "big");
+        assert_eq!(checked_markup(r#"see <a href="https://x">this</a><br/>ok"#), "see this\nok");
+        assert_eq!(checked_markup(r#"<B>x</B><img src="/a.png" alt="y"/>"#), "<b>x</b>");
+        assert_eq!(checked_markup("<b>unclosed"), "unclosed");
     }
 
     #[test]
