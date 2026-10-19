@@ -34,3 +34,9 @@ pub fn on_properties_changed(proxy: &gio::DBusProxy, changed: impl Fn(&gio::DBus
         None
     });
 }
+
+/// Element `i` of a container, or None: apps send all kinds of malformed data and
+/// `child_value` panics on a bad index.
+pub fn child(v: &glib::Variant, i: usize) -> Option<glib::Variant> {
+    (v.is_container() && i < v.n_children()).then(|| v.child_value(i))
+}

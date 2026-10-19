@@ -35,3 +35,11 @@ window.bar {
 .bar-content .keyboard {
     font-weight: 600;
 }
+
+/* Menus are children of bar modules in the widget tree: don't inherit the bar's text look. */
+.bar-content popover {
+    text-shadow: none;
+    -gtk-icon-shadow: none;
+    font-size: 1rem;
+    font-weight: normal;
+}

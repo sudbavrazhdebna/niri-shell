@@ -5,6 +5,7 @@ mod bluetooth;
 mod clock;
 mod keyboard;
 mod network;
+mod tray;
 mod volume;
 mod window_title;
 
@@ -32,6 +33,7 @@ pub fn build(name: &str, ctx: &Context) -> Option<gtk4::Widget> {
         "battery" => Some(battery::build(ctx)),
         "network" => Some(network::build(ctx)),
         "bluetooth" => Some(bluetooth::build(ctx)),
+        "tray" => Some(tray::build(ctx)),
         // Accepted by the config, not written yet.
         _ => None,
     }

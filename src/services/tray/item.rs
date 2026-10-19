@@ -1,0 +1,280 @@
+//! One tray item: its icon, status and what clicking it does.
+
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
+use gtk4::prelude::*;
+use gtk4::{gdk, gio, glib};
+
+use crate::services::dbus::child;
+use crate::watch::Watch;
+
+const IFACE: &str = "org.kde.StatusNotifierItem";
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub enum Status {
+    /// Not important right now; hidden.
+    Passive,
+    #[default]
+    Active,
+    NeedsAttention,
+}
+
+#[derive(Clone, PartialEq, Debug, Default)]
+pub enum TrayIcon {
+    #[default]
+    None,
+    Name(String),
+    File(PathBuf),
+    /// ARGB32 pixels as sent by the app.
+    Pixels { width: i32, height: i32, data: Vec<u8> },
+}
+
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct ItemState {
+    pub icon: TrayIcon,
+    /// Bumped on every icon change signal: apps like clash-verge rewrite the same file.
+    pub icon_serial: u64,
+    pub status: Status,
+    pub title: String,
+    pub menu: Option<String>,
+    /// The item has no action of its own: left click opens the menu.
+    pub item_is_menu: bool,
+}
+
+pub struct Item {
+    pub bus: String,
+    pub path: String,
+    pub state: Watch<ItemState>,
+    conn: gio::DBusConnection,
+    proxy: gio::DBusProxy,
+}
+
+impl Item {
+    pub async fn connect(conn: &gio::DBusConnection, bus: &str, path: &str) -> Option<Rc<Item>> {
+        // The proxy subscribes to signals before it reads the properties, so an icon
+        // changed right after registration isn't missed.
+        let proxy = gio::DBusProxy::new_future(
+            conn,
+            gio::DBusProxyFlags::DO_NOT_AUTO_START,
+            None,
+            Some(bus),
+            path,
+            IFACE,
+        )
+        .await
+        .inspect_err(|err| tracing::warn!("tray: {bus}{path}: {err}"))
+        .ok()?;
+
+        let item = Rc::new(Item {
+            bus: bus.to_string(),
+            path: path.to_string(),
+            state: Watch::new(ItemState::default()),
+            conn: conn.clone(),
+            proxy: proxy.clone(),
+        });
+        item.state.set(item.read(0));
+
+        let weak = Rc::downgrade(&item);
+        proxy.connect_local("g-signal", false, move |args| {
+            let signal = args.get(2).and_then(|v| v.get::<String>().ok()).unwrap_or_default();
+            if let Some(item) = weak.upgrade()
+                && signal.starts_with("New")
+            {
+                glib::spawn_future_local(item.reload(signal == "NewIcon" || signal == "NewAttentionIcon"));
+            }
+            None
+        });
+        let weak = Rc::downgrade(&item);
+        proxy.connect_local("g-properties-changed", false, move |_| {
+            if let Some(item) = weak.upgrade() {
+                let serial = item.state.get().icon_serial;
+                item.state.set(item.read(serial));
+            }
+            None
+        });
+        Some(item)
+    }
+
+    pub fn key(&self) -> String {
+        format!("{}{}", self.bus, self.path)
+    }
+
+    pub fn activate(&self) -> impl Future<Output = Result<(), glib::Error>> + use<> {
+        self.call("Activate", (0i32, 0i32).to_variant())
+    }
+
+    pub fn secondary_activate(&self) {
+        glib::spawn_future_local(self.call("SecondaryActivate", (0i32, 0i32).to_variant()));
+    }
+
+    pub fn scroll(&self, delta: i32) {
+        glib::spawn_future_local(self.call("Scroll", (delta, "vertical").to_variant()));
+    }
+
+    pub fn connection(&self) -> &gio::DBusConnection {
+        &self.conn
+    }
+
+    fn call(&self, method: &str, args: glib::Variant) -> impl Future<Output = Result<(), glib::Error>> + use<> {
+        let call = self.conn.call_future(
+            Some(&self.bus),
+            &self.path,
+            IFACE,
+            method,
+            Some(&args),
+            None,
+            gio::DBusCallFlags::NONE,
+            -1,
+        );
+        async move { call.await.map(|_| ()) }
+    }
+
+    /// Items announce changes with their own New* signals rather than PropertiesChanged,
+    /// so the proxy's cache has to be refreshed by hand.
+    async fn reload(self: Rc<Self>, icon_changed: bool) {
+        let reply = self
+            .conn
+            .call_future(
+                Some(&self.bus),
+                &self.path,
+                "org.freedesktop.DBus.Properties",
+                "GetAll",
+                Some(&(IFACE,).to_variant()),
+                None,
+                gio::DBusCallFlags::NONE,
+                -1,
+            )
+            .await;
+        let Some(props) = reply.ok().and_then(|r| child(&r, 0)) else { return };
+        for entry in props.iter() {
+            let (Some(name), Some(value)) = (
+                child(&entry, 0).and_then(|v| v.get::<String>()),
+                child(&entry, 1).and_then(|v| v.as_variant()),
+            ) else {
+                continue;
+            };
+            self.proxy.set_cached_property(&name, Some(&value));
+        }
+        let serial = self.state.get().icon_serial + u64::from(icon_changed);
+        self.state.set(self.read(serial));
+    }
+
+    fn read(&self, icon_serial: u64) -> ItemState {
+        let string = |name: &str| {
+            self.proxy
+                .cached_property(name)
+                .and_then(|v| v.get::<String>())
+                .unwrap_or_default()
+        };
+        let status = match string("Status").as_str() {
+            "Passive" => Status::Passive,
+            "NeedsAttention" => Status::NeedsAttention,
+            _ => Status::Active,
+        };
+        let theme_path = string("IconThemePath");
+        let attention = status == Status::NeedsAttention;
+        let icon = attention
+            .then(|| self.icon_from("AttentionIconName", "AttentionIconPixmap", &theme_path))
+            .filter(|icon| *icon != TrayIcon::None)
+            .unwrap_or_else(|| self.icon_from("IconName", "IconPixmap", &theme_path));
+
+        let title = self
+            .proxy
+            .cached_property("ToolTip")
+            .and_then(|tip| child(&tip, 2))
+            .and_then(|v| v.get::<String>())
+            .filter(|t| !t.is_empty())
+            .unwrap_or_else(|| string("Title"));
+
+        ItemState {
+            icon,
+            icon_serial,
+            status,
+            title,
+            menu: self
+                .proxy
+                .cached_property("Menu")
+                .and_then(|v| v.get::<glib::variant::ObjectPath>())
+                .map(|p| p.as_str().to_string())
+                .filter(|p| p != "/"),
+            item_is_menu: self
+                .proxy
+                .cached_property("ItemIsMenu")
+                .and_then(|v| v.get::<bool>())
+                .unwrap_or(false),
+        }
+    }
+
+    fn icon_from(&self, name_prop: &str, pixmap_prop: &str, theme_path: &str) -> TrayIcon {
+        let name = self
+            .proxy
+            .cached_property(name_prop)
+            .and_then(|v| v.get::<String>())
+            .unwrap_or_default();
+        if !name.is_empty() {
+            if name.starts_with('/') && Path::new(&name).exists() {
+                return TrayIcon::File(name.into());
+            }
+            if let Some(file) = find_in_theme_path(theme_path, &name) {
+                return TrayIcon::File(file);
+            }
+            if has_themed_icon(&name) {
+                return TrayIcon::Name(name);
+            }
+        }
+        self.proxy
+            .cached_property(pixmap_prop)
+            .and_then(|v| v.get::<Vec<(i32, i32, Vec<u8>)>>())
+            .and_then(|pixmaps| {
+                // The biggest one; GTK scales it down.
+                pixmaps
+                    .into_iter()
+                    .filter(|(w, h, data)| *w > 0 && *h > 0 && data.len() == (*w * *h * 4) as usize)
+                    .max_by_key(|(w, _, _)| *w)
+            })
+            .map_or(TrayIcon::None, |(width, height, data)| TrayIcon::Pixels { width, height, data })
+    }
+}
+
+impl TrayIcon {
+    pub fn apply(&self, image: &gtk4::Image) {
+        match self {
+            TrayIcon::None => image.set_icon_name(Some("image-missing")),
+            TrayIcon::Name(name) => image.set_icon_name(Some(name)),
+            TrayIcon::File(path) => image.set_from_file(Some(path)),
+            TrayIcon::Pixels { width, height, data } => {
+                let texture = gdk::MemoryTexture::new(
+                    *width,
+                    *height,
+                    gdk::MemoryFormat::A8r8g8b8,
+                    &glib::Bytes::from(data),
+                    (*width * 4) as usize,
+                );
+                image.set_paintable(Some(&texture));
+            }
+        }
+    }
+}
+
+fn has_themed_icon(name: &str) -> bool {
+    gdk::Display::default().is_some_and(|d| gtk4::IconTheme::for_display(&d).has_icon(name))
+}
+
+/// Apps with private icons point IconThemePath at a folder with them, either flat or
+/// laid out like an icon theme.
+fn find_in_theme_path(dir: &str, name: &str) -> Option<PathBuf> {
+    if dir.is_empty() {
+        return None;
+    }
+    let dir = Path::new(dir);
+    let names = ["png", "svg", "xpm"].map(|ext| format!("{name}.{ext}"));
+    let flat = names.iter().map(|n| dir.join(n)).find(|p| p.exists());
+    flat.or_else(|| {
+        let sizes = std::fs::read_dir(dir.join("hicolor")).ok()?;
+        sizes
+            .flatten()
+            .flat_map(|size| names.iter().map(move |n| size.path().join("apps").join(n)))
+            .find(|p| p.exists())
+    })
+}

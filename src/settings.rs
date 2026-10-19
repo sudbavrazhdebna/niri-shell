@@ -148,22 +148,18 @@ impl Settings {
 }
 
 fn apply_icon_theme(config: &Config) {
+    thread_local! {
+        /// The system's theme, to go back to when the config stops naming one.
+        static SYSTEM_THEME: std::cell::OnceCell<Option<String>> = const { std::cell::OnceCell::new() };
+    }
     let Some(settings) = gtk4::Settings::default() else {
         return;
     };
     let current = settings.gtk_icon_theme_name().map(String::from);
-    match &config.icon_theme {
-        Some(name) if current.as_ref() != Some(name) => {
-            settings.set_gtk_icon_theme_name(Some(name));
-            crate::apps::clear_cache();
-        }
-        Some(_) => {}
-        None => {
-            // Back to whatever the system says.
-            settings.reset_property("gtk-icon-theme-name");
-            if settings.gtk_icon_theme_name().map(String::from) != current {
-                crate::apps::clear_cache();
-            }
-        }
+    let system = SYSTEM_THEME.with(|cell| cell.get_or_init(|| current.clone()).clone());
+    let wanted = config.icon_theme.clone().or(system);
+    if wanted != current {
+        settings.set_gtk_icon_theme_name(wanted.as_deref());
+        crate::apps::clear_cache();
     }
 }

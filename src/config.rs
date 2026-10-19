@@ -11,10 +11,10 @@ pub const DEFAULT_KDL: &str = include_str!("../config/default.kdl");
 /// Modules that exist in the code. Names from `PLANNED` are accepted and skipped,
 /// so a config written today keeps working as modules land.
 pub const MODULES: &[&str] = &[
-    "clock", "window-title", "keyboard", "volume", "battery", "network", "bluetooth",
+    "clock", "window-title", "keyboard", "volume", "battery", "network", "bluetooth", "tray",
 ];
 pub const PLANNED: &[&str] = &[
-    "tray", "control",
+    "control",
 ];
 
 /// Top-level sections of later steps, accepted and ignored for now.

@@ -9,6 +9,7 @@
 #   PROFILE=release ...              use the release build
 #
 # Log: .dev/nshell.log. Screenshot: scripts/dev-shot.sh. Commands inside: scripts/dev-run.sh.
+# Stop: scripts/dev-stop.sh (also runs before every start).
 
 set -euo pipefail
 
@@ -17,7 +18,14 @@ DEV="$ROOT/.dev"
 NIRI_HOST="${XDG_CONFIG_HOME:-$HOME/.config}/niri"
 PROFILE="${PROFILE:-debug}"
 
+# One sandbox at a time: GNOME doesn't draw a covered nested window, and niri stalls.
+"$ROOT/scripts/dev-stop.sh"
+
 mkdir -p "$DEV/config/nshell" "$DEV/data" "$DEV/state" "$DEV/shots"
+# Icon themes installed for the user (e.g. MoreWaita) live in the real data dir.
+if [[ -d "$HOME/.local/share/icons" && ! -e "$DEV/data/icons" ]]; then
+    ln -s "$HOME/.local/share/icons" "$DEV/data/icons"
+fi
 
 if [[ "${NO_BUILD:-0}" != 1 ]]; then
     if [[ "$PROFILE" == release ]]; then
