@@ -53,6 +53,8 @@ struct Autohide {
     hovered: Cell<bool>,
     /// The pointer rests on the hot edge.
     on_edge: Cell<bool>,
+    /// The monitor's workspace has no windows: nothing to cover, the dock stays up.
+    empty: Cell<bool>,
     hide: Cell<Option<glib::SourceId>>,
     /// How far out the dock is: 0 hidden below the screen edge, 1 fully up.
     position: Cell<f64>,
@@ -142,7 +144,7 @@ impl Autohide {
         let source = glib::timeout_add_local_once(delay, move || {
             let Some(this) = weak.upgrade() else { return };
             this.hide.set(None);
-            if this.hovered.get() || this.on_edge.get() {
+            if this.hovered.get() || this.on_edge.get() || this.empty.get() {
                 return;
             }
             if menu::is_open() {
@@ -218,6 +220,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
         hot_edge: autohide.then(|| hot_edge(monitor)),
         hovered: Cell::new(false),
         on_edge: Cell::new(false),
+        empty: Cell::new(false),
         hide: Cell::new(None),
         position: Cell::new(if autohide { 0.0 } else { 1.0 }),
         target: Cell::new(if autohide { 0.0 } else { 1.0 }),
@@ -265,6 +268,10 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
             docks.push((output.to_string(), Rc::downgrade(&state)));
         });
     }
+    if autohide && let Some(output) = monitor.connector().map(String::from) {
+        follow_empty_workspace(&state, niri, output);
+    }
+
     // The handlers hold only weak references; this one keeps the state as long as the
     // window lives, and stops a pending hide with it.
     window.connect_destroy(move |_| {
@@ -299,6 +306,37 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     // With autohide the dock starts hidden: no window until it is called.
     window.set_visible(!autohide);
     window
+}
+
+/// With autohide: the dock comes up on an empty workspace (as if hovered) and goes once
+/// a window opens there.
+fn follow_empty_workspace(state: &Rc<Autohide>, niri: &Niri, output: String) {
+    let (weak, serial) = (Rc::downgrade(state), Cell::new(None::<u64>));
+    niri.state.subscribe(move |niri_state| {
+        let Some(state) = weak.upgrade() else { return false };
+        // Title changes don't open or close windows.
+        if serial.replace(Some(niri_state.layout_serial)) == Some(niri_state.layout_serial) {
+            return true;
+        }
+        let workspace = niri_state
+            .workspaces
+            .values()
+            .find(|ws| ws.is_active && ws.output.as_deref() == Some(output.as_str()));
+        // Unknown yet (niri hasn't told): leave the dock as it is.
+        let Some(workspace) = workspace else { return true };
+        let empty = !niri_state.windows.values().any(|w| w.workspace_id == Some(workspace.id));
+        if state.empty.replace(empty) != empty {
+            // Not from inside niri's notification: sliding touches the window.
+            glib::idle_add_local_once(move || {
+                if empty {
+                    state.show();
+                } else {
+                    state.hide_after(HIDE_DELAY);
+                }
+            });
+        }
+        true
+    });
 }
 
 /// A transparent strip, two pixels high, along the bottom of the screen.

@@ -143,7 +143,8 @@ right — menu (its windows by title, new window, pin/unpin, close), wheel — t
 windows. An overview button. No previews. Pin/unpin rewrites the `pinned` line of config.kdl,
 keeping the rest of the file as it is. A line between pinned and running apps.
 **Autohide** (decided 2026-10-19): slides out of sight, back when the pointer touches the bottom
-edge; `nshell msg show-dock` shows it for 3 s on the focused monitor (bind it, e.g. Mod+A).
+edge; `nshell msg show-dock` shows it for 3 s on the focused monitor (bind it, e.g. Mod+A). On an
+empty workspace it stays up (nothing to cover) and goes once a window opens there.
 Later: an integration with niri binds (dock order ↔ Mod+1..9 in binds.kdl).
 
 ## 10. Config
