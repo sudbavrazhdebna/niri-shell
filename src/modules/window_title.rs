@@ -71,7 +71,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
             return false;
         }
         let wanted = state.active_window_on(&output).map(|window| {
-            let title = window.title.as_deref().unwrap_or_default();
+            let title = without_spinner(window.title.as_deref().unwrap_or_default());
             let title = config
                 .window_title
                 .rewrite
@@ -192,4 +192,36 @@ fn window_menu(window: &niri_ipc::Window, niri: &Niri) -> gtk4::Box {
     column.append(&ui::separator());
     column.append(&action("Close window", false, |id| Action::CloseWindow { id: Some(id) }));
     column
+}
+
+/// The title without a leading activity spinner ("◐ Building" → "Building"). Terminal
+/// tools animate one many times a second, and every frame of it redrew the bar (about
+/// 0.2% CPU per change a second); the text after it is what matters. Only spinner glyphs
+/// go, so a status emoji like "🔴 Recording" stays.
+fn without_spinner(title: &str) -> &str {
+    let mut chars = title.char_indices();
+    let is_spinner = |c: char| {
+        // Braille dots (⠋⠙⠹…), quarter circles, the stars and dots some CLIs spin.
+        ('\u{2800}'..='\u{28FF}').contains(&c) || "◐◓◑◒◴◵◶◷✳✢✶✻✽·⏳⌛".contains(c)
+    };
+    match (chars.next(), chars.next()) {
+        (Some((_, c)), Some((i, space))) if is_spinner(c) && space.is_whitespace() => title[i..].trim_start(),
+        _ => title,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::without_spinner;
+
+    #[test]
+    fn spinners_go_emoji_stay() {
+        assert_eq!(without_spinner("◐ Код nshell"), "Код nshell");
+        assert_eq!(without_spinner("⠹ cargo build"), "cargo build");
+        assert_eq!(without_spinner("✳ Claude Code"), "Claude Code");
+        assert_eq!(without_spinner("🔴 Recording"), "🔴 Recording");
+        assert_eq!(without_spinner("·"), "·");
+        assert_eq!(without_spinner("Firefox"), "Firefox");
+        assert_eq!(without_spinner(""), "");
+    }
 }

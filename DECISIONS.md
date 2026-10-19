@@ -133,7 +133,11 @@ each section. Read before changing any of these.
 
 ## Events without polling
 
-- Window title: title-only changes shown at most 4×/s (terminal spinners redraw the bar).
+- Window title: title-only changes shown at most 4×/s (terminal spinners redraw the bar),
+  and a leading spinner glyph (braille dots, ◐◓◑◒, ✳✶✻…) is left out of the shown title,
+  so a spinning one changes nothing on screen. With a title spinning 4×/s (sandbox,
+  release): 0.87% CPU, 21 wakeups/s before; 0.13%, 4/s after. Per redraw the cost is the
+  frame and layout, not pixels: without full-redraw it was 0.83%, so that decision stays.
 - Brightness: `poll` for `POLLPRI` on `actual_brightness` (the kernel calls `sysfs_notify` on
   every change, keys or logind). Tested: nothing while idle, an event per change.
 - Caps Lock: evdev of keyboards with a Caps LED, with `EVIOCSMASK` blocking `EV_KEY`/`EV_MSC`,
