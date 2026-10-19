@@ -39,6 +39,7 @@ fn content(services: &Rc<Services>) -> gtk4::Box {
     column.set_width_request(340);
     column.append(&tiles(services));
     column.append(&sliders(services));
+    column.append(&system_stats());
     column.append(&player(services));
     column.append(&power_profiles(services));
     column.append(&session_buttons(services));
@@ -209,6 +210,85 @@ fn slider_row(icon: &str, slider: &gtk4::Scale) -> gtk4::Box {
     row.append(&image);
     row.append(slider);
     row
+}
+
+/// CPU and memory use. Read every 2 s, and only while the menu is open: the timer
+/// stops by itself once the widget is gone.
+fn system_stats() -> gtk4::Box {
+    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 16);
+    row.add_css_class("system-stats");
+    row.set_homogeneous(true);
+    let gauge = |name: &str| {
+        let column = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
+        let top = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
+        let title = gtk4::Label::new(Some(name));
+        title.add_css_class("stat-name");
+        title.set_xalign(0.0);
+        title.set_hexpand(true);
+        let value = gtk4::Label::new(Some("…"));
+        value.add_css_class("stat-value");
+        top.append(&title);
+        top.append(&value);
+        let bar = gtk4::LevelBar::new();
+        bar.add_css_class("stat-bar");
+        bar.remove_offset_value(Some(gtk4::LEVEL_BAR_OFFSET_LOW));
+        bar.remove_offset_value(Some(gtk4::LEVEL_BAR_OFFSET_HIGH));
+        bar.remove_offset_value(Some(gtk4::LEVEL_BAR_OFFSET_FULL));
+        column.append(&top);
+        column.append(&bar);
+        (column, value, bar)
+    };
+    let (cpu_box, cpu_value, cpu_bar) = gauge("CPU");
+    let (ram_box, ram_value, ram_bar) = gauge("Memory");
+    row.append(&cpu_box);
+    row.append(&ram_box);
+
+    let previous = Cell::new(cpu_times());
+    let update = move || {
+        if let (Some((busy0, total0)), Some((busy1, total1))) = (previous.get(), cpu_times()) {
+            let share = (busy1 - busy0) as f64 / (total1 - total0).max(1) as f64;
+            cpu_value.set_label(&format!("{:.0}%", share * 100.0));
+            cpu_bar.set_value(share.clamp(0.0, 1.0));
+            previous.set(Some((busy1, total1)));
+        }
+        if let Some((used, total)) = memory() {
+            ram_value.set_label(&format!("{:.1} / {:.0} GB", used as f64 / 1048576.0, total as f64 / 1048576.0));
+            ram_bar.set_value(used as f64 / total.max(1) as f64);
+        }
+    };
+    update();
+    let weak = row.downgrade();
+    glib::timeout_add_seconds_local(2, move || {
+        if weak.upgrade().is_none() {
+            return glib::ControlFlow::Break;
+        }
+        update();
+        glib::ControlFlow::Continue
+    });
+    row
+}
+
+/// (busy, total) jiffies of all CPUs from /proc/stat.
+fn cpu_times() -> Option<(u64, u64)> {
+    let stat = std::fs::read_to_string("/proc/stat").ok()?;
+    let fields: Vec<u64> = stat.lines().next()?.split_whitespace().skip(1).filter_map(|f| f.parse().ok()).collect();
+    let total: u64 = fields.iter().sum();
+    // idle + iowait don't count as busy.
+    let idle = fields.get(3)? + fields.get(4).unwrap_or(&0);
+    Some((total - idle, total))
+}
+
+/// (used, total) memory in KiB from /proc/meminfo; "used" leaves out caches.
+fn memory() -> Option<(u64, u64)> {
+    let info = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let field = |name: &str| {
+        info.lines()
+            .find(|l| l.starts_with(name))
+            .and_then(|l| l.split_whitespace().nth(1))
+            .and_then(|v| v.parse::<u64>().ok())
+    };
+    let total = field("MemTotal:")?;
+    Some((total - field("MemAvailable:")?, total))
 }
 
 /// What plays, with previous / play-pause / next. Hidden when nothing plays.

@@ -17,7 +17,7 @@ pub const MODULES: &[&str] = &[
 pub const PLANNED: &[&str] = &["docker"];
 
 /// Top-level sections of later steps, accepted and ignored for now.
-const LATER: &[&str] = &["dock", "wallpaper", "osd", "notifications"];
+const LATER: &[&str] = &["wallpaper", "osd", "notifications"];
 
 pub struct Config {
     pub icon_theme: Option<String>,
@@ -26,6 +26,7 @@ pub struct Config {
     pub window_title: WindowTitleConfig,
     pub volume: VolumeConfig,
     pub idle: IdleConfig,
+    pub dock: DockConfig,
 }
 
 pub struct BarConfig {
@@ -39,6 +40,12 @@ pub struct BarConfig {
 pub struct ClockConfig {
     /// strftime-like format, see `glib::DateTime::format`.
     pub format: String,
+}
+
+pub struct DockConfig {
+    pub enabled: bool,
+    /// App ids (as niri reports them) or desktop entry ids, in dock order.
+    pub pinned: Vec<String>,
 }
 
 pub struct IdleConfig {
@@ -77,6 +84,10 @@ impl Default for Config {
             volume: VolumeConfig { scroll_step: 1 },
             idle: IdleConfig {
                 lock_command: "loginctl lock-session".into(),
+            },
+            dock: DockConfig {
+                enabled: true,
+                pinned: Vec::new(),
             },
         }
     }
@@ -169,6 +180,17 @@ impl Config {
                         }
                     }
                 }
+                "dock" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "off" => config.dock.enabled = false,
+                            "pinned" => {
+                                config.dock.pinned = strings(child).map_err(|e| at(child, e))?
+                            }
+                            other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
                 "idle" => {
                     // Stages and profiles come with the idle manager (step 9).
                     for child in children(node) {
@@ -183,6 +205,36 @@ impl Config {
         }
         Ok(config)
     }
+}
+
+/// Writes a new pinned list into the user's config file, keeping everything else as
+/// it is (comments, order, formatting). The file watcher then reloads it.
+pub fn save_pinned(pinned: &[String]) -> Result<(), String> {
+    let path = path();
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let updated = with_pinned(&text, pinned)?;
+    std::fs::write(&path, updated).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+fn with_pinned(text: &str, pinned: &[String]) -> Result<String, String> {
+    let mut doc = KdlDocument::parse(text).map_err(|_| "the config doesn't parse".to_string())?;
+    let nodes = doc.nodes_mut();
+    if !nodes.iter().any(|n| n.name().value() == "dock") {
+        nodes.push(KdlNode::new("dock"));
+    }
+    let Some(dock) = nodes.iter_mut().find(|n| n.name().value() == "dock") else {
+        return Err("no dock section".into());
+    };
+    let children = dock.ensure_children().nodes_mut();
+    if !children.iter().any(|n| n.name().value() == "pinned") {
+        children.push(KdlNode::new("pinned"));
+    }
+    if let Some(node) = children.iter_mut().find(|n| n.name().value() == "pinned") {
+        let entries = node.entries_mut();
+        entries.clear();
+        entries.extend(pinned.iter().map(|app| kdl::KdlEntry::new(app.as_str())));
+    }
+    Ok(doc.to_string())
 }
 
 fn parse_bar(
@@ -294,6 +346,18 @@ mod tests {
         assert!(err.starts_with("line 4:") && err.contains("nope"), "{err}");
         let err = Config::parse("bar {").err().unwrap_or_default();
         assert!(err.starts_with("line"), "{err}");
+    }
+
+    #[test]
+    fn pinned_list_rewrites_only_itself() {
+        let text = "// mine\nbar { height 30; }\ndock {\n    pinned \"a\" \"b\"\n}\n";
+        let out = with_pinned(text, &["b".into(), "c".into()]).unwrap_or_else(|e| panic!("{e}"));
+        assert!(out.contains("// mine"), "{out}");
+        let config = Config::parse(&out).unwrap_or_else(|e| panic!("{e}: {out}"));
+        assert_eq!(config.dock.pinned, ["b", "c"]);
+        assert_eq!(config.bar.height, 30);
+        let added = with_pinned("bar { height 30; }\n", &["x".into()]).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(Config::parse(&added).map(|c| c.dock.pinned).unwrap_or_default(), ["x"]);
     }
 
     #[test]

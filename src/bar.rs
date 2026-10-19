@@ -17,7 +17,8 @@ pub struct Bars {
     config: RefCell<Rc<Config>>,
     /// Shown as ⚠ on the bar, with the text in the tooltip.
     problems: RefCell<Vec<String>>,
-    windows: RefCell<Vec<(gdk::Monitor, gtk4::ApplicationWindow)>>,
+    /// Per monitor: the bar, and the dock if it is on.
+    windows: RefCell<Vec<(gdk::Monitor, gtk4::ApplicationWindow, Option<gtk4::ApplicationWindow>)>>,
 }
 
 impl Bars {
@@ -60,8 +61,11 @@ impl Bars {
     fn rebuild(&self) {
         // An open menu belongs to a module that is about to go away.
         crate::menu::close();
-        for (_, window) in self.windows.take() {
-            window.destroy();
+        for (_, bar, dock) in self.windows.take() {
+            bar.destroy();
+            if let Some(dock) = dock {
+                dock.destroy();
+            }
         }
         if let Some(display) = gdk::Display::default() {
             self.sync(&display.monitors());
@@ -75,16 +79,19 @@ impl Bars {
             .collect();
 
         let mut windows = self.windows.borrow_mut();
-        windows.retain(|(monitor, window)| {
+        windows.retain(|(monitor, bar, dock)| {
             let keep = current.contains(monitor);
             if !keep {
-                window.destroy();
+                bar.destroy();
+                if let Some(dock) = dock {
+                    dock.destroy();
+                }
             }
             keep
         });
 
         for monitor in current {
-            if windows.iter().any(|(m, _)| *m == monitor) {
+            if windows.iter().any(|(m, _, _)| *m == monitor) {
                 continue;
             }
             let output = monitor.connector().map(String::from).unwrap_or_default();
@@ -94,8 +101,13 @@ impl Bars {
                 services: self.services.clone(),
                 output,
             };
-            let window = self.build_window(&monitor, &ctx);
-            windows.push((monitor, window));
+            let bar = self.build_window(&monitor, &ctx);
+            let dock = ctx
+                .config
+                .dock
+                .enabled
+                .then(|| crate::dock::build(&self.app, &monitor, &ctx.config, &self.services.niri));
+            windows.push((monitor, bar, dock));
         }
     }
 

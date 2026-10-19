@@ -140,11 +140,19 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     window.set_monitor(Some(&monitor));
     // Exclusive keyboard while open, so Escape and arrows reach the menu.
     window.set_keyboard_mode(KeyboardMode::Exclusive);
-    window.set_anchor(Edge::Top, true);
+    // Menus open away from the screen edge their owner sits on: below the bar, above
+    // the dock.
+    let upward = bar.is_anchor(Edge::Bottom) && !bar.is_anchor(Edge::Top);
+    window.set_anchor(Edge::Top, !upward);
+    window.set_anchor(Edge::Bottom, upward);
     window.set_anchor(Edge::Left, true);
     // Zero exclusive zone: placed below the bar, not over it.
     window.set_exclusive_zone(0);
-    window.set_margin(Edge::Top, GAP);
+    if upward {
+        window.set_margin(Edge::Bottom, bar.margin(Edge::Bottom) + bar.height() + GAP);
+    } else {
+        window.set_margin(Edge::Top, GAP);
+    }
 
     let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     card.add_css_class("menu-card");

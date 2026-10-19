@@ -31,10 +31,7 @@ impl Session {
     }
 
     pub fn lock(&self) {
-        let command = self.lock_command.borrow().clone();
-        if let Err(err) = glib::spawn_command_line_async(&command) {
-            tracing::warn!("lock: {command}: {err}");
-        }
+        crate::launch::command(&self.lock_command.borrow());
     }
 
     pub fn suspend(&self) {

@@ -2,6 +2,8 @@ mod apps;
 mod bar;
 mod blur;
 mod config;
+mod dock;
+mod launch;
 mod menu;
 mod modules;
 mod niri;

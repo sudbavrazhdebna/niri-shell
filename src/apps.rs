@@ -13,6 +13,17 @@ const LOOKUP_SIZE: i32 = 64;
 thread_local! {
     /// Scanning desktop entries is slow, so each app id is looked up once.
     static ICONS: RefCell<HashMap<String, Option<gio::Icon>>> = RefCell::new(HashMap::new());
+    static ENTRIES: RefCell<HashMap<String, Option<DesktopAppInfo>>> = RefCell::new(HashMap::new());
+}
+
+/// The desktop entry for an app id or desktop id, looked up once.
+pub fn entry(app_id: &str) -> Option<DesktopAppInfo> {
+    ENTRIES.with_borrow_mut(|cache| {
+        cache
+            .entry(app_id.to_string())
+            .or_insert_with(|| desktop_entry(app_id))
+            .clone()
+    })
 }
 
 /// Full-color icon for an app id, or None if the app has no usable icon.
@@ -28,10 +39,11 @@ pub fn icon(app_id: &str) -> Option<gio::Icon> {
 /// Forgets looked-up icons, e.g. after the icon theme changed.
 pub fn clear_cache() {
     ICONS.with_borrow_mut(|cache| cache.clear());
+    ENTRIES.with_borrow_mut(|cache| cache.clear());
 }
 
 fn lookup(app_id: &str) -> Option<gio::Icon> {
-    let icon = desktop_entry(app_id)?.icon()?;
+    let icon = entry(app_id)?.icon()?;
 
     // Some entries point straight at an image file.
     if let Some(file) = icon.downcast_ref::<gio::FileIcon>() {
@@ -67,7 +79,12 @@ fn resolve_color(name: &str) -> Option<gio::File> {
 /// niri app ids are usually the desktop file name; some apps only match by StartupWMClass.
 fn desktop_entry(app_id: &str) -> Option<DesktopAppInfo> {
     let lower = app_id.to_lowercase();
-    for id in [format!("{app_id}.desktop"), format!("{lower}.desktop")] {
+    // A full desktop id, or an app id (which may itself end in ".desktop", like
+    // Telegram's "org.telegram.desktop").
+    for id in [app_id.to_string(), format!("{app_id}.desktop"), format!("{lower}.desktop")] {
+        if !id.ends_with(".desktop") {
+            continue;
+        }
         if let Some(info) = DesktopAppInfo::new(&id) {
             return Some(info);
         }

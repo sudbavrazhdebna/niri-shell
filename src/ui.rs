@@ -125,11 +125,9 @@ pub fn icon_item(icon: &str, text: &str, trailing: &str, on_click: impl Fn() + '
     button
 }
 
-/// Starts a program (e.g. a settings app) detached from the shell.
+/// Starts a program (e.g. a settings app) that outlives the shell.
 pub fn launch(command: &str) {
-    if let Err(err) = gtk4::glib::spawn_command_line_async(command) {
-        tracing::warn!("can't start {command}: {err}");
-    }
+    crate::launch::command(command);
 }
 
 /// Removes all children of a box.

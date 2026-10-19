@@ -72,7 +72,7 @@ One menu with the everyday things:
 4. Power mode: saver / balanced / performance.
 5. Buttons: lock, sleep, restart, shut down (the last two need a second click).
 
-Left out compared to the fork's dashboard: system stats (CPU/RAM). Bring back? **[decide]**
+CPU and memory use, read every 2 s only while the menu is open (decided 2026-10-19).
 
 ## 5. OSD
 
@@ -139,8 +139,10 @@ One image on all monitors (`~/.config/wallpapers/m.jpg`), "fill" mode. Reloaded 
 At the bottom, over windows, no reserved space. Pinned: ghostty, zed, firefox, telegram,
 sublime_text, nautilus, clash-verge, AmneziaVPN + running apps. Dots under icons: open — grey,
 focused — blue, needs attention — red. Clicks: left — focus/launch, middle — new window,
-right — menu (pin, close), wheel — through the app's windows. An overview button.
-Autohide **[decide]** — needed?
+right — menu (its windows by title, new window, pin/unpin, close), wheel — through the app's
+windows. An overview button. No previews. Pin/unpin rewrites the `pinned` line of config.kdl,
+keeping the rest of the file as it is. Autohide **[decide]** — needed?
+Later: an integration with niri binds (dock order ↔ Mod+1..9 in binds.kdl).
 
 ## 10. Config
 
@@ -257,7 +259,7 @@ Each step ends with something you can see or try.
 8. ✅ **Notifications** (popups + center in the clock menu).
 9. **Idle manager** — needs a real niri session. Then stasis goes.
 10. **Wallpaper** — swaybg goes.
-11. **Dock** — ironbar goes.
+11. ✅ **Dock** (basic) — ironbar goes. Later: pin order synced with niri binds.
 12. **Switch over:** nshell instead of the wayle fork, final measurement.
 13. Later: docker module, layout OSD, our own lock screen.
 
@@ -274,6 +276,5 @@ After steps 7 and 8 swayosd and swaync can go.
 ## 15. Open questions (summary)
 
 - window-title menu;
-- system stats in the control center;
 - idle timings and the order on battery;
 - dock autohide;

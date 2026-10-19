@@ -19,6 +19,11 @@ each section. Read before changing any of these.
 - **wayland-client on GDK's connection** (`wayland.rs`) for protocols GTK lacks (blur, idle
   inhibit), instead of the fork's raw FFI.
 
+## Config
+
+- The dock's pin/unpin writes the `pinned` line back into config.kdl through the `kdl` crate,
+  which keeps comments and formatting; the file watcher then reloads the shell.
+
 ## Menus
 
 - **Menus are their own layer-shell windows, not GTK popovers.** niri closes a popover when its
@@ -29,6 +34,15 @@ each section. Read before changing any of these.
   look like the rest and live in the same windows. Submenus are stack pages.
 - Hover switching waits 250 ms when the pointer heads diagonally into the open menu (the fork's
   "safe triangle"), switches at once along the bar.
+
+## Apps the shell starts
+
+- Every app or command the shell starts is moved into its own transient systemd scope under
+  `app.slice` (`launch.rs`, StartTransientUnit with the pid, like GNOME). Otherwise it stays in
+  the shell service's cgroup and dies when the service stops or restarts — ironbar did that.
+  Verified: a test process moved from the terminal's scope into `app-nshell-test-*.scope`.
+- Desktop ids may end in ".desktop" themselves (`org.telegram.desktop`): never strip it, try
+  the id as is and with ".desktop" added.
 
 ## Look
 
@@ -66,6 +80,7 @@ each section. Read before changing any of these.
 
 - One nested niri at a time: GNOME stops drawing a covered nested window, and that niri then
   hangs waiting for a frame (and ignores SIGTERM). `dev-nested.sh` stops the previous one.
-- The sandbox replaces `XDG_DATA_HOME`; user icon themes are linked in, or icons go missing.
+- The sandbox replaces `XDG_DATA_HOME`; user icon themes and app entries are linked in, or
+  icons and apps go missing.
 - Never `pkill -f` with a pattern that can match your own shell or the real session; use
   `scripts/dev-stop.sh`.

@@ -22,10 +22,12 @@ PROFILE="${PROFILE:-debug}"
 "$ROOT/scripts/dev-stop.sh"
 
 mkdir -p "$DEV/config/nshell" "$DEV/data" "$DEV/state" "$DEV/shots"
-# Icon themes installed for the user (e.g. MoreWaita) live in the real data dir.
-if [[ -d "$HOME/.local/share/icons" && ! -e "$DEV/data/icons" ]]; then
-    ln -s "$HOME/.local/share/icons" "$DEV/data/icons"
-fi
+# Icon themes and app entries installed for the user live in the real data dir.
+for dir in icons applications; do
+    if [[ -d "$HOME/.local/share/$dir" && ! -e "$DEV/data/$dir" ]]; then
+        ln -s "$HOME/.local/share/$dir" "$DEV/data/$dir"
+    fi
+done
 
 if [[ "${NO_BUILD:-0}" != 1 ]]; then
     if [[ "$PROFILE" == release ]]; then
