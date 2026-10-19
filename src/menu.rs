@@ -19,6 +19,8 @@ use gtk4::prelude::*;
 use gtk4::{gdk, glib, graphene};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
+use crate::blur::{Blur, rounded_rect};
+
 type Opener = Rc<dyn Fn(&gtk4::Widget)>;
 
 thread_local! {
@@ -31,6 +33,8 @@ thread_local! {
 const GAP: i32 = 6;
 /// Menus keep this far from the screen edges.
 const EDGE_MARGIN: i32 = 8;
+/// Corner radius of the menu card (`.menu-card` in style.css), for the blur shape.
+const CARD_RADIUS: i32 = 14;
 /// How long the pointer must stay on a module it reached while heading into the open
 /// menu before that module's menu opens.
 const AIM_DELAY: Duration = Duration::from_millis(250);
@@ -141,19 +145,38 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     card.add_css_class("menu-card");
     card.append(content);
-    // Follows the card's width to keep the menu centered under its module.
+    // Follows the card's size to keep the menu centered under its module and the blur
+    // the shape of the card.
     let sizer = gtk4::DrawingArea::new();
     sizer.set_content_height(0);
     sizer.set_hexpand(true);
-    let weak = window.downgrade();
-    let anchor_weak = anchor.downgrade();
+    let blur: Rc<RefCell<Option<Blur>>> = Rc::default();
+    let (weak, anchor_weak, card_weak, b) =
+        (window.downgrade(), anchor.downgrade(), card.downgrade(), blur.clone());
     sizer.connect_resize(move |_, _, _| {
         if let (Some(window), Some(anchor)) = (weak.upgrade(), anchor_weak.upgrade()) {
             place(&window, &anchor);
+            if let Some(card) = card_weak.upgrade() {
+                update_blur(&window, &card, &b);
+            }
         }
     });
     card.append(&sizer);
     window.set_child(Some(&card));
+
+    // The blur must not outlive the surface: made on map, dropped on unmap.
+    let (card_weak, b) = (card.downgrade(), blur.clone());
+    window.connect_map(move |window| {
+        if let Some(surface) = window.surface() {
+            b.replace(Blur::new(&surface));
+        }
+        if let Some(card) = card_weak.upgrade() {
+            update_blur(window, &card, &b);
+        }
+    });
+    window.connect_unmap(move |_| {
+        blur.take();
+    });
 
     let keys = gtk4::EventControllerKey::new();
     keys.connect_key_pressed(|_, key, _, _| {
@@ -174,6 +197,19 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         window,
         catcher,
     }));
+}
+
+fn update_blur(window: &gtk4::Window, card: &gtk4::Box, blur: &RefCell<Option<Blur>>) {
+    let (Some(blur), Some(surface)) = (&*blur.borrow(), window.surface()) else { return };
+    let Some(bounds) = card.compute_bounds(window) else { return };
+    let rects = rounded_rect(
+        bounds.x().round() as i32,
+        bounds.y().round() as i32,
+        bounds.width().round() as i32,
+        bounds.height().round() as i32,
+        CARD_RADIUS,
+    );
+    blur.set_region(&surface, &rects);
 }
 
 /// Transparent window over the screen below the bar: a click on it closes the menu.
@@ -231,13 +267,17 @@ fn open_rect(bar: &gtk4::Window) -> Option<graphene::Rect> {
     })
 }
 
-/// Sandbox testing without a mouse: with NSHELL_DEV_MENU=<module class> set, a debug
-/// build opens that module's menu two seconds after the bar appears.
+/// Sandbox testing without a mouse: with NSHELL_DEV_MENU=<module class>[@seconds] set,
+/// a debug build opens that module's menu that long (default 2 s) after the bar appears.
 #[cfg(debug_assertions)]
 pub fn dev_open(window: &gtk4::Window) {
-    let Ok(class) = std::env::var("NSHELL_DEV_MENU") else { return };
+    let Ok(spec) = std::env::var("NSHELL_DEV_MENU") else { return };
+    let (class, secs) = match spec.split_once('@') {
+        Some((class, secs)) => (class.to_string(), secs.parse().unwrap_or(2)),
+        None => (spec, 2),
+    };
     let window = window.downgrade();
-    glib::timeout_add_local_once(Duration::from_secs(2), move || {
+    glib::timeout_add_local_once(Duration::from_secs(secs), move || {
         let Some(window) = window.upgrade() else { return };
         let mut stack: Vec<gtk4::Widget> = window.first_child().into_iter().collect();
         while let Some(widget) = stack.pop() {

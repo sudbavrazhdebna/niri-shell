@@ -1,8 +1,13 @@
-//! Bundles the icons into the binary as a GResource.
+//! Bundles the icons into the binary as a GResource, and fixes the link order.
 
 use std::fmt::Write;
 
 fn main() {
+    // gtk4-layer-shell works by intercepting libwayland-client calls; it must come first
+    // in link order, now that the wayland-client crate links libwayland-client too.
+    println!("cargo:rustc-link-lib=gtk4-layer-shell");
+    println!("cargo:rustc-link-lib=wayland-client");
+
     let dir = "icons/scalable/status";
     let mut files: Vec<String> = std::fs::read_dir(dir)
         .into_iter()

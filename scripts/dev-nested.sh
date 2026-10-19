@@ -45,6 +45,9 @@ fi
         # Top-level settings of the host config.kdl, without its includes.
         grep -vE '^\s*(include|screenshot-path) ' "$NIRI_HOST/config.kdl" || true
     fi
+    # Blur what's behind nshell's menus and popups, not just the wallpaper (x-ray).
+    # The real session needs the same rule in the niri config.
+    echo 'layer-rule { match namespace="^nshell-"; background-effect { xray false; }; }'
     echo "screenshot-path \"$DEV/shots/%Y%m%d-%H%M%S.png\""
     echo "hotkey-overlay { skip-at-startup; }"
 } > "$DEV/niri.kdl"

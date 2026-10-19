@@ -1,5 +1,6 @@
 mod apps;
 mod bar;
+mod blur;
 mod config;
 mod menu;
 mod modules;

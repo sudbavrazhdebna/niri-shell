@@ -255,6 +255,12 @@ dock {
 
 После шагов 7 и 8 можно выключать swayosd и swaync.
 
+### Что понадобится при переезде
+
+- Правило в конфиге niri, чтобы меню размывали окна под собой, а не только обои (x-ray):
+  `layer-rule { match namespace="^nshell-"; background-effect { xray false; }; }`
+  (в песочнице уже добавлено, см. `scripts/dev-nested.sh`).
+
 ## 15. Открытые вопросы (сводка)
 
 - меню у window-title;

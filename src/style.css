@@ -62,7 +62,8 @@ window.nshell-menu {
 }
 
 .menu-card {
-    background-color: rgba(28, 29, 32, 0.94);
+    /* See-through: niri blurs what's behind the card. */
+    background-color: rgba(28, 29, 32, 0.72);
     border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: 14px;
     padding: 8px;
