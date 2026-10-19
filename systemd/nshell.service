@@ -1,0 +1,16 @@
+[Unit]
+Description=nshell, the shell for niri (bar, dock, menus, OSD, notifications)
+PartOf=niri.service
+After=niri.service nshell-tray-watcher.service
+Wants=nshell-tray-watcher.service
+# A shell that keeps crashing at start stops being restarted after 5 tries in 30 s.
+StartLimitIntervalSec=30
+StartLimitBurst=5
+
+[Service]
+ExecStart=%h/Projects/nshell/target/release/nshell
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=niri.service

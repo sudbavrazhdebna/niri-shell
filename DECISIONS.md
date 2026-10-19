@@ -21,6 +21,11 @@ each section. Read before changing any of these.
 - **wayland-client on GDK's connection** (`wayland.rs`) for protocols GTK lacks (blur, idle
   inhibit), instead of the fork's raw FFI.
 
+- **Runs as systemd user services** (`systemd/`, linked with `systemctl --user enable
+  <path>`): `nshell-tray-watcher` first, then `nshell`, both part of `niri.service` and
+  restarted a second after a crash. Run by hand from a terminal, the shell died with the
+  terminal and stayed down after a crash. Apps it started live on (own scopes).
+
 ## Dock
 
 - **A fully transparent GTK window never reaches the compositor**: with nothing to draw, GTK
