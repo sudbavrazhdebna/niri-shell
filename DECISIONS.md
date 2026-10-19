@@ -99,6 +99,14 @@ each section. Read before changing any of these.
   otherwise (tiles stayed grey).
 - Bar icons are the user's waybar SVGs, kept in their colours (not recoloured as symbolic, the
   volume icon is two-tone); opacity and shadow come from CSS.
+- Menus, OSD, popups and dock share one card look through CSS variables (`--glass`,
+  `--glass-edge`, `--glass-shadow`, `--accent`, … at the top of style.css), so a user's
+  `:root { … }` restyles all of them. The edge is an inset 1 px shadow, never a `border`:
+  a border changes the card's size, which the blur shape is computed from. They had four
+  different edges before (the OSD a dark border plus a light inset line).
+- Shadows are drawn by the shell (CSS), not niri: niri shadows the whole layer surface,
+  and the popup window holds several cards. Windows leave room for them (22 px below,
+  16 px at the sides); the OSD had 10 px and its shadow was cut off.
 - Blur needs `xray false` in a niri layer-rule for `^nshell-`, or it only blurs the wallpaper.
 
 ## Events without polling

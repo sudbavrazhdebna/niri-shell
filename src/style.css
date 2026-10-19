@@ -1,6 +1,27 @@
 /* Built-in look. ~/.config/nshell/style.css goes on top of this.
    The font family is not set on purpose: the system one is used. */
 
+/* ---- Shared look: menus, OSD, notifications and the dock all use these. Redefine
+   them in your style.css (same `:root { … }` block) to restyle everything at once. ---- */
+
+:root {
+    /* The glass cards: fill (niri blurs what's behind), the light line along the edge,
+       the shadow under them. */
+    --glass: rgba(30, 31, 34, 0.72);
+    --glass-hover: rgba(42, 43, 46, 0.82);
+    --glass-edge: rgba(255, 255, 255, 0.09);
+    --glass-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    /* Panels and buttons inside a card. */
+    --inner: rgba(255, 255, 255, 0.06);
+    --inner-hover: rgba(255, 255, 255, 0.12);
+    --text: white;
+    --text-dim: rgba(255, 255, 255, 0.7);
+    --text-faint: rgba(255, 255, 255, 0.5);
+    /* Switched-on tiles, the connected network, the focused app's dot. */
+    --accent: rgb(10, 132, 255);
+    --danger: rgb(255, 69, 58);
+}
+
 window.bar {
     background: transparent;
 }
@@ -70,18 +91,16 @@ window.menu-catcher {
 }
 
 window.nshell-menu {
-    color: white;
+    color: var(--text);
 }
 
 .menu-card {
-    /* See-through: niri blurs what's behind the card. */
-    background-color: rgba(28, 29, 32, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    background-color: var(--glass);
     border-radius: 14px;
     padding: 8px;
     /* Room for the shadow inside the window. */
-    margin: 0 14px 18px;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+    margin: 0 16px 22px;
+    box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
 }
 
 .menu-body {
@@ -122,7 +141,7 @@ button.menu-item:hover {
 }
 
 .menu-value {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-dim);
     font-feature-settings: "tnum";
 }
 
@@ -184,11 +203,11 @@ button.tile:hover {
 }
 
 button.tile.active {
-    background: rgba(10, 132, 255, 0.85);
+    background: alpha(var(--accent), 0.85);
 }
 
 button.tile.active:hover {
-    background: rgba(40, 150, 255, 0.9);
+    background: alpha(mix(var(--accent), white, 0.1), 0.9);
 }
 
 .tile-icon {
@@ -201,19 +220,19 @@ button.tile.active:hover {
 
 .tile-subtitle {
     font-size: 0.85em;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-dim);
 }
 
 .control-sliders {
     padding: 6px 4px;
     border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.06);
+    background-color: var(--inner);
 }
 
 .player {
     padding: 8px 10px;
     border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.06);
+    background-color: var(--inner);
 }
 
 .player-title {
@@ -222,7 +241,7 @@ button.tile.active:hover {
 
 .player-artist {
     font-size: 0.9em;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-dim);
 }
 
 button.player-button {
@@ -248,7 +267,7 @@ button.session-button:hover {
 }
 
 button.session-button.armed {
-    background: rgba(255, 69, 58, 0.9);
+    background: alpha(var(--danger), 0.9);
 }
 
 .session-caption {
@@ -265,12 +284,12 @@ window.nshell-osd {
 .osd-card {
     min-width: 208px;
     padding: 14px 18px;
-    margin: 10px;
+    /* Room for the shadow inside the window (it reaches 22 px down). */
+    margin: 10px 16px 22px;
     border-radius: 18px;
-    background-color: rgba(70, 71, 73, 0.45);
-    border: 1px solid rgba(11, 12, 14, 0.4);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 6px 14px rgba(0, 0, 0, 0.35);
-    color: white;
+    background-color: var(--glass);
+    box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
+    color: var(--text);
 }
 
 .osd-icon {
@@ -318,7 +337,7 @@ window.nshell-popups {
 
 .popup-column {
     /* Room for the cards' shadows inside the window. */
-    padding: 0 6px 12px 12px;
+    padding: 0 6px 22px 16px;
 }
 
 .notification {
@@ -326,20 +345,17 @@ window.nshell-popups {
     padding: 12px 12px 12px 14px;
     margin: 6px 0;
     border-radius: 12px;
-    /* See-through: niri blurs what's behind the card. */
-    background-color: rgba(45, 46, 49, 0.78);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 2px 3px rgba(0, 0, 0, 0.5),
-        0 4px 10px rgba(0, 0, 0, 0.3);
-    color: white;
+    background-color: var(--glass);
+    box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
+    color: var(--text);
 }
 
 .notification:hover {
-    background-color: rgba(55, 56, 59, 0.85);
+    background-color: var(--glass-hover);
 }
 
 .notification.critical {
-    box-shadow: 0 0 0 1px rgba(255, 99, 71, 0.6), 0 2px 3px rgba(0, 0, 0, 0.5),
-        0 4px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 0 0 1px alpha(var(--danger), 0.7), var(--glass-shadow);
 }
 
 .notification-image {
@@ -352,7 +368,7 @@ window.nshell-popups {
 
 .notification .time {
     font-size: 0.85em;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--text-faint);
 }
 
 .notification .body {
@@ -390,7 +406,7 @@ button.action:hover {
 .notification-center .notification {
     min-width: 0;
     box-shadow: none;
-    background-color: rgba(255, 255, 255, 0.06);
+    background-color: var(--inner);
 }
 
 .notification-center .notification:hover {
@@ -440,10 +456,10 @@ window.nshell-dock {
 .dock {
     padding: 6px 8px 4px;
     /* Room for the shadow at the sides, and the gap to the screen edge. */
-    margin: 0 14px 6px;
+    margin: 0 16px 6px;
     border-radius: 16px;
-    background-color: rgba(33, 34, 37, 0.72);
-    box-shadow: inset 0 0 0 1px rgba(200, 202, 208, 0.09), 0 6px 16px rgba(0, 0, 0, 0.4);
+    background-color: var(--glass);
+    box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
 }
 
 .dock separator {
@@ -476,7 +492,7 @@ window.nshell-dock {
 }
 
 .dock-item.focused .dot {
-    background-color: rgb(0, 125, 254);
+    background-color: var(--accent);
 }
 
 .dock-item.urgent .dot {
@@ -504,7 +520,7 @@ button.dock-button:hover {
 .system-stats {
     padding: 8px 10px;
     border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.06);
+    background-color: var(--inner);
 }
 
 .stat-name {
@@ -513,7 +529,7 @@ button.dock-button:hover {
 
 .stat-value {
     font-size: 0.9em;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-dim);
     font-feature-settings: "tnum";
 }
 
@@ -540,7 +556,7 @@ button.dock-button:hover {
     margin: 2px 0 6px;
     padding: 8px 10px;
     border-radius: 10px;
-    background-color: rgba(10, 132, 255, 0.25);
+    background-color: alpha(var(--accent), 0.25);
 }
 
 .connected-name {
@@ -570,6 +586,15 @@ button.dock-button:hover {
 
 .fact-value {
     font-feature-settings: "tnum";
+}
+
+/* Sliders and switches follow the accent, not the GTK theme's. */
+scale trough highlight {
+    background: var(--accent);
+}
+
+switch:checked {
+    background: var(--accent);
 }
 
 /* A muted level keeps its place, in grey. */

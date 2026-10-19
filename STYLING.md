@@ -18,6 +18,40 @@ So: don't edit `src/style.css` for personal taste (that needs a rebuild); put ov
 The font family is never set: the system font is used. Colours are not taken from the GTK theme
 either: the shell looks the same whatever apps use.
 
+## One look for everything: the shared colours
+
+Menus, the OSD, notification popups and the dock are the same glass card: one fill, one thin
+light line along the edge, one shadow. Those, and the text and accent colours, are variables at
+the top of the built-in style. Redefine any of them in your `style.css` and every part follows:
+
+```css
+:root {
+    --glass: rgba(30, 31, 34, 0.72);          /* card fill; niri blurs what's behind it */
+    --glass-hover: rgba(42, 43, 46, 0.82);    /* a notification under the pointer */
+    --glass-edge: rgba(255, 255, 255, 0.09);  /* the 1 px line along the card's edge */
+    --glass-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    --inner: rgba(255, 255, 255, 0.06);       /* panels inside a card (sliders, player) */
+    --inner-hover: rgba(255, 255, 255, 0.12);
+    --text: white;
+    --text-dim: rgba(255, 255, 255, 0.7);
+    --text-faint: rgba(255, 255, 255, 0.5);
+    --accent: rgb(10, 132, 255);              /* tiles that are on, sliders, switches, dots */
+    --danger: rgb(255, 69, 58);               /* critical notifications, armed power buttons */
+}
+```
+
+For example, warmer glass and an orange accent:
+
+```css
+:root {
+    --glass: rgba(40, 32, 30, 0.75);
+    --accent: rgb(255, 149, 0);
+}
+```
+
+Keep the shadow within about 22 px below a card and 16 px at its sides: the windows have that
+much room for it, a bigger one gets cut off at the window's edge.
+
 ## Examples
 
 ```css
@@ -33,14 +67,11 @@ either: the shell looks the same whatever apps use.
 /* No hover plate on the bar */
 .bar-content .module.has-menu:hover { background-color: transparent; }
 
-/* Menus: more see-through glass, rounder corners */
-.menu-card { background-color: rgba(28, 29, 32, 0.55); border-radius: 18px; }
+/* Only the menus more see-through */
+.menu-card { background-color: rgba(28, 29, 32, 0.55); }
 
-/* OSD bar colour */
+/* Only the OSD's bar in another colour */
 .osd-level trough block.filled { background: #4ea1ff; }
-
-/* Focused app dot in the dock */
-.dock-item.focused .dot { background-color: #ff9f0a; }
 ```
 
 Note: blur follows the rounded shape of menus, popups, the OSD and the dock, and the code
