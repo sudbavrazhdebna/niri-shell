@@ -234,11 +234,10 @@ impl Audio {
                     }
                     (Some(Facility::Sink), _) => this.refresh_outputs(),
                     (Some(Facility::SinkInput), _) => this.refresh_apps(),
-                    (Some(Facility::Source), Some(Operation::Changed)) => {
-                        if this.source.borrow().as_ref().is_some_and(|s| s.index == index) {
+                    (Some(Facility::Source), Some(Operation::Changed))
+                        if this.source.borrow().as_ref().is_some_and(|s| s.index == index) => {
                             this.refresh_mic();
                         }
-                    }
                     _ => {}
                 }
             })));

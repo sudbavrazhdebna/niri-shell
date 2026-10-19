@@ -42,6 +42,38 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
         status.set_label(&status_text(state));
     });
 
+    // Health and power: followed only while this menu is open.
+    let facts = gtk4::Grid::new();
+    facts.add_css_class("battery-facts");
+    facts.set_column_spacing(16);
+    facts.set_row_spacing(2);
+    let fact = |row: i32, name: &str| {
+        let key = gtk4::Label::new(Some(name));
+        key.add_css_class("fact-name");
+        key.set_xalign(0.0);
+        let value = gtk4::Label::new(Some("…"));
+        value.add_css_class("fact-value");
+        value.set_xalign(0.0);
+        facts.attach(&key, 0, row, 1, 1);
+        facts.attach(&value, 1, row, 1, 1);
+        value
+    };
+    let (health, energy, power) = (fact(0, "Health"), fact(1, "Energy"), fact(2, "Power"));
+    let services_weak = Rc::downgrade(services);
+    crate::services::battery::follow_details(&facts, move |d| {
+        health.set_label(&format!("{:.0}%  ({:.1} of {:.0} Wh)", d.capacity, d.energy_full, d.energy_full_design));
+        energy.set_label(&format!("{:.1} / {:.1} Wh", d.energy, d.energy_full));
+        let charging = services_weak
+            .upgrade()
+            .is_some_and(|s| s.battery().state.get().charge == Charge::Charging);
+        power.set_label(&match (d.rate, charging) {
+            (r, _) if r < 0.05 => "—".to_string(),
+            (r, true) => format!("charging at {r:.1} W"),
+            (r, false) => format!("{r:.1} W"),
+        });
+    });
+    column.append(&facts);
+
     let profiles = ui::column();
     let s = services.clone();
     services.power().state.bind(&profiles, move |profiles, state| {
