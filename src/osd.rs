@@ -10,7 +10,7 @@ use gtk4::prelude::*;
 use gtk4::glib;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
-use crate::blur::{Blur, rounded_rect};
+use crate::blur;
 use crate::services::Services;
 use crate::services::audio::AudioState;
 
@@ -174,31 +174,20 @@ impl Osd {
         card.append(&icon);
         card.append(&level);
         card.append(&text);
-        window.set_child(Some(&card));
-
-        let blur: Rc<RefCell<Option<Blur>>> = Rc::default();
-        let (b, card_weak) = (blur.clone(), card.downgrade());
-        window.connect_map(move |window| {
-            let Some(surface) = window.surface() else { return };
-            // Click-through: an empty input region.
-            surface.set_input_region(Some(&gtk4::cairo::Region::create()));
-            b.replace(Blur::new(&surface));
-            if let (Some(blur), Some(card)) = (&*b.borrow(), card_weak.upgrade())
-                && let Some(bounds) = card.compute_bounds(window)
-            {
-                let rects = rounded_rect(
-                    bounds.x().round() as i32,
-                    bounds.y().round() as i32,
-                    bounds.width().round() as i32,
-                    bounds.height().round() as i32,
-                    CARD_RADIUS,
-                );
-                blur.set_region(&surface, &rects);
+        let card_weak = card.downgrade();
+        let wrapped = blur::behind(
+            &window,
+            &card,
+            move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
+            CARD_RADIUS,
+            || {},
+        );
+        window.set_child(Some(&wrapped));
+        // Click-through: an empty input region.
+        window.connect_map(|window| {
+            if let Some(surface) = window.surface() {
+                surface.set_input_region(Some(&gtk4::cairo::Region::create()));
             }
-        });
-        // The blur must not outlive the surface.
-        window.connect_unmap(move |_| {
-            blur.take();
         });
 
         // Center of the card at POSITION of the height: margin from the bottom.

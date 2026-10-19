@@ -4,6 +4,9 @@
 //! corners. A protocol error kills the whole Wayland connection, so a [`Blur`] must be
 //! dropped before its surface goes away: create it on map, drop it on unmap.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use gtk4::gdk;
 use gtk4::prelude::*;
 use wayland_protocols::ext::background_effect::v1::client::ext_background_effect_surface_v1::ExtBackgroundEffectSurfaceV1;
@@ -60,6 +63,69 @@ impl Drop for Blur {
         self.effect.destroy();
         wayland::with(|_| Some(()));
     }
+}
+
+/// Wraps `content` so that the area behind `cards` (rounded by `radius`) stays blurred,
+/// following every change in their size or number. Set the returned widget as the
+/// window's child. `on_resize` runs on each size change too (e.g. to reposition).
+///
+/// The blur lives from map to unmap, never longer than the surface.
+pub fn behind(
+    window: &gtk4::Window,
+    content: &impl IsA<gtk4::Widget>,
+    cards: impl Fn() -> Vec<gtk4::Widget> + 'static,
+    radius: i32,
+    on_resize: impl Fn() + 'static,
+) -> gtk4::Overlay {
+    let overlay = gtk4::Overlay::new();
+    overlay.set_child(Some(content));
+    // An invisible layer over the content: its size is the content's size, and GTK
+    // tells it about every change.
+    let sizer = gtk4::DrawingArea::new();
+    sizer.set_can_target(false);
+    overlay.add_overlay(&sizer);
+
+    let blur: Rc<RefCell<Option<Blur>>> = Rc::default();
+    let cards: Rc<dyn Fn() -> Vec<gtk4::Widget>> = Rc::new(cards);
+    let update = {
+        let (window, blur, cards) = (window.downgrade(), blur.clone(), cards.clone());
+        move || {
+            let Some(window) = window.upgrade() else { return };
+            let (Some(blur), Some(surface)) = (&*blur.borrow(), window.surface()) else { return };
+            let rects: Vec<Rect> = cards()
+                .iter()
+                .filter(|card| card.is_visible())
+                .filter_map(|card| card.compute_bounds(&window))
+                .flat_map(|b| {
+                    rounded_rect(
+                        b.x().round() as i32,
+                        b.y().round() as i32,
+                        b.width().round() as i32,
+                        b.height().round() as i32,
+                        radius,
+                    )
+                })
+                .collect();
+            blur.set_region(&surface, &rects);
+        }
+    };
+    let update = Rc::new(update);
+    let u = update.clone();
+    sizer.connect_resize(move |_, _, _| {
+        on_resize();
+        u();
+    });
+    let (b, u) = (blur.clone(), update.clone());
+    window.connect_map(move |window| {
+        if let Some(surface) = window.surface() {
+            b.replace(Blur::new(&surface));
+        }
+        u();
+    });
+    window.connect_unmap(move |_| {
+        blur.take();
+    });
+    overlay
 }
 
 /// The union of strips that approximates a rounded rectangle: one strip per pixel row

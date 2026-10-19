@@ -19,7 +19,7 @@ use gtk4::prelude::*;
 use gtk4::{gdk, glib, graphene};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
-use crate::blur::{Blur, rounded_rect};
+use crate::blur;
 
 type Opener = Rc<dyn Fn(&gtk4::Widget)>;
 
@@ -149,38 +149,20 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     card.add_css_class("menu-card");
     card.append(content);
-    // Follows the card's size to keep the menu centered under its module and the blur
-    // the shape of the card.
-    let sizer = gtk4::DrawingArea::new();
-    sizer.set_content_height(0);
-    sizer.set_hexpand(true);
-    let blur: Rc<RefCell<Option<Blur>>> = Rc::default();
-    let (weak, anchor_weak, card_weak, b) =
-        (window.downgrade(), anchor.downgrade(), card.downgrade(), blur.clone());
-    sizer.connect_resize(move |_, _, _| {
-        if let (Some(window), Some(anchor)) = (weak.upgrade(), anchor_weak.upgrade()) {
-            place(&window, &anchor);
-            if let Some(card) = card_weak.upgrade() {
-                update_blur(&window, &card, &b);
+    // Re-centered under its module and re-blurred whenever the card changes size.
+    let (window_weak, anchor_weak, card_weak) = (window.downgrade(), anchor.downgrade(), card.downgrade());
+    let wrapped = blur::behind(
+        &window,
+        &card,
+        move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
+        CARD_RADIUS,
+        move || {
+            if let (Some(window), Some(anchor)) = (window_weak.upgrade(), anchor_weak.upgrade()) {
+                place(&window, &anchor);
             }
-        }
-    });
-    card.append(&sizer);
-    window.set_child(Some(&card));
-
-    // The blur must not outlive the surface: made on map, dropped on unmap.
-    let (card_weak, b) = (card.downgrade(), blur.clone());
-    window.connect_map(move |window| {
-        if let Some(surface) = window.surface() {
-            b.replace(Blur::new(&surface));
-        }
-        if let Some(card) = card_weak.upgrade() {
-            update_blur(window, &card, &b);
-        }
-    });
-    window.connect_unmap(move |_| {
-        blur.take();
-    });
+        },
+    );
+    window.set_child(Some(&wrapped));
 
     let keys = gtk4::EventControllerKey::new();
     keys.connect_key_pressed(|_, key, _, _| {
@@ -201,19 +183,6 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         window,
         catcher,
     }));
-}
-
-fn update_blur(window: &gtk4::Window, card: &gtk4::Box, blur: &RefCell<Option<Blur>>) {
-    let (Some(blur), Some(surface)) = (&*blur.borrow(), window.surface()) else { return };
-    let Some(bounds) = card.compute_bounds(window) else { return };
-    let rects = rounded_rect(
-        bounds.x().round() as i32,
-        bounds.y().round() as i32,
-        bounds.width().round() as i32,
-        bounds.height().round() as i32,
-        CARD_RADIUS,
-    );
-    blur.set_region(&surface, &rects);
 }
 
 /// Transparent window over the screen below the bar: a click on it closes the menu.

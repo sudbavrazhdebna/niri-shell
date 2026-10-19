@@ -10,6 +10,7 @@ use gtk4::prelude::*;
 use gtk4::glib;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
+use crate::blur;
 use crate::notification_card::card;
 use crate::services::notifications::Notification;
 use crate::services::Services;
@@ -20,6 +21,9 @@ struct Card {
     shows: Rc<Notification>,
     hide: Option<glib::SourceId>,
 }
+
+/// Corner radius of `.notification` in style.css, for the blur shape.
+const CARD_RADIUS: i32 = 12;
 
 pub struct Popups {
     services: Rc<Services>,
@@ -158,7 +162,24 @@ impl Popups {
         window.set_exclusive_zone(0);
         let column = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         column.add_css_class("popup-column");
-        window.set_child(Some(&column));
+        // Blur behind each card, following cards as they come and go.
+        let column_weak = column.downgrade();
+        let wrapped = blur::behind(
+            &window,
+            &column,
+            move || {
+                let mut cards = Vec::new();
+                let mut child = column_weak.upgrade().and_then(|c| c.first_child());
+                while let Some(card) = child {
+                    child = card.next_sibling();
+                    cards.push(card);
+                }
+                cards
+            },
+            CARD_RADIUS,
+            || {},
+        );
+        window.set_child(Some(&wrapped));
         window.set_visible(true);
         self.window.replace(Some((window, column.clone())));
         Some(column)

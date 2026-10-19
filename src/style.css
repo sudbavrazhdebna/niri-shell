@@ -38,6 +38,11 @@ window.bar {
     opacity: 0.9;
 }
 
+/* The battery lies on its side: at the common size it looks small. */
+.bar-content .battery {
+    -gtk-icon-size: 26px;
+}
+
 .bar-content .keyboard {
     font-weight: 600;
 }
@@ -304,14 +309,15 @@ window.nshell-popups {
     padding: 12px 12px 12px 14px;
     margin: 6px 0;
     border-radius: 12px;
-    background-color: rgba(45, 46, 49, 0.99);
+    /* See-through: niri blurs what's behind the card. */
+    background-color: rgba(45, 46, 49, 0.78);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 2px 3px rgba(0, 0, 0, 0.5),
         0 4px 10px rgba(0, 0, 0, 0.3);
     color: white;
 }
 
 .notification:hover {
-    background-color: rgba(55, 56, 59, 0.99);
+    background-color: rgba(55, 56, 59, 0.85);
 }
 
 .notification.critical {
