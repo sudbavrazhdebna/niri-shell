@@ -264,6 +264,15 @@ pub fn launch(command: &str) {
     crate::launch::command(command);
 }
 
+/// Sets the image's icon unless it already shows it. GTK looks a name up again even
+/// when it didn't change (every icon theme folder is stat'ed) and redraws: the Wi-Fi
+/// icon did that on each signal strength update, every few seconds.
+pub fn set_icon(image: &gtk4::Image, name: &str) {
+    if image.icon_name().as_deref() != Some(name) {
+        image.set_icon_name(Some(name));
+    }
+}
+
 /// Removes all children of a box (to rebuild a list), and lets its window shrink in
 /// case the new list is shorter.
 pub fn clear(column: &gtk4::Box) {

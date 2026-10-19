@@ -16,7 +16,7 @@ pub fn build(ctx: &Context) -> Option<gtk4::Widget> {
 
     audio.state.bind(&image, |image, state| {
         image.set_visible(state.available);
-        image.set_icon_name(Some(icon(state)));
+        ui::set_icon(image, icon(state));
     });
 
     let step = ctx.config.volume.scroll_step;
@@ -170,7 +170,7 @@ impl LevelRow {
     }
 
     fn show(&self, icon: &str, percent: u32, muted: bool) {
-        self.icon.set_icon_name(Some(icon));
+        ui::set_icon(&self.icon, icon);
         self.slider.show(f64::from(percent));
         self.slider.set_dimmed(muted);
         self.percent.set_label(&format!("{percent}%"));

@@ -20,7 +20,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
             Charge::Discharging => "",
             Charge::Charging | Charge::Plugged => "charging-",
         };
-        image.set_icon_name(Some(&format!("nshell-battery-{kind}{level}")));
+        ui::set_icon(image, &format!("nshell-battery-{kind}{level}"));
     });
 
     let services = ctx.services.clone();

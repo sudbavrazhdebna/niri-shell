@@ -131,7 +131,7 @@ impl Osd {
                         widget.remove_css_class("dimmed");
                     }
                 }
-                shown.icon.set_icon_name(Some(&icon));
+                crate::ui::set_icon(&shown.icon, &icon);
                 let target = f64::from(percent.min(100)) / 100.0;
                 if shown.level.is_visible() {
                     slide(&shown.level, &shown.target, &shown.sliding, target);
@@ -145,7 +145,7 @@ impl Osd {
             }
             Content::Text { icon, text } => {
                 shown.icon.remove_css_class("dimmed");
-                shown.icon.set_icon_name(Some(&icon));
+                crate::ui::set_icon(&shown.icon, &icon);
                 shown.text.set_label(&text);
                 shown.text.set_visible(true);
                 shown.level.set_visible(false);

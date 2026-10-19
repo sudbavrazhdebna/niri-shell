@@ -164,6 +164,11 @@ each section. Read before changing any of these.
   row, and every opening left a listener for good. Nor may it hold the service that owns
   the watch (an `Rc` cycle: the Wi-Fi menu kept NetworkManager signals after closing).
   Dead bound listeners are cleared at the next subscription, not only the next change.
+- Icons that follow a value go through `ui::set_icon`, which skips an unchanged name: GTK
+  resolves a name again on every set (a stat of each icon theme folder) and redraws. The
+  Wi-Fi icon did that on each signal-strength update from NetworkManager, every ~6 s while
+  idle. Measured idle (sandbox, release): 0.00% CPU, 0 wakeups/s after; a frame every 6 s
+  before.
 - niri's `State::layout_serial` skips title-only changes; anything that doesn't show titles
   (the dock) should check it before recomputing.
 

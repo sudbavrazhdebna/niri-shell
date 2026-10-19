@@ -23,7 +23,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
             Link::Offline => "nshell-wifi-off",
             Link::Wired => "network-wired-symbolic",
         };
-        image.set_icon_name(Some(icon));
+        ui::set_icon(image, icon);
     });
     menu::attach(&image, |anchor| {
         // Shown once the networks are known (~0.1 s), so it doesn't build up in pieces.
@@ -158,7 +158,7 @@ impl ConnectedCard {
     fn update(&self, active: Option<&Network>, state: &WifiState) {
         self.widget.set_visible(active.is_some());
         let Some(active) = active else { return };
-        self.icon.set_icon_name(Some(wifi_icon(active.strength)));
+        ui::set_icon(&self.icon, wifi_icon(active.strength));
         self.name.set_label(&active.ssid);
         let address = state.ip.as_deref().map(|ip| format!("IP {ip}")).unwrap_or_default();
         if *self.address.borrow() != address {
