@@ -128,6 +128,22 @@ impl Niri {
         niri
     }
 
+    /// The monitor of the focused workspace, or the first one: where popups and the OSD go.
+    pub fn focused_monitor(&self) -> Option<gtk4::gdk::Monitor> {
+        let output = {
+            let state = self.state.get();
+            state.workspaces.values().find(|ws| ws.is_focused).and_then(|ws| ws.output.clone())
+        };
+        let monitors = gtk4::gdk::Display::default()?.monitors();
+        let all: Vec<gtk4::gdk::Monitor> = (0..monitors.n_items())
+            .filter_map(|i| monitors.item(i).and_downcast::<gtk4::gdk::Monitor>())
+            .collect();
+        all.iter()
+            .find(|m| m.connector().as_deref() == output.as_deref())
+            .or(all.first())
+            .cloned()
+    }
+
     /// Sends an action to niri without waiting for the result.
     pub fn action(&self, action: Action) {
         gtk4::glib::spawn_future_local(async move {

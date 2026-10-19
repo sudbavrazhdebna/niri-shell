@@ -287,3 +287,123 @@ window.nshell-osd {
 .osd-text {
     font-weight: bold;
 }
+
+/* ---- Notifications (after the swaync setup they replace) ---- */
+
+window.nshell-popups {
+    background: transparent;
+}
+
+.popup-column {
+    /* Room for the cards' shadows inside the window. */
+    padding: 0 6px 12px 12px;
+}
+
+.notification {
+    min-width: 400px;
+    padding: 12px 12px 12px 14px;
+    margin: 6px 0;
+    border-radius: 12px;
+    background-color: rgba(45, 46, 49, 0.99);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 2px 3px rgba(0, 0, 0, 0.5),
+        0 4px 10px rgba(0, 0, 0, 0.3);
+    color: white;
+}
+
+.notification:hover {
+    background-color: rgba(55, 56, 59, 0.99);
+}
+
+.notification.critical {
+    box-shadow: 0 0 0 1px rgba(255, 99, 71, 0.6), 0 2px 3px rgba(0, 0, 0, 0.5),
+        0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.notification-image {
+    -gtk-icon-size: 40px;
+}
+
+.notification .summary {
+    font-weight: bold;
+}
+
+.notification .time {
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.notification .body {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+button.close-button {
+    min-width: 22px;
+    min-height: 22px;
+    padding: 0;
+    border-radius: 11px;
+    background: transparent;
+    -gtk-icon-size: 12px;
+}
+
+button.close-button:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.notification .actions {
+    margin-top: 8px;
+}
+
+button.action {
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+button.action:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+/* In the menu the cards sit on the glass card already: no own shadow, less width. */
+.notification-center .notification {
+    min-width: 0;
+    box-shadow: none;
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.notification-center .notification:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+button.stack-more {
+    margin: 0 0 6px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9em;
+}
+
+button.stack-more:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+button.clear-all {
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+button.clear-all:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.clock-dnd {
+    -gtk-icon-size: 14px;
+}
+
+.clock-dot {
+    min-width: 6px;
+    min-height: 6px;
+    border-radius: 3px;
+    background-color: white;
+}

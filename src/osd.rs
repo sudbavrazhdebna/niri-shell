@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gtk4::prelude::*;
-use gtk4::{gdk, glib};
+use gtk4::glib;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use crate::blur::{Blur, rounded_rect};
@@ -145,7 +145,7 @@ impl Osd {
     }
 
     fn build(&self) -> Option<Shown> {
-        let monitor = self.focused_monitor()?;
+        let monitor = self.services.niri.focused_monitor()?;
         let window = gtk4::Window::new();
         window.add_css_class("nshell-osd");
         window.init_layer_shell();
@@ -208,26 +208,6 @@ impl Osd {
         window.set_margin(Edge::Bottom, margin.max(0));
         window.present();
         Some(Shown { window, icon, level, text, hide: None })
-    }
-
-    /// The monitor of niri's focused workspace, or the first one.
-    fn focused_monitor(&self) -> Option<gdk::Monitor> {
-        let output = {
-            let state = self.services.niri.state.get();
-            state
-                .workspaces
-                .values()
-                .find(|ws| ws.is_focused)
-                .and_then(|ws| ws.output.clone())
-        };
-        let monitors = gdk::Display::default()?.monitors();
-        let all: Vec<gdk::Monitor> = (0..monitors.n_items())
-            .filter_map(|i| monitors.item(i).and_downcast::<gdk::Monitor>())
-            .collect();
-        all.iter()
-            .find(|m| m.connector().as_deref() == output.as_deref())
-            .or(all.first())
-            .cloned()
     }
 }
 

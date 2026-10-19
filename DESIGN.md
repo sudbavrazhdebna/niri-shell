@@ -85,10 +85,20 @@ Glass, a white bar, no percent.
 
 ## 6. Notifications
 
-- Popups top-right on the focused monitor: glass, app icon, action buttons.
-- Notification center in the clock menu: history, clear, Do not disturb.
-- Do not disturb survives a shell restart.
-- Details of the look — **[decide] later**, before this step (you wanted to redo text and look).
+Decided 2026-10-19: the look of the current swaync setup (close to GNOME), without the light
+highlight along the top that the fork's cards have.
+
+- **Card:** dark, nearly opaque, 400 px wide, ~10 px corners, a soft shadow. App icon (40 px) or
+  the notification's image on the left; bold summary, body, relative time ("now", "5m"); a close
+  button; action buttons under the text. Clicking the card runs its default action, if any.
+- **Popups:** top-right under the bar on the focused monitor, 5 s (or the app's own timeout),
+  paused while hovered. **Stacked:** newest on top, at most 3 at once; more go straight to the
+  center.
+- **Center:** in the clock menu, under the calendar: "Clear all", a Do not disturb switch.
+  Notifications of one app form a **stack**: the newest shows with "+N", a click expands it.
+- **Bar:** a dot by the clock while there are unseen notifications; a bell-off icon in DND.
+- **Do not disturb** survives a restart; critical notifications still show (like GNOME).
+- History lives in memory (gone after a restart).
 
 ## 7. Idle manager
 
@@ -244,7 +254,7 @@ Each step ends with something you can see or try.
 5. ✅ **Module menus** + switching on hover, blur.
 6. ✅ **Control center.**
 7. ✅ **OSD.**
-8. **Notifications** (popups + center in the clock menu).
+8. ✅ **Notifications** (popups + center in the clock menu).
 9. **Idle manager** — needs a real niri session. Then stasis goes.
 10. **Wallpaper** — swaybg goes.
 11. **Dock** — ironbar goes.
@@ -258,6 +268,8 @@ After steps 7 and 8 swayosd and swaync can go.
 - A rule in the niri config so menus blur the windows under them, not just the wallpaper (x-ray):
   `layer-rule { match namespace="^nshell-"; background-effect { xray false; }; }`
   (already in the sandbox, see `scripts/dev-nested.sh`).
+- swaync must not run: only one program can be the notification server (nshell logs a warning
+  and shows nothing if another one has the name). Same for swayosd (no conflict, just doubled OSD).
 
 ## 15. Open questions (summary)
 
@@ -265,4 +277,3 @@ After steps 7 and 8 swayosd and swaync can go.
 - system stats in the control center;
 - idle timings and the order on battery;
 - dock autohide;
-- notification look — before step 8.

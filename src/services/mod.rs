@@ -9,6 +9,7 @@ pub mod dbus;
 pub mod media;
 pub mod keys;
 pub mod network;
+pub mod notifications;
 pub mod power;
 pub mod session;
 pub mod tray;
@@ -29,6 +30,7 @@ pub struct Services {
     brightness: OnceCell<brightness::Brightness>,
     media: OnceCell<media::Media>,
     session: OnceCell<session::Session>,
+    notifications: OnceCell<Rc<notifications::Notifications>>,
     caps_lock: OnceCell<crate::watch::Watch<Option<bool>>>,
     keyboard_backlight: OnceCell<crate::watch::Watch<Option<(u32, u64)>>>,
     audio: OnceCell<Option<Rc<audio::Audio>>>,
@@ -46,6 +48,7 @@ impl Services {
             brightness: OnceCell::new(),
             media: OnceCell::new(),
             session: OnceCell::new(),
+            notifications: OnceCell::new(),
             caps_lock: OnceCell::new(),
             keyboard_backlight: OnceCell::new(),
             audio: OnceCell::new(),
@@ -90,6 +93,10 @@ impl Services {
 
     pub fn keyboard_backlight(&self) -> &crate::watch::Watch<Option<(u32, u64)>> {
         self.keyboard_backlight.get_or_init(keys::keyboard_backlight)
+    }
+
+    pub fn notifications(&self) -> &Rc<notifications::Notifications> {
+        self.notifications.get_or_init(notifications::Notifications::start)
     }
 
     /// None only if libpulse can't run at all.

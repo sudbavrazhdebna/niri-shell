@@ -51,6 +51,12 @@ each section. Read before changing any of these.
   bar never has focus. `codes_size` must be a multiple of 8; `EV_REP` can't be masked.
 - Keyboard backlight: UPower `BrightnessChangedWithSource`, only source "internal" (the Fn key).
 
+## Code rules learned the hard way
+
+- Never hold a `RefCell` borrow across a GTK call that can emit signals: removing or hiding a
+  widget under the pointer runs its leave handler synchronously (a popup crashed this way).
+  Take what you need out of the cell, drop the borrow, then touch widgets.
+
 ## Sandbox lessons
 
 - One nested niri at a time: GNOME stops drawing a covered nested window, and that niri then
