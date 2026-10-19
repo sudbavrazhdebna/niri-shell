@@ -496,6 +496,7 @@ fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&Deskt
     let column = ui::column();
     let name = entry.map_or_else(|| item.key.clone(), |e| e.name().to_string());
     column.append(&ui::title(&name));
+    column.append(&ui::separator());
 
     // The app's windows by title: the dock has no previews, this is the way to pick one.
     let state = niri.state.get();

@@ -46,6 +46,7 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     let column = ui::column();
     column.set_width_request(320);
     column.append(&ui::title("Sound"));
+    column.append(&ui::separator());
 
     let (a, b) = (audio.clone(), audio.clone());
     let output = LevelRow::new(move || a.toggle_mute(), move |v| b.set_percent(v));
@@ -60,6 +61,7 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     let (a, b) = (audio.clone(), audio.clone());
     let mic = LevelRow::new(move || a.toggle_mic_mute(), move |v| b.set_mic_percent(v));
     let mic_box = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    mic_box.append(&ui::separator());
     mic_box.append(&ui::title("Microphone"));
     mic_box.append(&mic.row);
     audio.mic.bind(&mic_box, move |mic_box, state| {
@@ -73,7 +75,6 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
             mic.show(icon, state.percent, state.muted);
         }
     });
-    column.append(&mic_box);
 
     // Programs playing sound, each with its own volume.
     let apps = ui::column();
@@ -105,7 +106,6 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
             row.show(if stream.muted { "audio-volume-muted-symbolic" } else { icon }, stream.percent, stream.muted);
         }
     });
-    column.append(&apps);
 
     let outputs = ui::column();
     let a = audio.clone();
@@ -133,6 +133,9 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
         }
     });
     column.append(&outputs);
+    // Sound, the outputs, then the microphone and the apps.
+    column.append(&mic_box);
+    column.append(&apps);
     column
 }
 

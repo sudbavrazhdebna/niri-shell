@@ -54,6 +54,7 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
     let w = wifi.clone();
     let (header, set_switch) = ui::header_switch("Wi-Fi", move |on| w.set_enabled(on));
     column.append(&header);
+    column.append(&ui::separator());
     let card = ConnectedCard::new();
     column.append(&card.widget);
     let list = ui::column();

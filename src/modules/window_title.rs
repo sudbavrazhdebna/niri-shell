@@ -163,6 +163,7 @@ fn window_menu(window: &niri_ipc::Window, niri: &Niri) -> gtk4::Box {
     let entry = crate::apps::entry(&app_id);
     let name = entry.as_ref().map_or_else(|| app_id.clone(), |e| e.name().to_string());
     column.append(&ui::title(&name));
+    column.append(&ui::separator());
     if let Some(entry) = &entry {
         for action in entry.list_actions() {
             let label = entry.action_name(&action);

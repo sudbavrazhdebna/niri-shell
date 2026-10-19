@@ -30,6 +30,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     menu::attach(&label, move |anchor| {
         let column = ui::column();
         column.append(&ui::title("Keyboard layout"));
+        column.append(&ui::separator());
         let state = n.state.get();
         if let Some(layouts) = &state.keyboard_layouts {
             for (idx, name) in layouts.names.iter().enumerate() {

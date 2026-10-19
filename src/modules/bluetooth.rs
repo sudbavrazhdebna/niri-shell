@@ -34,6 +34,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     let s = services.clone();
     let (header, set_switch) = ui::header_switch("Bluetooth", move |on| s.bluetooth().set_powered(on));
     column.append(&header);
+    column.append(&ui::separator());
 
     let devices = ui::column();
     column.append(&devices);

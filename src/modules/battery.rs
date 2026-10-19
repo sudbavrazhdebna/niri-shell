@@ -37,6 +37,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     let status = ui::note("");
     column.append(&heading);
     column.append(&status);
+    column.append(&ui::separator());
     services.battery().state.bind(&column, move |_, state| {
         heading.set_label(&format!("Battery {:.0}%", state.percent));
         status.set_label(&status_text(state));
@@ -87,13 +88,23 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
         profiles.append(&ui::title("Power mode"));
         for profile in &state.profiles {
             let (s, name) = (s.clone(), profile.clone());
-            profiles.append(&ui::item(profile_name(profile), *profile == state.active, move || {
+            let icon = profile_icon(profile);
+            profiles.append(&ui::checked_item(Some(icon), profile_name(profile), *profile == state.active, move || {
                 s.power().set(&name);
             }));
         }
     });
     column.append(&profiles);
     column
+}
+
+/// The same icons as the control center's buttons.
+fn profile_icon(profile: &str) -> &'static str {
+    match profile {
+        "power-saver" => "power-profile-power-saver-symbolic",
+        "performance" => "power-profile-performance-symbolic",
+        _ => "power-profile-balanced-symbolic",
+    }
 }
 
 fn profile_name(profile: &str) -> &str {
