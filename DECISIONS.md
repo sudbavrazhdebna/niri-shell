@@ -39,8 +39,12 @@ each section. Read before changing any of these.
   it — the first version did and closed every menu right after opening.
 - A second click on a module closes its menu: the press already closes it (focus goes back to
   the app), so `toggle` doesn't reopen a menu of the same anchor that closed under 300 ms ago.
-- Switching menus keeps the catcher window and replaces only the menu window, and a menu is
-  placed at its measured width before it shows, so it doesn't jump sideways.
+- Switching menus (same monitor, same direction) keeps the menu window and swaps the card's
+  content. Recreating the window handed the keyboard to the app for a moment, which closed the
+  new menu (focus-change rule) and made the app's focus blink. A menu is placed at its measured
+  width before it shows, so it doesn't jump sideways.
+- The OSD stays quiet only for changes made with a slider in a menu (the slider shows them);
+  keys always get it, menu open or not.
 - Hover switching waits 250 ms when the pointer heads diagonally into the open menu (the fork's
   "safe triangle"), switches at once along the bar.
 

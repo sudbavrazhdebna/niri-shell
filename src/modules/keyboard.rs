@@ -23,17 +23,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         if let Some(name) = current {
             label.set_label(&short_name(name));
         }
-        // As wide as the widest layout's name (RU is wider than EN), so switching
-        // doesn't shift the neighbours.
-        if let Some(layouts) = &state.keyboard_layouts {
-            let widest = layouts
-                .names
-                .iter()
-                .map(|name| label.create_pango_layout(Some(&short_name(name))).pixel_size().0)
-                .max()
-                .unwrap_or(0);
-            label.set_size_request(widest, -1);
-        }
+
     });
 
     let n = niri.clone();

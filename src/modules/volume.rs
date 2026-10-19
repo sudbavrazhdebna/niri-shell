@@ -108,7 +108,14 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
 
     let outputs = ui::column();
     let a = audio.clone();
+    let shown = RefCell::new(None::<(Vec<crate::services::audio::Output>, String)>);
     audio.state.bind(&outputs, move |outputs, state| {
+        // Volume steps change the state too; the list only when the devices do.
+        let now = (state.outputs.clone(), state.default.clone());
+        if shown.borrow().as_ref() == Some(&now) {
+            return;
+        }
+        shown.replace(Some(now));
         ui::clear(outputs);
         if state.outputs.len() < 2 {
             outputs.set_visible(false);

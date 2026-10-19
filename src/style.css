@@ -45,6 +45,8 @@ window.bar {
 
 .bar-content .keyboard {
     font-weight: 600;
+    /* EN and RU differ in width; a fixed minimum keeps the neighbours in place. */
+    min-width: 28px;
 }
 
 .window-title .app-icon {
@@ -270,7 +272,9 @@ window.nshell-osd {
     -gtk-icon-size: 22px;
 }
 
-.osd-level trough {
+.osd-level trough,
+.osd-level trough block {
+    /* The theme gives the bar's blocks their own, taller minimum. */
     min-height: 4px;
     border-radius: 3px;
     background: rgb(80, 80, 80);
@@ -283,6 +287,10 @@ window.nshell-osd {
     border: none;
     box-shadow: none;
     background: white;
+}
+
+.osd-icon.dimmed {
+    opacity: 0.4;
 }
 
 .osd-level.dimmed trough block.filled {

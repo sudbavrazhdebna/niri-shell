@@ -77,6 +77,17 @@ struct SliderInner {
     on_change: Box<dyn Fn(f64)>,
 }
 
+thread_local! {
+    /// When a slider last sent a value: the OSD stays quiet for changes the user makes
+    /// with a slider (the slider already shows them).
+    static SLIDER_SENT: Cell<Option<Instant>> = const { Cell::new(None) };
+}
+
+/// Whether a slider changed something just now.
+pub fn slider_moved_recently() -> bool {
+    SLIDER_SENT.get().is_some_and(|t| t.elapsed() < Duration::from_millis(600))
+}
+
 /// How often a dragged slider sends its value.
 const SLIDER_THROTTLE: Duration = Duration::from_millis(100);
 /// How long after letting go system updates are still ignored.
@@ -161,6 +172,7 @@ impl Slider {
         if wait.is_zero() {
             inner.pending.set(None);
             inner.last_sent.set(Some(Instant::now()));
+            SLIDER_SENT.set(Some(Instant::now()));
             (inner.on_change)(value);
             return;
         }
@@ -172,6 +184,7 @@ impl Slider {
                     inner.trailing.set(None);
                     if let Some(value) = inner.pending.take() {
                         inner.last_sent.set(Some(Instant::now()));
+                        SLIDER_SENT.set(Some(Instant::now()));
                         inner.let_go.set(Some(Instant::now()));
                         (inner.on_change)(value);
                     }

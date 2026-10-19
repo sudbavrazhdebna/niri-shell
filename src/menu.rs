@@ -19,7 +19,7 @@ use gtk4::prelude::*;
 use gtk4::{gdk, glib, graphene};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
-use crate::blur;
+use crate::{blur, ui};
 
 type Opener = Rc<dyn Fn(&gtk4::Widget)>;
 
@@ -54,6 +54,12 @@ struct Open {
     anchor: glib::WeakRef<gtk4::Widget>,
     window: gtk4::Window,
     catcher: gtk4::Window,
+    /// The glass card the content goes in.
+    card: gtk4::Box,
+    monitor: gdk::Monitor,
+    upward: bool,
+    /// Shared with the window's resize handler, which re-centers under this anchor.
+    placed_under: Rc<RefCell<glib::WeakRef<gtk4::Widget>>>,
 }
 
 #[derive(Default)]
@@ -179,16 +185,55 @@ pub fn close_on_focus_change(niri: &crate::niri::Niri) {
 pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     let Some(bar) = anchor.root().and_downcast::<gtk4::Window>() else { return };
     let Some(monitor) = bar.monitor() else { return };
-
-    // Switching between menus keeps the catcher; only the menu window is replaced.
+    // Menus open away from the screen edge their owner sits on: below the bar, above
+    // the dock.
+    let upward = bar.is_anchor(Edge::Bottom) && !bar.is_anchor(Edge::Top);
     cancel_pending();
+
+    // Switching between menus keeps the window and swaps the content: the keyboard
+    // focus stays with the menu (recreating it handed the focus to the app for a moment,
+    // which closed the new menu and made the app's focus blink).
+    let reusable = OPEN.with_borrow(|open| {
+        open.as_ref()
+            .filter(|o| o.monitor == monitor && o.upward == upward)
+            .map(|o| (o.window.clone(), o.card.clone(), o.anchor.upgrade(), o.placed_under.clone()))
+    });
+    if let Some((window, card, old, placed_under)) = reusable {
+        if let Some(old) = old {
+            old.remove_css_class("menu-open");
+        }
+        while let Some(child) = card.first_child() {
+            card.remove(&child);
+        }
+        card.append(content);
+        placed_under.replace(anchor.downgrade());
+        ui::shrink_to_fit(&window);
+        if let Some(wrapped) = window.child() {
+            let (_, natural, _, _) = wrapped.measure(gtk4::Orientation::Horizontal, -1);
+            place(&window, anchor, natural);
+        }
+        anchor.add_css_class("menu-open");
+        OPEN.with_borrow_mut(|open| {
+            if let Some(open) = open {
+                open.anchor = anchor.downgrade();
+            }
+        });
+        return;
+    }
+
+    // Another monitor or direction: a fresh window, keeping the catcher if possible.
     let catcher = match OPEN.take() {
         Some(open) => {
             if let Some(old) = open.anchor.upgrade() {
                 old.remove_css_class("menu-open");
             }
             open.window.destroy();
-            open.catcher
+            if open.monitor == monitor {
+                open.catcher
+            } else {
+                open.catcher.destroy();
+                catcher(&monitor)
+            }
         }
         None => catcher(&monitor),
     };
@@ -203,9 +248,6 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     // On demand, not exclusive: niri gives the menu the keyboard when it shows (Escape
     // works) and gives it back to the app on a click there, which also closes the menu.
     window.set_keyboard_mode(KeyboardMode::OnDemand);
-    // Menus open away from the screen edge their owner sits on: below the bar, above
-    // the dock.
-    let upward = bar.is_anchor(Edge::Bottom) && !bar.is_anchor(Edge::Top);
     window.set_anchor(Edge::Top, !upward);
     window.set_anchor(Edge::Bottom, upward);
     window.set_anchor(Edge::Left, true);
@@ -221,14 +263,15 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     card.add_css_class("menu-card");
     card.append(content);
     // Re-centered under its module and re-blurred whenever the card changes size.
-    let (window_weak, anchor_weak, card_weak) = (window.downgrade(), anchor.downgrade(), card.downgrade());
+    let placed_under = Rc::new(RefCell::new(anchor.downgrade()));
+    let (window_weak, under, card_weak) = (window.downgrade(), placed_under.clone(), card.downgrade());
     let wrapped = blur::behind(
         &window,
         &card,
         move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
         CARD_RADIUS,
         move || {
-            if let (Some(window), Some(anchor)) = (window_weak.upgrade(), anchor_weak.upgrade()) {
+            if let (Some(window), Some(anchor)) = (window_weak.upgrade(), under.borrow().upgrade()) {
                 place(&window, &anchor, window.width());
             }
         },
@@ -255,6 +298,10 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         anchor: anchor.downgrade(),
         window,
         catcher,
+        card,
+        monitor,
+        upward,
+        placed_under,
     }));
 }
 
@@ -329,32 +376,35 @@ fn open_rect(bar: &gtk4::Window) -> Option<graphene::Rect> {
     })
 }
 
-/// Sandbox testing without a mouse: with NSHELL_DEV_MENU=<module class>[@seconds] set,
-/// a debug build opens that module's menu that long (default 2 s) after the bar appears.
+/// Sandbox testing without a mouse: with NSHELL_DEV_MENU=<module>[,<module>…][@seconds]
+/// set, a debug build opens those modules' menus one after another, a second apart,
+/// starting that long (default 2 s) after the bar appears — like hovering along the bar.
 #[cfg(debug_assertions)]
 pub fn dev_open(window: &gtk4::Window) {
     let Ok(spec) = std::env::var("NSHELL_DEV_MENU") else { return };
-    let (class, secs) = match spec.split_once('@') {
-        Some((class, secs)) => (class.to_string(), secs.parse().unwrap_or(2)),
+    let (list, secs) = match spec.split_once('@') {
+        Some((list, secs)) => (list.to_string(), secs.parse().unwrap_or(2)),
         None => (spec, 2),
     };
-    let window = window.downgrade();
-    glib::timeout_add_local_once(Duration::from_secs(secs), move || {
-        let Some(window) = window.upgrade() else { return };
-        let mut stack: Vec<gtk4::Widget> = window.first_child().into_iter().collect();
-        while let Some(widget) = stack.pop() {
-            if widget.has_css_class(&class) && widget.has_css_class("has-menu") {
-                open(&widget);
-                return;
+    for (i, class) in list.split(',').map(String::from).enumerate() {
+        let window = window.downgrade();
+        glib::timeout_add_local_once(Duration::from_secs(secs + i as u64), move || {
+            let Some(window) = window.upgrade() else { return };
+            let mut stack: Vec<gtk4::Widget> = window.first_child().into_iter().collect();
+            while let Some(widget) = stack.pop() {
+                if widget.has_css_class(&class) && widget.has_css_class("has-menu") {
+                    open(&widget);
+                    return;
+                }
+                let mut child = widget.first_child();
+                while let Some(c) = child {
+                    child = c.next_sibling();
+                    stack.push(c);
+                }
             }
-            let mut child = widget.first_child();
-            while let Some(c) = child {
-                child = c.next_sibling();
-                stack.push(c);
-            }
-        }
-        tracing::warn!("NSHELL_DEV_MENU: no menu on {class:?}");
-    });
+            tracing::warn!("NSHELL_DEV_MENU: no menu on {class:?}");
+        });
+    }
 }
 
 /// Follows the pointer over a bar window to switch menus, and closes the menu on a

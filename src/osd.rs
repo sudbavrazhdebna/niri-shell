@@ -112,8 +112,8 @@ impl Osd {
     }
 
     pub fn show(self: &Rc<Self>, content: Content) {
-        // Dragging a slider in an open menu already shows the value.
-        if crate::menu::is_open() {
+        // A slider in a menu shows its value itself; keys always get the OSD.
+        if crate::ui::slider_moved_recently() {
             return;
         }
         if self.shown.borrow().is_none() {
@@ -124,10 +124,12 @@ impl Osd {
         let Some(shown) = shown.as_mut() else { return };
         match content {
             Content::Level { icon, percent, dimmed } => {
-                if dimmed {
-                    shown.level.add_css_class("dimmed");
-                } else {
-                    shown.level.remove_css_class("dimmed");
+                for widget in [shown.level.upcast_ref::<gtk4::Widget>(), shown.icon.upcast_ref()] {
+                    if dimmed {
+                        widget.add_css_class("dimmed");
+                    } else {
+                        widget.remove_css_class("dimmed");
+                    }
                 }
                 shown.icon.set_icon_name(Some(&icon));
                 let target = f64::from(percent.min(100)) / 100.0;
@@ -142,6 +144,7 @@ impl Osd {
                 shown.text.set_visible(false);
             }
             Content::Text { icon, text } => {
+                shown.icon.remove_css_class("dimmed");
                 shown.icon.set_icon_name(Some(&icon));
                 shown.text.set_label(&text);
                 shown.text.set_visible(true);
