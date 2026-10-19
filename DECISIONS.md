@@ -68,6 +68,9 @@ each section. Read before changing any of these.
 - Menus scroll as a whole (calendar and notifications together) once taller than the screen;
   no inner scrolled lists. An inner list with a height cap made the clock menu shrink to half
   a notification when a stack was expanded, and a scrollbar's minimum height left gaps.
+  The scrolled window's minimum doesn't follow its content, so the menu window is refit
+  whenever the content's height changes (`notify::upper`); without it a player or device
+  appearing in an open menu was cut off.
 - Hover switching waits 250 ms when the pointer heads diagonally into the open menu (the fork's
   "safe triangle"), switches at once along the bar.
 

@@ -326,6 +326,21 @@ fn scrolling(content: &impl IsA<gtk4::Widget>, monitor: &gdk::Monitor, owner: &g
     let room = monitor.geometry().height() - owner.height() - GAP - MENU_FRAME;
     scroll.set_max_content_height(room.max(200));
     scroll.set_child(Some(content));
+    // The window grows only with its minimum size, and a scrolled window's minimum
+    // doesn't follow its content: a player or a device appearing in an open menu got
+    // cut off and scrolled. Refit the window whenever the content's height changes.
+    let weak = scroll.downgrade();
+    scroll.vadjustment().connect_upper_notify(move |_| {
+        let Some(window) = weak.upgrade().and_then(|s| s.root()).and_downcast::<gtk4::Window>() else {
+            return;
+        };
+        let window = window.downgrade();
+        glib::idle_add_local_once(move || {
+            if let Some(window) = window.upgrade() {
+                ui::shrink_to_fit(&window);
+            }
+        });
+    });
     scroll
 }
 
