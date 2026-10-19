@@ -43,10 +43,10 @@ fn item_widget(item: &Rc<Item>) -> gtk4::Image {
 
     let i = item.clone();
     menu::register(&image, move |anchor| {
-        let (item, anchor) = (i.clone(), anchor.clone());
+        let (item, anchor, ticket) = (i.clone(), anchor.clone(), menu::ticket());
         glib::spawn_future_local(async move {
             if let Some(image) = anchor.downcast_ref::<gtk4::Image>() {
-                show_menu(&item, image).await;
+                show_menu(&item, image, ticket).await;
             }
         });
     });
@@ -71,7 +71,7 @@ fn item_widget(item: &Rc<Item>) -> gtk4::Image {
     image
 }
 
-async fn show_menu(item: &Item, anchor: &gtk4::Image) -> Option<()> {
+async fn show_menu(item: &Item, anchor: &gtk4::Image, ticket: u64) -> Option<()> {
     let path = item.state.get().menu.clone()?;
     let (entries, sender) = tray_menu::load(item.connection(), &item.bus, &path).await?;
     let stack = gtk4::Stack::new();
@@ -81,7 +81,7 @@ async fn show_menu(item: &Item, anchor: &gtk4::Image) -> Option<()> {
     add_page(&stack, "root", None, &entries, &sender);
     // Submenu pages are added before their parent; start at the top.
     stack.set_visible_child_name("root");
-    menu::show(anchor.upcast_ref(), &stack);
+    menu::show_for(ticket, anchor.upcast_ref(), &stack);
     Some(())
 }
 
@@ -144,7 +144,7 @@ fn dev_auto_menu(item: &Rc<Item>, image: &gtk4::Image) {
     let (item, image) = (item.clone(), image.clone());
     glib::timeout_add_local_once(std::time::Duration::from_secs(3), move || {
         glib::spawn_future_local(async move {
-            show_menu(&item, &image).await;
+            show_menu(&item, &image, menu::ticket()).await;
         });
     });
 }

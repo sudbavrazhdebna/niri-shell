@@ -31,6 +31,10 @@ pub struct Network {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct WifiState {
+    /// Kernel name of the Wi-Fi interface (e.g. "wlp1s0"), for traffic counters.
+    pub interface: Option<String>,
+    /// IPv4 address of the connection, if connected.
+    pub ip: Option<String>,
     pub enabled: bool,
     /// Strongest first, one entry per network name.
     pub networks: Vec<Network>,
@@ -43,6 +47,8 @@ pub struct Wifi {
     pub state: Watch<WifiState>,
     nm: gio::DBusProxy,
     device: Option<gio::DBusProxy>,
+    /// The same device's generic interface: its name and IP configuration.
+    device_info: Option<gio::DBusProxy>,
     /// Saved profiles (network name → path), read once per menu.
     profiles: RefCell<HashMap<String, String>>,
     /// Access point proxies by path: scans repeat mostly the same ones.
@@ -58,6 +64,7 @@ impl Wifi {
         let started = std::time::Instant::now();
         let nm = system_proxy(NM, NM_PATH, NM).await?;
         let mut device = None;
+        let mut device_info = None;
         let devices = call(&nm, "GetDevices", None).await.and_then(|r| child(&r, 0));
         for path in devices.iter().flat_map(|d| d.iter()) {
             let Some(path) = path.get::<glib::variant::ObjectPath>() else { continue };
@@ -67,6 +74,7 @@ impl Wifi {
             };
             if prop::<u32>(&dev, "DeviceType") == Some(DEVICE_WIFI) {
                 device = system_proxy(NM, path.as_str(), WIRELESS).await;
+                device_info = Some(dev);
                 break;
             }
         }
@@ -75,6 +83,7 @@ impl Wifi {
             state: Watch::new(WifiState::default()),
             nm: nm.clone(),
             device,
+            device_info,
             profiles: RefCell::new(saved_profiles().await),
             access_points: RefCell::default(),
             refreshing: Cell::new(false),
@@ -144,6 +153,19 @@ impl Wifi {
         });
     }
 
+    /// The device's first IPv4 address, from its current IP configuration.
+    async fn ip(&self) -> Option<String> {
+        let config = self
+            .device_info
+            .as_ref()
+            .and_then(|d| prop::<glib::variant::ObjectPath>(d, "Ip4Config"))
+            .filter(|p| p.as_str() != "/")?;
+        let proxy = system_proxy(NM, config.as_str(), "org.freedesktop.NetworkManager.IP4Config").await?;
+        let addresses = proxy.cached_property("AddressData")?;
+        let first = child(&addresses, 0)?;
+        lookup(&first, "address").and_then(|v| v.get::<String>())
+    }
+
     /// Re-reads the list. Change signals come in bursts during a scan; overlapping
     /// calls fold into one more round instead of running side by side.
     async fn refresh(&self) {
@@ -162,6 +184,8 @@ impl Wifi {
     }
 
     async fn read_networks(&self) {
+        let interface = self.device_info.as_ref().and_then(|d| prop::<String>(d, "Interface"));
+        let ip = self.ip().await;
         let enabled = prop(&self.nm, "WirelessEnabled").unwrap_or(false);
         let mut networks: HashMap<String, Network> = HashMap::new();
         if let Some(device) = &self.device {
@@ -215,7 +239,7 @@ impl Wifi {
         let mut networks: Vec<Network> = networks.into_values().collect();
         networks.sort_by(|a, b| b.active.cmp(&a.active).then(b.strength.cmp(&a.strength)));
         self.state.update(|s| {
-            let new = WifiState { enabled, networks, error: s.error.clone() };
+            let new = WifiState { enabled, networks, error: s.error.clone(), interface: interface.clone(), ip: ip.clone() };
             std::mem::replace(s, new.clone()) != new
         });
     }

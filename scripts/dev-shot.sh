@@ -8,6 +8,8 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DEV="$ROOT/.dev"
 OUT="${1:-$DEV/shots/$(date +%Y%m%d-%H%M%S).png}"
+# An old file of the same name would pass the wait below at once.
+rm -f "$OUT"
 
 NIRI_SOCKET=$(cat "$DEV/niri-socket") \
     niri msg action screenshot-screen --show-pointer false --path "$OUT" >/dev/null

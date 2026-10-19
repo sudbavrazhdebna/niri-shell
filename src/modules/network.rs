@@ -1,6 +1,7 @@
 //! Network icon: Wi-Fi by signal strength, wired, or off. Left click: Wi-Fi menu with
 //! the networks around, connecting (asking for a password when needed).
 
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use gtk4::glib;
@@ -8,7 +9,7 @@ use gtk4::prelude::*;
 
 use super::{Context, icon_module};
 use crate::services::network::Link;
-use crate::services::wifi::{Network, Wifi};
+use crate::services::wifi::{Network, Wifi, WifiState};
 use crate::{menu, ui};
 
 /// Networks shown in the menu; the rest are usually far away.
@@ -24,7 +25,15 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         };
         image.set_icon_name(Some(icon));
     });
-    menu::attach(&image, |anchor| menu::show(anchor, &menu_content()));
+    menu::attach(&image, |anchor| {
+        // Shown once the networks are known (~0.1 s), so it doesn't build up in pieces.
+        let (anchor, ticket) = (anchor.clone(), menu::ticket());
+        glib::spawn_future_local(async move {
+            if let Some(wifi) = Wifi::open().await {
+                menu::show_for(ticket, &anchor, &menu_content(wifi));
+            }
+        });
+    });
     image.upcast()
 }
 
@@ -38,11 +47,15 @@ fn wifi_icon(strength: u8) -> &'static str {
     }
 }
 
-fn menu_content() -> gtk4::Box {
+fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
     let column = ui::column();
     column.set_width_request(320);
+    let w = wifi.clone();
+    let (header, set_switch) = ui::header_switch("Wi-Fi", move |on| w.set_enabled(on));
+    column.append(&header);
+    let card = ConnectedCard::new();
+    column.append(&card.widget);
     let list = ui::column();
-    list.append(&ui::note("Searching for networks…"));
     column.append(&list);
     column.append(&ui::separator());
     column.append(&ui::item("Network Settings…", false, || {
@@ -50,48 +63,132 @@ fn menu_content() -> gtk4::Box {
         ui::launch("nm-connection-editor");
     }));
 
-    let list_weak = list.downgrade();
-    glib::spawn_future_local(async move {
-        let Some(wifi) = Wifi::open().await else { return };
-        let Some(list) = list_weak.upgrade() else { return };
-        let (header, set_switch) = {
-            let w = wifi.clone();
-            ui::header_switch("Wi-Fi", move |on| w.set_enabled(on))
-        };
-        if let Some(column) = list.parent().and_downcast::<gtk4::Box>() {
-            column.prepend(&header);
+    let w = wifi.clone();
+    wifi.state.bind(&list, move |list, state| {
+        set_switch(state.enabled);
+        card.update(state.networks.iter().find(|n| n.active).filter(|_| state.enabled), state);
+        ui::clear(list);
+        if !state.enabled {
+            return;
         }
-        let w = wifi.clone();
-        wifi.state.bind(&list, move |list, state| {
-            set_switch(state.enabled);
-            ui::clear(list);
-            if !state.enabled {
-                return;
-            }
-            if let Some(error) = &state.error {
-                list.append(&ui::note(error));
-            }
-            if state.networks.is_empty() {
-                list.append(&ui::note("No networks found"));
-            }
-            for network in state.networks.iter().take(MAX_NETWORKS) {
-                list.append(&network_row(&w, network));
-            }
-        });
+        if let Some(error) = &state.error {
+            list.append(&ui::note(error));
+        }
+        let others: Vec<_> = state.networks.iter().filter(|n| !n.active).take(MAX_NETWORKS).collect();
+        if others.is_empty() {
+            list.append(&ui::note("No other networks"));
+        } else {
+            list.append(&ui::title("Other networks"));
+        }
+        for network in others {
+            list.append(&network_row(&w, network));
+        }
     });
     column
+}
+
+/// The network in use: its name, address and live traffic. Built once per menu and
+/// updated in place, so the traffic counter keeps its last sample across scan results.
+struct ConnectedCard {
+    widget: gtk4::Box,
+    icon: gtk4::Image,
+    name: gtk4::Label,
+    details: gtk4::Label,
+    address: Rc<RefCell<String>>,
+    interface: Rc<RefCell<Option<String>>>,
+}
+
+impl ConnectedCard {
+    fn new() -> ConnectedCard {
+        let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
+        widget.add_css_class("connected-card");
+        widget.set_visible(false);
+        let top = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
+        let icon = gtk4::Image::new();
+        icon.add_css_class("menu-row-icon");
+        let name = gtk4::Label::new(None);
+        name.add_css_class("connected-name");
+        name.set_xalign(0.0);
+        name.set_hexpand(true);
+        name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+        let status = gtk4::Label::new(Some("Connected"));
+        status.add_css_class("menu-trailing");
+        top.append(&icon);
+        top.append(&name);
+        top.append(&status);
+        widget.append(&top);
+        let details = gtk4::Label::new(None);
+        details.add_css_class("connected-details");
+        details.set_xalign(0.0);
+        widget.append(&details);
+
+        let card = ConnectedCard {
+            widget,
+            icon,
+            name,
+            details,
+            address: Rc::default(),
+            interface: Rc::default(),
+        };
+        // Traffic: counters read once a second, only while the menu is open.
+        let (weak, address, interface) = (card.details.downgrade(), card.address.clone(), card.interface.clone());
+        let last = Cell::new(None::<(u64, u64)>);
+        glib::timeout_add_seconds_local(1, move || {
+            let Some(details) = weak.upgrade() else { return glib::ControlFlow::Break };
+            let now = interface.borrow().as_deref().and_then(traffic);
+            if let (Some((rx0, tx0)), Some((rx1, tx1))) = (last.get(), now) {
+                details.set_label(&format!(
+                    "{}    ↓ {}   ↑ {}",
+                    address.borrow(),
+                    speed(rx1.saturating_sub(rx0)),
+                    speed(tx1.saturating_sub(tx0))
+                ));
+            }
+            last.set(now);
+            glib::ControlFlow::Continue
+        });
+        card
+    }
+
+    fn update(&self, active: Option<&Network>, state: &WifiState) {
+        self.widget.set_visible(active.is_some());
+        let Some(active) = active else { return };
+        self.icon.set_icon_name(Some(wifi_icon(active.strength)));
+        self.name.set_label(&active.ssid);
+        let address = state.ip.as_deref().map(|ip| format!("IP {ip}")).unwrap_or_default();
+        if *self.address.borrow() != address {
+            self.details.set_label(&address);
+            self.address.replace(address);
+        }
+        self.interface.replace(state.interface.clone());
+    }
+}
+
+/// (received, sent) bytes of an interface so far.
+fn traffic(interface: &str) -> Option<(u64, u64)> {
+    let read = |name: &str| {
+        std::fs::read_to_string(format!("/sys/class/net/{interface}/statistics/{name}"))
+            .ok()?
+            .trim()
+            .parse::<u64>()
+            .ok()
+    };
+    Some((read("rx_bytes")?, read("tx_bytes")?))
+}
+
+/// Bytes per second, short: "820 B/s", "34 KB/s", "1.2 MB/s".
+fn speed(bytes: u64) -> String {
+    match bytes {
+        0..1000 => format!("{bytes} B/s"),
+        1000..1_000_000 => format!("{} KB/s", bytes / 1000),
+        _ => format!("{:.1} MB/s", bytes as f64 / 1_000_000.0),
+    }
 }
 
 /// One network; a secured unknown one opens a password field under it.
 fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
-    let trailing = if network.active {
-        "connected"
-    } else if network.secured && !network.known {
-        "🔒"
-    } else {
-        ""
-    };
+    let trailing = if network.secured && !network.known { "🔒" } else { "" };
     let (w, n, h) = (wifi.clone(), network.clone(), holder.downgrade());
     let row = ui::icon_item(wifi_icon(network.strength), &network.ssid, trailing, move || {
         if n.active {

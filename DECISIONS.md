@@ -93,5 +93,7 @@ each section. Read before changing any of these.
   hangs waiting for a frame (and ignores SIGTERM). `dev-nested.sh` stops the previous one.
 - The sandbox replaces `XDG_DATA_HOME`; user icon themes and app entries are linked in, or
   icons and apps go missing.
+- `dev-shot.sh` used to return at once when the target file already existed (an old shot):
+  several "the menu isn't drawn" scares came from that. It deletes the file first now.
 - Never `pkill -f` with a pattern that can match your own shell or the real session; use
   `scripts/dev-stop.sh`.

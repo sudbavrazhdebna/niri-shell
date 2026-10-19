@@ -24,6 +24,9 @@ use crate::blur;
 type Opener = Rc<dyn Fn(&gtk4::Widget)>;
 
 thread_local! {
+    /// Bumped on every open and close: a menu that loads its content first shows only if
+    /// nothing else was asked for meanwhile.
+    static REQUEST: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
     static OPENERS: RefCell<Vec<(glib::WeakRef<gtk4::Widget>, Opener)>> = const { RefCell::new(Vec::new()) };
     static OPEN: RefCell<Option<Open>> = const { RefCell::new(None) };
     static AIM: RefCell<Aim> = RefCell::new(Aim::default());
@@ -106,7 +109,21 @@ pub fn open(anchor: &gtk4::Widget) {
             .map(|(_, opener)| opener.clone())
     });
     if let Some(opener) = opener {
+        REQUEST.set(REQUEST.get() + 1);
         opener(anchor);
+    }
+}
+
+/// For openers that load their content first: take a ticket when the opener runs, and
+/// show with [`show_for`] when ready.
+pub fn ticket() -> u64 {
+    REQUEST.get()
+}
+
+/// Shows the menu if no other menu was opened or closed since `ticket` was taken.
+pub fn show_for(ticket: u64, anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
+    if ticket == REQUEST.get() {
+        show(anchor, content);
     }
 }
 
@@ -117,6 +134,7 @@ pub fn is_open() -> bool {
 /// Closes the open menu, if any.
 pub fn close() {
     cancel_pending();
+    REQUEST.set(REQUEST.get() + 1);
     let Some(open) = OPEN.take() else { return };
     if let Some(anchor) = open.anchor.upgrade() {
         anchor.remove_css_class("menu-open");
