@@ -62,7 +62,10 @@ each section. Read before changing any of these.
 - Switching menus (same monitor, same direction) keeps the menu window and swaps the card's
   content. Recreating the window handed the keyboard to the app for a moment, which closed the
   new menu (focus-change rule) and made the app's focus blink. A menu is placed at its measured
-  width before it shows, so it doesn't jump sideways.
+  width before it shows, so it doesn't jump sideways. The window is sized right when the
+  content is swapped, not in an idle callback: that left one frame of the new menu in the
+  old one's window (cut off, or with empty glass below), seen as a flash when moving along
+  the bar. Measuring at once gives the same size as later (checked).
 - The OSD stays quiet only for changes made with a slider in a menu (the slider shows them);
   keys always get it, menu open or not.
 - Menus scroll as a whole (calendar and notifications together) once taller than the screen;
