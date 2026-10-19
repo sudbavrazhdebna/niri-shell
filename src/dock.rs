@@ -194,7 +194,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     let apps = gtk4::Box::new(gtk4::Orientation::Horizontal, 2);
     dock.append(&apps);
     dock.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
-    let overview = gtk4::Button::from_icon_name("view-app-grid-symbolic");
+    let overview = gtk4::Button::from_icon_name("nshell-overview-symbolic");
     overview.add_css_class("dock-button");
     overview.set_cursor_from_name(Some("pointer"));
     let n = niri.clone();
