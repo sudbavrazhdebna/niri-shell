@@ -1,0 +1,22 @@
+[package]
+name = "nshell"
+version = "0.1.0"
+edition = "2024"
+description = "A small desktop shell for niri: bar, menus, OSD, notifications, idle, dock"
+license = "MIT"
+publish = false
+
+[dependencies]
+gtk4 = { version = "0.11", package = "gtk4", features = ["v4_12"] }
+gtk4-layer-shell = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "ansi"] }
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true

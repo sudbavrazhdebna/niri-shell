@@ -1,0 +1,15 @@
+/* Built-in look. A user style.css on top of this comes in step 2. */
+
+window.bar {
+    background: transparent;
+}
+
+.bar-content {
+    padding: 0 10px;
+}
+
+.bar-content label {
+    color: white;
+    font-weight: bold;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
