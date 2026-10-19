@@ -251,7 +251,8 @@ fn system_stats() -> gtk4::Box {
     let previous = Cell::new(cpu_times());
     let update = move || {
         if let (Some((busy0, total0)), Some((busy1, total1))) = (previous.get(), cpu_times()) {
-            let share = (busy1 - busy0) as f64 / (total1 - total0).max(1) as f64;
+            // Saturating: the counters drop when a CPU goes offline.
+            let share = busy1.saturating_sub(busy0) as f64 / total1.saturating_sub(total0).max(1) as f64;
             cpu_value.set_label(&format!("{:.0}%", share * 100.0));
             cpu_bar.set_value(share.clamp(0.0, 1.0));
             previous.set(Some((busy1, total1)));
@@ -280,7 +281,7 @@ fn cpu_times() -> Option<(u64, u64)> {
     let total: u64 = fields.iter().sum();
     // idle + iowait don't count as busy.
     let idle = fields.get(3)? + fields.get(4).unwrap_or(&0);
-    Some((total - idle, total))
+    Some((total.saturating_sub(idle), total))
 }
 
 /// (used, total) memory in KiB from /proc/meminfo; "used" leaves out caches.
@@ -293,7 +294,7 @@ fn memory() -> Option<(u64, u64)> {
             .and_then(|v| v.parse::<u64>().ok())
     };
     let total = field("MemTotal:")?;
-    Some((total - field("MemAvailable:")?, total))
+    Some((total.saturating_sub(field("MemAvailable:")?), total))
 }
 
 /// What plays, with previous / play-pause / next. Hidden when nothing plays.
