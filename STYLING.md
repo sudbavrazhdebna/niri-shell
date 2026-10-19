@@ -28,7 +28,7 @@ the top of the built-in style. Redefine any of them in your `style.css` and ever
 :root {
     --glass: rgba(30, 31, 34, 0.72);          /* card fill; niri blurs what's behind it */
     --glass-hover: rgba(42, 43, 46, 0.82);    /* a notification under the pointer */
-    --glass-edge: rgba(255, 255, 255, 0.09);  /* the 1 px line along the card's edge */
+    --glass-edge: rgba(255, 255, 255, 0.14);  /* the 1 px line along the card's edge */
     --glass-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
     --inner: rgba(255, 255, 255, 0.06);       /* panels inside a card (sliders, player) */
     --inner-hover: rgba(255, 255, 255, 0.12);
