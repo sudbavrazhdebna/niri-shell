@@ -85,9 +85,11 @@ each section. Read before changing any of these.
   the bar. Measuring at once gives the same size as later (checked).
 - The OSD stays quiet only for changes made with a slider in a menu (the slider shows them);
   keys always get it, menu open or not.
-- Menus scroll as a whole (calendar and notifications together) once taller than the screen;
-  no inner scrolled lists. An inner list with a height cap made the clock menu shrink to half
-  a notification when a stack was expanded, and a scrollbar's minimum height left gaps.
+- Menus scroll as a whole once taller than the screen. The one inner scrolled list is the
+  notification center's (asked for 2026-10-19): it shows the first 4 notifications and
+  scrolls the rest. Its cap is the measured height of those 4 (cards differ), and no cap
+  at all when everything fits. A first attempt with a fixed cap made the menu shrink to
+  half a notification when a stack was expanded; the window refit below fixed that.
   The scrolled window's minimum doesn't follow its content, so the menu window is refit
   whenever the content's height changes (`notify::upper`); without it a player or device
   appearing in an open menu was cut off.

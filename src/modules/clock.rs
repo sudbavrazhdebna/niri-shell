@@ -80,8 +80,13 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     center.append(&header);
 
     let list = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    // No scrolling of its own: the whole menu scrolls once it is taller than the screen.
-    center.append(&list);
+    // Scrolls by itself past the first VISIBLE notifications, so the menu stays short.
+    let scroll = gtk4::ScrolledWindow::new();
+    scroll.add_css_class("notification-list");
+    scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+    scroll.set_propagate_natural_height(true);
+    scroll.set_child(Some(&list));
+    center.append(&scroll);
 
     let clear = gtk4::Button::with_label("Clear all");
     clear.add_css_class("clear-all");
@@ -94,6 +99,7 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     let expanded: Rc<RefCell<HashSet<String>>> = Rc::default();
     let render = Rc::new(Render {
         list: list.downgrade(),
+        scroll: scroll.downgrade(),
         clear: clear.downgrade(),
         expanded,
         server: server.clone(),
@@ -103,9 +109,13 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     center
 }
 
+/// Notifications the center shows before its list scrolls.
+const VISIBLE: usize = 4;
+
 /// Redraws the notification list (on changes, and when a stack is opened).
 struct Render {
     list: glib::WeakRef<gtk4::Box>,
+    scroll: glib::WeakRef<gtk4::ScrolledWindow>,
     clear: glib::WeakRef<gtk4::Button>,
     expanded: Rc<RefCell<HashSet<String>>>,
     server: Rc<crate::services::notifications::Notifications>,
@@ -121,6 +131,7 @@ impl Render {
         }
         if notifications.is_empty() {
             list.append(&ui::note("No notifications"));
+            self.fit(&list);
             return;
         }
         for group in stacks(&notifications) {
@@ -144,6 +155,34 @@ impl Render {
                 list.append(&more);
             }
         }
+        self.fit(&list);
+    }
+
+    /// Caps the list at its first VISIBLE notifications (with a "more" row after the
+    /// last of them); the rest scrolls inside it. Measured at the list's own width,
+    /// since wrapped bodies make cards of different heights.
+    fn fit(&self, list: &gtk4::Box) {
+        let Some(scroll) = self.scroll.upgrade() else { return };
+        let width = if list.width() > 0 {
+            list.width()
+        } else {
+            list.measure(gtk4::Orientation::Horizontal, -1).1
+        };
+        let (mut height, mut cards) = (0, 0);
+        let mut child = list.first_child();
+        while let Some(widget) = &child {
+            if widget.has_css_class("notification") {
+                if cards == VISIBLE {
+                    break;
+                }
+                cards += 1;
+            }
+            height += widget.measure(gtk4::Orientation::Vertical, width).1;
+            child = widget.next_sibling();
+        }
+        // No cap when everything fits: a cap equal to the content can still round into
+        // a scrollbar.
+        scroll.set_max_content_height(if child.is_some() { height } else { -1 });
     }
 }
 
