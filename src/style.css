@@ -282,7 +282,7 @@ window.nshell-osd {
 }
 
 .osd-card {
-    min-width: 208px;
+    min-width: 178px;
     padding: 14px 18px;
     /* Room for the shadow inside the window (it reaches 22 px down). */
     margin: 10px 16px 22px;
