@@ -168,8 +168,7 @@ fn window_menu(window: &niri_ipc::Window, niri: &Niri) -> gtk4::Box {
             let label = entry.action_name(&action);
             let (entry, action) = (entry.clone(), action.to_string());
             column.append(&ui::item(&label, false, move || {
-                let context = gtk4::gdk::Display::default().map(|d| d.app_launch_context());
-                entry.launch_action(&action, context.as_ref());
+                crate::launch::action(&entry, &action);
                 menu::close();
             }));
         }

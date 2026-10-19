@@ -33,17 +33,20 @@ fn main() -> glib::ExitCode {
         // default Vulkan renderer was seen stalling for minutes while opening a bar window.
         // SAFETY: nothing else runs yet, so no thread can read the environment concurrently.
         unsafe { std::env::set_var("GSK_RENDERER", "gl") };
+        launch::shell_only_env("GSK_RENDERER");
     }
     if std::env::var_os("GSK_DEBUG").is_none() {
         // GTK 4.22's partial redraws leave traces of the old frame where something shrinks
         // or moves (the OSD bar, changing numbers); redrawing whole surfaces fixes it.
         // SAFETY: as above, still single-threaded.
         unsafe { std::env::set_var("GSK_DEBUG", "full-redraw") };
+        launch::shell_only_env("GSK_DEBUG");
     }
     if std::env::var_os("mesa_glthread").is_none() {
         // Mesa's GL worker thread buys nothing for a few small surfaces; two threads less.
         // SAFETY: as above, still single-threaded.
         unsafe { std::env::set_var("mesa_glthread", "false") };
+        launch::shell_only_env("mesa_glthread");
     }
     tracing_subscriber::fmt()
         .with_env_filter(

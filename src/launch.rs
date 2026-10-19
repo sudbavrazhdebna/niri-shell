@@ -5,14 +5,39 @@
 //! its apps down this way). Each started process is moved into its own transient scope
 //! under app.slice, as GNOME does.
 
+use std::cell::RefCell;
+
 use gio_unix::DesktopAppInfo;
 use gio_unix::prelude::*;
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
 
+thread_local! {
+    /// Environment variables the shell set for itself (renderer tweaks). Apps it starts
+    /// must not get them: GSK_DEBUG=full-redraw would make every GTK app redraw its
+    /// whole window on each frame.
+    static SHELL_ONLY_ENV: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Marks a variable the shell set for itself; started apps won't inherit it.
+pub fn shell_only_env(name: &'static str) {
+    SHELL_ONLY_ENV.with_borrow_mut(|names| names.push(name));
+}
+
+/// A launch context on the shell's display, without the shell-only variables.
+fn launch_context() -> Option<gdk::AppLaunchContext> {
+    let context = gdk::Display::default()?.app_launch_context();
+    SHELL_ONLY_ENV.with_borrow(|names| {
+        for name in names {
+            context.unsetenv(name);
+        }
+    });
+    Some(context)
+}
+
 /// Launches a desktop entry (optionally with files or URLs).
 pub fn app(info: &DesktopAppInfo) {
-    let context = gdk::Display::default().map(|d| d.app_launch_context());
+    let context = launch_context();
     let mut pids = Vec::new();
     let result = info.launch_uris_as_manager_with_fds(
         &[],
@@ -40,16 +65,18 @@ pub fn app(info: &DesktopAppInfo) {
 /// "new window" action for this, which GNOME uses too.
 pub fn new_window(info: &DesktopAppInfo) {
     let actions = info.list_actions();
-    let action = actions
+    let new_window = actions
         .iter()
         .find(|a| ["new-window", "NewWindow", "new_window", "window-new"].contains(&a.as_str()));
-    match action {
-        Some(action) => {
-            let context = gdk::Display::default().map(|d| d.app_launch_context());
-            info.launch_action(action, context.as_ref());
-        }
+    match new_window {
+        Some(name) => action(info, name),
         None => app(info),
     }
+}
+
+/// Runs one of the actions a desktop entry lists ("New Private Window" and the like).
+pub fn action(info: &DesktopAppInfo, name: &str) {
+    info.launch_action(name, launch_context().as_ref());
 }
 
 /// Runs a command line (no shell), e.g. a settings app or the lock command.
@@ -62,7 +89,14 @@ pub fn command(command: &str) {
         }
     };
     let Some((program, args)) = argv.split_first() else { return };
-    match std::process::Command::new(program).args(args).spawn() {
+    let mut child = std::process::Command::new(program);
+    child.args(args);
+    SHELL_ONLY_ENV.with_borrow(|names| {
+        for name in names {
+            child.env_remove(name);
+        }
+    });
+    match child.spawn() {
         Ok(child) => {
             let pid = i32::try_from(child.id()).unwrap_or(0);
             // Reap it when it exits, or it lingers as a zombie.
