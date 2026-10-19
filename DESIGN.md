@@ -98,7 +98,7 @@ highlight along the top that the fork's cards have.
   Notifications of one app form a **stack**: the newest shows with "+N", a click expands it.
 - **Bar:** a dot by the clock while there are unseen notifications; a bell-off icon in DND.
 - **Do not disturb** survives a restart; critical notifications still show (like GNOME).
-- History lives in memory (gone after a restart).
+- History lives in memory (gone after a restart), the newest 100; older ones close.
 
 ## 7. Idle manager
 

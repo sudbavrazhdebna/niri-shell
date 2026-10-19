@@ -15,6 +15,9 @@ const NAME: &str = "org.freedesktop.Notifications";
 const PATH: &str = "/org/freedesktop/Notifications";
 /// Popups shown at once; newer ones push older ones into the center.
 pub const MAX_POPUPS: usize = 3;
+/// Notifications kept in the center; older ones close. An app sending one a second,
+/// with an image each, grew the shell's memory without end.
+const MAX_HISTORY: usize = 100;
 
 const XML: &str = r#"
 <node>
@@ -280,11 +283,21 @@ impl Notifications {
         };
         let critical = notification.critical;
         let transient = notification.transient;
+        let mut dropped = Vec::new();
         self.list.update(|list| {
             list.retain(|n| n.id != id);
             list.insert(0, Rc::new(notification));
+            dropped = list.split_off(list.len().min(MAX_HISTORY));
             true
         });
+        for old in dropped {
+            self.popups.update(|p| {
+                let before = p.len();
+                p.retain(|&x| x != old.id);
+                p.len() != before
+            });
+            self.emit("NotificationClosed", &(old.id, Reason::Expired as u32).to_variant());
+        }
         if !transient {
             self.unseen.set(true);
         }

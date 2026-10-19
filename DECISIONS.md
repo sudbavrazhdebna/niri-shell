@@ -71,6 +71,13 @@ each section. Read before changing any of these.
 - Hover switching waits 250 ms when the pointer heads diagonally into the open menu (the fork's
   "safe triangle"), switches at once along the bar.
 
+## Notifications
+
+- The center keeps the newest 100 notifications; older ones close (reason "expired").
+  Without a limit an app sending one a second, each with an image, grew memory forever.
+- Bodies keep only the spec's markup (b, i, u; links as text). Pango's full markup let
+  any app make a card cover the screen (`<span font="300">`).
+
 ## Apps the shell starts
 
 - Every app or command the shell starts is moved into its own transient systemd scope under
