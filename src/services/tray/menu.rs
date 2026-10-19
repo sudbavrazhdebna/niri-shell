@@ -3,7 +3,7 @@
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
 
-use crate::services::dbus::child;
+use crate::services::dbus::{child, lookup};
 
 const IFACE: &str = "com.canonical.dbusmenu";
 
@@ -101,14 +101,11 @@ fn entries(node: &glib::Variant) -> Vec<Entry> {
     for node in &children {
         let (Some(id), Some(props)) = (
             child(node, 0).and_then(|v| v.get::<i32>()),
-            child(node, 1)
-                .map(unbox)
-                .filter(|p| p.type_().is_subtype_of(glib::VariantTy::VARDICT)),
+            child(node, 1).map(unbox),
         ) else {
             continue;
         };
-        let props = glib::VariantDict::new(Some(&props));
-        let get = |key: &str| props.lookup_value(key, None).map(unbox);
+        let get = |key: &str| lookup(&props, key).map(unbox);
         let string = |key: &str| get(key).and_then(|v| v.get::<String>()).unwrap_or_default();
         if !get("visible").and_then(|v| v.get::<bool>()).unwrap_or(true) {
             continue;

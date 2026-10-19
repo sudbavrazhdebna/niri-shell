@@ -5,7 +5,7 @@ use std::rc::Rc;
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
 
-use super::dbus::{on_properties_changed, prop, system_proxy};
+use super::dbus::{lookup, on_properties_changed, prop, system_proxy};
 use crate::watch::Watch;
 
 const NAME: &str = "org.freedesktop.UPower.PowerProfiles";
@@ -68,11 +68,7 @@ fn read(proxy: &gio::DBusProxy) -> PowerState {
         .cached_property("Profiles")
         .map(|list| {
             list.iter()
-                .filter_map(|entry| {
-                    glib::VariantDict::new(Some(&entry))
-                        .lookup_value("Profile", None)
-                        .and_then(|v| v.get::<String>())
-                })
+                .filter_map(|entry| lookup(&entry, "Profile").and_then(|v| v.get::<String>()))
                 .collect()
         })
         .unwrap_or_default();

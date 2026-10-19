@@ -124,3 +124,28 @@ button.menu-icon-button {
     background: transparent;
     border: none;
 }
+
+.menu-header {
+    padding: 2px 4px 4px 0;
+}
+
+.menu-header switch {
+    margin-right: 4px;
+}
+
+.menu-row-icon {
+    -gtk-icon-size: 18px;
+}
+
+.menu-trailing {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.9em;
+}
+
+button.menu-item.active {
+    font-weight: bold;
+}
+
+.menu-password {
+    margin: 2px 8px 6px;
+}

@@ -8,6 +8,7 @@ pub mod dbus;
 pub mod network;
 pub mod power;
 pub mod tray;
+pub mod wifi;
 
 use std::cell::OnceCell;
 use std::rc::Rc;

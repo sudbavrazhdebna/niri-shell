@@ -40,3 +40,16 @@ pub fn on_properties_changed(proxy: &gio::DBusProxy, changed: impl Fn(&gio::DBus
 pub fn child(v: &glib::Variant, i: usize) -> Option<glib::Variant> {
     (v.is_container() && i < v.n_children()).then(|| v.child_value(i))
 }
+
+/// Value under `key` in a dictionary with string keys (`a{sv}`, `a{sa{sv}}`, …), with
+/// a `v` box removed. Unlike `VariantDict`, never panics on an unexpected type.
+pub fn lookup(dict: &glib::Variant, key: &str) -> Option<glib::Variant> {
+    let ty = dict.type_();
+    if !ty.is_array() || !ty.element().is_dict_entry() || ty.element().key() != glib::VariantTy::STRING {
+        return None;
+    }
+    dict.iter().find_map(|entry| {
+        (child(&entry, 0)?.str()? == key).then(|| child(&entry, 1)).flatten()
+    })
+    .map(|v| if v.is::<glib::Variant>() { v.as_variant().unwrap_or(v) } else { v })
+}
