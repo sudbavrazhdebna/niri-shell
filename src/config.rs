@@ -170,14 +170,10 @@ impl Config {
                     }
                 }
                 "idle" => {
+                    // Stages and profiles come with the idle manager (step 9).
                     for child in children(node) {
-                        match child.name().value() {
-                            "lock-command" => {
-                                config.idle.lock_command =
-                                    string_arg(child).map_err(|e| at(child, e))?
-                            }
-                            // Stages and profiles come with the idle manager (step 9).
-                            _ => {}
+                        if child.name().value() == "lock-command" {
+                            config.idle.lock_command = string_arg(child).map_err(|e| at(child, e))?;
                         }
                     }
                 }

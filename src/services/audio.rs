@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use gtk4::glib;
 use libpulse_binding::callbacks::ListResult;
-use libpulse_binding::context::subscribe::{Facility, InterestMaskSet};
+use libpulse_binding::context::subscribe::{Facility, InterestMaskSet, Operation};
 use libpulse_binding::context::{Context, FlagSet, State};
 use libpulse_binding::volume::{ChannelVolumes, Volume};
 use libpulse_glib_binding::Mainloop;
@@ -44,6 +44,7 @@ pub struct Audio {
 
 /// The default output as last seen.
 struct Sink {
+    index: u32,
     name: String,
     volume: ChannelVolumes,
 }
@@ -156,17 +157,21 @@ impl Audio {
                 return;
             };
             let weak = Rc::downgrade(self);
-            context.set_subscribe_callback(Some(Box::new(move |facility, _, _| {
+            context.set_subscribe_callback(Some(Box::new(move |facility, operation, index| {
                 let Some(this) = weak.upgrade() else {
                     return;
                 };
-                match facility {
+                match (facility, operation) {
                     // The default device may have changed.
-                    Some(Facility::Server) => this.refresh_default(),
-                    Some(Facility::Sink) => {
-                        this.refresh_sink();
-                        this.refresh_outputs();
+                    (Some(Facility::Server), _) => this.refresh_default(),
+                    // Volume steps arrive here many times a second: only the output in
+                    // use matters, and the device list stays the same.
+                    (Some(Facility::Sink), Some(Operation::Changed)) => {
+                        if this.sink.borrow().as_ref().is_some_and(|s| s.index == index) {
+                            this.refresh_sink();
+                        }
                     }
+                    (Some(Facility::Sink), _) => this.refresh_outputs(),
                     _ => {}
                 }
             })));
@@ -254,6 +259,7 @@ impl Audio {
                     / f64::from(Volume::NORMAL.0))
                 .round() as u32;
                 this.sink.replace(Some(Sink {
+                    index: info.index,
                     name: name.to_string(),
                     volume: info.volume,
                 }));

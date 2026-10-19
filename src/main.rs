@@ -24,6 +24,11 @@ fn main() -> glib::ExitCode {
         // SAFETY: nothing else runs yet, so no thread can read the environment concurrently.
         unsafe { std::env::set_var("GSK_RENDERER", "gl") };
     }
+    if std::env::var_os("mesa_glthread").is_none() {
+        // Mesa's GL worker thread buys nothing for a few small surfaces; two threads less.
+        // SAFETY: as above, still single-threaded.
+        unsafe { std::env::set_var("mesa_glthread", "false") };
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_env("NSHELL_LOG").unwrap_or_else(|_| EnvFilter::new("info")),

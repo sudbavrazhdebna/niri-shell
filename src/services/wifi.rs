@@ -1,6 +1,7 @@
 //! Wi-Fi actions for the network menu: scanning, the list of networks, connecting.
 //! Runs only while the menu is open; the bar icon itself comes from `network`.
 
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -42,6 +43,13 @@ pub struct Wifi {
     pub state: Watch<WifiState>,
     nm: gio::DBusProxy,
     device: Option<gio::DBusProxy>,
+    /// Saved profiles (network name → path), read once per menu.
+    profiles: RefCell<HashMap<String, String>>,
+    /// Access point proxies by path: scans repeat mostly the same ones.
+    access_points: RefCell<HashMap<String, gio::DBusProxy>>,
+    /// A refresh is running; `again` asks it for one more round when done.
+    refreshing: Cell<bool>,
+    again: Cell<bool>,
 }
 
 impl Wifi {
@@ -67,6 +75,10 @@ impl Wifi {
             state: Watch::new(WifiState::default()),
             nm: nm.clone(),
             device,
+            profiles: RefCell::new(saved_profiles().await),
+            access_points: RefCell::default(),
+            refreshing: Cell::new(false),
+            again: Cell::new(false),
         });
         let weak = Rc::downgrade(&wifi);
         on_properties_changed(&nm, move |_| {
@@ -107,7 +119,7 @@ impl Wifi {
             let device_path = glib::variant::ObjectPath::try_from(device.object_path().to_string());
             let ap_path = glib::variant::ObjectPath::try_from(network.access_point.clone());
             let (Ok(device_path), Ok(ap_path)) = (device_path, ap_path) else { return };
-            let saved = saved_profiles().await.remove(&network.ssid);
+            let saved = this.profiles.borrow().get(&network.ssid).cloned();
             let result = match saved {
                 Some(profile) => {
                     let profile = glib::variant::ObjectPath::try_from(profile).ok();
@@ -123,24 +135,55 @@ impl Wifi {
                     call(&this.nm, "AddAndActivateConnection", Some(args)).await
                 }
             };
+            if result.is_some() {
+                // A new profile was just saved.
+                this.profiles.replace(saved_profiles().await);
+            }
             let error = result.is_none().then(|| format!("Couldn't connect to {}", network.ssid));
             this.state.update(|s| std::mem::replace(&mut s.error, error.clone()) != error);
         });
     }
 
+    /// Re-reads the list. Change signals come in bursts during a scan; overlapping
+    /// calls fold into one more round instead of running side by side.
     async fn refresh(&self) {
+        if self.refreshing.replace(true) {
+            self.again.set(true);
+            return;
+        }
+        loop {
+            self.again.set(false);
+            self.read_networks().await;
+            if !self.again.get() {
+                break;
+            }
+        }
+        self.refreshing.set(false);
+    }
+
+    async fn read_networks(&self) {
         let enabled = prop(&self.nm, "WirelessEnabled").unwrap_or(false);
         let mut networks: HashMap<String, Network> = HashMap::new();
         if let Some(device) = &self.device {
             let active_ap = prop::<glib::variant::ObjectPath>(device, "ActiveAccessPoint")
                 .map(|p| p.as_str().to_string());
-            let known = saved_profiles().await;
             let points = prop::<Vec<glib::variant::ObjectPath>>(device, "AccessPoints").unwrap_or_default();
+            self.access_points
+                .borrow_mut()
+                .retain(|path, _| points.iter().any(|p| p.as_str() == path));
             for path in points {
-                let Some(ap) =
-                    system_proxy(NM, path.as_str(), "org.freedesktop.NetworkManager.AccessPoint").await
-                else {
-                    continue;
+                let cached = self.access_points.borrow().get(path.as_str()).cloned();
+                let ap = match cached {
+                    Some(ap) => ap,
+                    None => {
+                        let Some(ap) =
+                            system_proxy(NM, path.as_str(), "org.freedesktop.NetworkManager.AccessPoint").await
+                        else {
+                            continue;
+                        };
+                        self.access_points.borrow_mut().insert(path.as_str().to_string(), ap.clone());
+                        ap
+                    }
                 };
                 let ssid = prop::<Vec<u8>>(&ap, "Ssid")
                     .map(|b| String::from_utf8_lossy(&b).into_owned())
@@ -153,7 +196,7 @@ impl Wifi {
                     || prop::<u32>(&ap, "RsnFlags").unwrap_or(0) != 0
                     || prop::<u32>(&ap, "Flags").unwrap_or(0) & 1 != 0;
                 let network = Network {
-                    known: known.contains_key(&ssid),
+                    known: self.profiles.borrow().contains_key(&ssid),
                     active: active_ap.as_deref() == Some(path.as_str()),
                     ssid: ssid.clone(),
                     strength,
