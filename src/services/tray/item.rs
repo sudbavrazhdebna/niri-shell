@@ -96,6 +96,23 @@ impl Item {
         Some(item)
     }
 
+    /// The app is still on the bus.
+    pub fn alive(&self) -> bool {
+        self.proxy.name_owner().is_some()
+    }
+
+    /// Runs `gone` once the app leaves the bus.
+    pub fn on_gone(&self, gone: impl Fn() + 'static) {
+        let gone: Rc<dyn Fn()> = Rc::new(gone);
+        self.proxy.connect_notify_local(Some("g-name-owner"), move |proxy, _| {
+            if proxy.name_owner().is_none() {
+                // Not from inside the proxy's own signal: removing the item drops the proxy.
+                let gone = gone.clone();
+                glib::idle_add_local_once(move || gone());
+            }
+        });
+    }
+
     pub fn key(&self) -> String {
         format!("{}{}", self.bus, self.path)
     }

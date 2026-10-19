@@ -194,7 +194,6 @@ fn spawn_call(proxy: gio::DBusProxy, iface: &'static str, method: &'static str, 
 
 fn read(manager: &impl IsA<gio::DBusObjectManager>) -> BluetoothState {
     let mut state = BluetoothState::default();
-    let mut rssis = Vec::new();
     for object in manager.objects() {
         let proxy = |iface: &str| {
             gio::prelude::DBusObjectExt::interface(&object, iface)
@@ -215,21 +214,17 @@ fn read(manager: &impl IsA<gio::DBusObjectManager>) -> BluetoothState {
         };
         if prop(&device, "Paired").unwrap_or(false) {
             state.devices.push(entry);
-        } else if prop::<String>(&device, "Name").is_some()
-            && let Some(rssi) = prop::<i16>(&device, "RSSI")
-        {
+        } else if prop::<String>(&device, "Name").is_some() && prop::<i16>(&device, "RSSI").is_some() {
             // Only devices heard in this scan (they have a signal) and with a real name.
             state.nearby.push(entry);
-            rssis.push(rssi);
         }
     }
     state
         .devices
         .sort_by(|a, b| b.connected.cmp(&a.connected).then(a.name.cmp(&b.name)));
-    // Nearest (strongest signal) first.
-    let mut nearby: Vec<_> = state.nearby.drain(..).zip(rssis).collect();
-    nearby.sort_by(|(_, a), (_, b)| b.cmp(a));
-    state.nearby = nearby.into_iter().map(|(d, _)| d).collect();
+    // By name: signal strength changes every second during a scan and would reshuffle
+    // (and redraw) the list all the time.
+    state.nearby.sort_by(|a, b| a.name.cmp(&b.name));
     state
 }
 

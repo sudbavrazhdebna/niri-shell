@@ -199,7 +199,12 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
 
     let (config, niri2) = (config.clone(), niri.clone());
     let last = RefCell::new(None::<Vec<Item>>);
+    let serial = Cell::new(None::<u64>);
     niri.state.bind(&apps, move |apps, state| {
+        // Title changes don't show in the dock.
+        if serial.replace(Some(state.layout_serial)) == Some(state.layout_serial) {
+            return;
+        }
         let items = items(state, &config.dock.pinned);
         if last.borrow().as_ref() == Some(&items) {
             return;

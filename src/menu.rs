@@ -207,11 +207,18 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         }
         card.append(content);
         placed_under.replace(anchor.downgrade());
-        ui::shrink_to_fit(&window);
         if let Some(wrapped) = window.child() {
             let (_, natural, _, _) = wrapped.measure(gtk4::Orientation::Horizontal, -1);
             place(&window, anchor, natural);
         }
+        // Fit the new content once it is styled (measured right away it isn't yet, and the
+        // window kept the previous menu's height).
+        let weak = window.downgrade();
+        glib::idle_add_local_once(move || {
+            if let Some(window) = weak.upgrade() {
+                ui::shrink_to_fit(&window);
+            }
+        });
         anchor.add_css_class("menu-open");
         OPEN.with_borrow_mut(|open| {
             if let Some(open) = open {

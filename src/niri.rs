@@ -13,6 +13,9 @@ use crate::watch::Watch;
 /// What the shell knows about niri, updated from the event stream.
 #[derive(Default)]
 pub struct State {
+    /// Bumped on every change except a window's title alone: titles change many times a
+    /// second (terminal spinners), and most things don't show them.
+    pub layout_serial: u64,
     pub windows: HashMap<u64, Window>,
     pub workspaces: HashMap<u64, Workspace>,
     pub keyboard_layouts: Option<KeyboardLayouts>,
@@ -31,6 +34,22 @@ impl State {
     /// Applies one event. Returns false for events the shell doesn't care about,
     /// so listeners aren't woken for them.
     fn apply(&mut self, event: Event) -> bool {
+        let title_only = matches!(&event, Event::WindowOpenedOrChanged { window }
+            if self.windows.get(&window.id).is_some_and(|old| {
+                old.app_id == window.app_id
+                    && old.workspace_id == window.workspace_id
+                    && old.is_focused == window.is_focused
+                    && old.is_floating == window.is_floating
+                    && old.is_urgent == window.is_urgent
+            }));
+        let changed = self.apply_event(event);
+        if changed && !title_only {
+            self.layout_serial += 1;
+        }
+        changed
+    }
+
+    fn apply_event(&mut self, event: Event) -> bool {
         match event {
             Event::WorkspacesChanged { workspaces } => {
                 self.workspaces = workspaces.into_iter().map(|ws| (ws.id, ws)).collect();

@@ -72,7 +72,7 @@ struct SliderInner {
     held: Cell<bool>,
     let_go: Cell<Option<Instant>>,
     last_sent: Cell<Option<Instant>>,
-    trailing: Cell<Option<glib::SourceId>>,
+    /// A value waiting for its send (a timer is due).
     pending: Cell<Option<f64>>,
     on_change: Box<dyn Fn(f64)>,
 }
@@ -105,7 +105,6 @@ impl Slider {
             held: Cell::new(false),
             let_go: Cell::new(None),
             last_sent: Cell::new(None),
-            trailing: Cell::new(None),
             pending: Cell::new(None),
             on_change: Box::new(on_change),
         }));
@@ -179,18 +178,15 @@ impl Slider {
         // A send is due later: it takes the newest value.
         if inner.pending.replace(Some(value)).is_none() {
             let weak = Rc::downgrade(&self.0);
-            let source = glib::timeout_add_local_once(wait, move || {
-                if let Some(inner) = weak.upgrade() {
-                    inner.trailing.set(None);
-                    if let Some(value) = inner.pending.take() {
+            glib::timeout_add_local_once(wait, move || {
+                if let Some(inner) = weak.upgrade()
+                    && let Some(value) = inner.pending.take() {
                         inner.last_sent.set(Some(Instant::now()));
                         SLIDER_SENT.set(Some(Instant::now()));
                         inner.let_go.set(Some(Instant::now()));
                         (inner.on_change)(value);
                     }
-                }
             });
-            inner.trailing.set(Some(source));
         }
     }
 }
@@ -264,8 +260,15 @@ pub fn clear(column: &gtk4::Box) {
     while let Some(child) = column.first_child() {
         column.remove(&child);
     }
+    // After the caller has refilled the list: shrinking an empty list first would make
+    // the window jump small and back.
     if let Some(window) = column.root().and_downcast::<gtk4::Window>() {
-        shrink_to_fit(&window);
+        let window = window.downgrade();
+        glib::idle_add_local_once(move || {
+            if let Some(window) = window.upgrade() {
+                shrink_to_fit(&window);
+            }
+        });
     }
 }
 
@@ -273,5 +276,10 @@ pub fn clear(column: &gtk4::Box) {
 /// window that got smaller content would keep an empty (and click-eating) area. Call
 /// after content got smaller.
 pub fn shrink_to_fit(window: &gtk4::Window) {
-    window.set_default_size(1, 1);
+    // The content's natural size, not 1×1: GTK would then use the minimum size, which
+    // for wrapping text is much narrower than the menu was (it visibly shrank).
+    let Some(child) = window.child() else { return };
+    let (_, width, _, _) = child.measure(gtk4::Orientation::Horizontal, -1);
+    let (_, height, _, _) = child.measure(gtk4::Orientation::Vertical, width);
+    window.set_default_size(width, height);
 }

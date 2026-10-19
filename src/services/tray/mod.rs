@@ -283,6 +283,20 @@ async fn add_item(tray: Weak<Tray>, conn: gio::DBusConnection, bus: String, path
     if tray.items.get().iter().any(|i| i.bus == bus && i.path == path) {
         return;
     }
+    // An app that quit while we were connecting: its NameOwnerChanged came before the
+    // item existed, so nothing would ever remove it (an empty icon stayed in the tray).
+    if !item.alive() {
+        tracing::debug!("tray: {bus} quit while registering");
+        return;
+    }
+    // And later, should that signal be missed: the proxy notices its owner leaving.
+    let weak = Rc::downgrade(&tray);
+    let (b, p) = (bus.clone(), path.clone());
+    item.on_gone(move || {
+        if let Some(tray) = weak.upgrade() {
+            tray.remove_where(|i| i.bus == b && i.path == p);
+        }
+    });
     let key = item.key();
     tracing::info!("tray: {key} added");
     tray.items.update(|items| {

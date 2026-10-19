@@ -13,6 +13,8 @@ each section. Read before changing any of these.
 - **GL renderer, not Vulkan.** The fork measured GL as cheaper with changing text, and GTK's
   Vulkan renderer was seen stalling for minutes in `wl_display_roundtrip` while opening a bar
   window. Set in `main` unless `GSK_RENDERER` is given.
+- **`GSK_DEBUG=full-redraw`** (set in `main`): GTK 4.22's partial redraw left streaks of the
+  old frame on the OSD bar (the fork saw the same on numbers). Whole-surface redraws fix it.
 - **Mesa glthread off** (`mesa_glthread=false` in `main`): two threads less, same CPU.
 - **Link gtk4-layer-shell before libwayland-client** (`build.rs`): layer-shell intercepts
   libwayland calls; with the wrong order bars become plain windows.
@@ -92,6 +94,12 @@ each section. Read before changing any of these.
   through a blocking Wayland roundtrip (`gdk_wayland_toplevel_focus`), so a compositor that is
   slow to answer freezes the whole shell. The menu gets the keyboard from its layer-shell
   keyboard mode instead.
+
+- A `Watch` listener must not change the same watch while it runs (the value is borrowed
+  during notification): defer with `glib::idle_add_local_once`, as popups and the menu's
+  focus rule do.
+- niri's `State::layout_serial` skips title-only changes; anything that doesn't show titles
+  (the dock) should check it before recomputing.
 
 ## Sandbox lessons
 
