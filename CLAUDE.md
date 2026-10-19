@@ -5,6 +5,7 @@ doesn't write code and checks visually: after each step — a screenshot, what's
 Everything in the project (UI text, error messages, docs, comments) is English. macOS is only a
 loose reference for the look.
 
+- [DECISIONS.md](DECISIONS.md) — non-obvious choices and why; read before changing them, add new ones.
 - [DESIGN.md](DESIGN.md) — design document: what we build, decisions, step order. `[decide]`
   marks questions for the user; without an answer, take the document's proposal and say so.
 - The living spec for behaviour and the reference for tricky parts is the fork in

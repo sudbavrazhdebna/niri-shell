@@ -243,3 +243,47 @@ button.session-button.armed {
     font-size: 0.8em;
     color: rgba(255, 255, 255, 0.75);
 }
+
+/* ---- OSD (looks like the swayosd setup it replaces) ---- */
+
+window.nshell-osd {
+    background: transparent;
+}
+
+.osd-card {
+    min-width: 260px;
+    padding: 14px 18px;
+    margin: 10px;
+    border-radius: 18px;
+    background-color: rgba(70, 71, 73, 0.45);
+    border: 1px solid rgba(11, 12, 14, 0.4);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 6px 14px rgba(0, 0, 0, 0.35);
+    color: white;
+}
+
+.osd-icon {
+    -gtk-icon-size: 22px;
+}
+
+.osd-level trough {
+    min-height: 6px;
+    border-radius: 3px;
+    background: rgb(80, 80, 80);
+    border: none;
+    box-shadow: none;
+}
+
+.osd-level trough block.filled {
+    border-radius: 3px;
+    border: none;
+    box-shadow: none;
+    background: white;
+}
+
+.osd-level trough block.empty {
+    background: transparent;
+}
+
+.osd-text {
+    font-weight: bold;
+}

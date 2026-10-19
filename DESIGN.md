@@ -243,7 +243,7 @@ Each step ends with something you can see or try.
 4. ✅ **Harder modules:** network, Bluetooth, tray.
 5. ✅ **Module menus** + switching on hover, blur.
 6. ✅ **Control center.**
-7. **OSD.**
+7. ✅ **OSD.**
 8. **Notifications** (popups + center in the clock menu).
 9. **Idle manager** — needs a real niri session. Then stasis goes.
 10. **Wallpaper** — swaybg goes.

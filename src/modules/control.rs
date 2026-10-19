@@ -157,7 +157,6 @@ fn sliders(services: &Rc<Services>) -> gtk4::Box {
     }
 
     let brightness = services.brightness();
-    brightness.refresh();
     if brightness.percent.get().is_some() {
         let s = services.clone();
         let slider = ui::slider(100.0, move |v| s.brightness().set_percent(v.round() as u32));

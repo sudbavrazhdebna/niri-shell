@@ -5,6 +5,7 @@ mod config;
 mod menu;
 mod modules;
 mod niri;
+mod osd;
 mod services;
 mod settings;
 mod ui;
@@ -50,7 +51,9 @@ fn main() -> glib::ExitCode {
         std::mem::forget(app.hold());
         let (config, problem) = settings::Settings::initial_config();
         let services = services::Services::new(niri::Niri::connect());
-        let bars = bar::Bars::start(app, config.clone(), services);
+        let bars = bar::Bars::start(app, config.clone(), services.clone());
+        // Lives as long as the app: the services hold its subscriptions.
+        std::mem::forget(osd::Osd::start(services));
         // Lives as long as the app: it holds the file watcher.
         std::mem::forget(settings::Settings::start(bars, &config, problem));
     });

@@ -109,6 +109,10 @@ pub fn open(anchor: &gtk4::Widget) {
     }
 }
 
+pub fn is_open() -> bool {
+    OPEN.with_borrow(Option::is_some)
+}
+
 /// Closes the open menu, if any.
 pub fn close() {
     cancel_pending();

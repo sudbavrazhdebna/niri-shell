@@ -9,9 +9,11 @@ publish = false
 [dependencies]
 gdk4-wayland = { version = "0.11", features = ["wayland_crate"] }
 gio-unix = "0.22"
+glib-unix = "0.22"
 gtk4 = { version = "0.11", package = "gtk4", features = ["v4_12"] }
 gtk4-layer-shell = "0.8"
 kdl = { version = "6", default-features = false, features = ["span", "v1-fallback"] }
+libc = "0.2"
 libpulse-binding = "2.29"
 libpulse-glib-binding = "2.29"
 niri-ipc = "26.4"

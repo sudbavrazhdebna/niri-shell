@@ -7,6 +7,7 @@ pub mod bluetooth;
 pub mod brightness;
 pub mod dbus;
 pub mod media;
+pub mod keys;
 pub mod network;
 pub mod power;
 pub mod session;
@@ -28,6 +29,8 @@ pub struct Services {
     brightness: OnceCell<brightness::Brightness>,
     media: OnceCell<media::Media>,
     session: OnceCell<session::Session>,
+    caps_lock: OnceCell<crate::watch::Watch<Option<bool>>>,
+    keyboard_backlight: OnceCell<crate::watch::Watch<Option<(u32, u64)>>>,
     audio: OnceCell<Option<Rc<audio::Audio>>>,
 }
 
@@ -43,6 +46,8 @@ impl Services {
             brightness: OnceCell::new(),
             media: OnceCell::new(),
             session: OnceCell::new(),
+            caps_lock: OnceCell::new(),
+            keyboard_backlight: OnceCell::new(),
             audio: OnceCell::new(),
         })
     }
@@ -77,6 +82,14 @@ impl Services {
 
     pub fn session(&self) -> &session::Session {
         self.session.get_or_init(session::Session::start)
+    }
+
+    pub fn caps_lock(&self) -> &crate::watch::Watch<Option<bool>> {
+        self.caps_lock.get_or_init(keys::caps_lock)
+    }
+
+    pub fn keyboard_backlight(&self) -> &crate::watch::Watch<Option<(u32, u64)>> {
+        self.keyboard_backlight.get_or_init(keys::keyboard_backlight)
     }
 
     /// None only if libpulse can't run at all.
