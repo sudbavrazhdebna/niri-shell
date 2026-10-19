@@ -59,10 +59,11 @@ impl Tray {
                     tray.on_bus(conn);
                 }
             },
-            move |_, _| {
+            move |conn, _| {
                 if let Some(tray) = on_name.upgrade() {
                     tracing::info!("tray: running the StatusNotifierWatcher");
                     tray.is_watcher.set(true);
+                    glib::spawn_future_local(adopt_existing(Rc::downgrade(&tray), conn));
                 }
             },
             move |conn, _| {
@@ -240,6 +241,31 @@ fn split_key(key: &str) -> (String, String) {
     match key.find('/') {
         Some(i) => (key[..i].to_string(), key[i..].to_string()),
         None => (key.to_string(), ITEM_PATH.to_string()),
+    }
+}
+
+/// Items of apps that registered with an earlier watcher (Qt and KDE apps own an
+/// `org.kde.StatusNotifierItem-…` name): Qt never registers again, so its icon was lost
+/// when the watcher restarted (AmneziaVPN after a shell restart).
+async fn adopt_existing(tray: Weak<Tray>, conn: gio::DBusConnection) {
+    let names = conn
+        .call_future(
+            Some("org.freedesktop.DBus"),
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "ListNames",
+            None,
+            None,
+            gio::DBusCallFlags::NONE,
+            -1,
+        )
+        .await
+        .ok()
+        .and_then(|v| v.get::<(Vec<String>,)>())
+        .map(|(names,)| names)
+        .unwrap_or_default();
+    for name in names.into_iter().filter(|n| n.starts_with("org.kde.StatusNotifierItem-")) {
+        add_item(tray.clone(), conn.clone(), name, ITEM_PATH.to_string()).await;
     }
 }
 

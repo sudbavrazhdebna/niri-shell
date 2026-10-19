@@ -18,10 +18,11 @@ shell: use `services::dbus::{child, lookup}`, not `child_value`/`VariantDict` on
 Buttons in CSS: use `background`, not `background-color` (the theme's image wins otherwise).
 
 Checks: `scripts/dev-nested.sh` (niri in a window, works from GNOME too; log `.dev/nshell.log`;
-stops the previous sandbox first), screenshot `scripts/dev-shot.sh <path>`, commands inside
+stops the previous sandbox first), restart only the shell (bus and apps stay)
+`scripts/dev-restart.sh`, screenshot `scripts/dev-shot.sh <path>`, commands inside
 `scripts/dev-run.sh <cmd>`, stop `scripts/dev-stop.sh` (sandbox processes only — never
 `pkill -f` with a pattern that may match the real session or your own shell), measure
 `scripts/dev-measure.sh 60`. Debug-build hooks: `NSHELL_DEV_MENU=<module>[@secs]` opens a
 menu, `NSHELL_DEV_TRAY_MENU=1` opens tray menus, `NSHELL_DEV_AWAKE=1` turns on Stay awake.
 Commands to the running shell: `nshell msg show-dock [secs]` (D-Bus `dev.nshell.Shell`).
-Fake apps: `scripts/test-tray-item.py`, `scripts/test-mpris-player.py`, `scripts/test-backdrop.py` (stripes to judge blur). One step — one commit.
+Fake apps: `scripts/test-tray-item.py` (`--qt`: registers once, like Qt), `scripts/test-mpris-player.py`, `scripts/test-backdrop.py` (stripes to judge blur). One step — one commit.

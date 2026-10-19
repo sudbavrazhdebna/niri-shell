@@ -9,6 +9,7 @@
 #   PROFILE=release ...              use the release build
 #
 # Log: .dev/nshell.log. Screenshot: scripts/dev-shot.sh. Commands inside: scripts/dev-run.sh.
+# Restart only the shell (the bus and apps stay): scripts/dev-restart.sh.
 # Stop: scripts/dev-stop.sh (also runs before every start).
 
 set -euo pipefail
@@ -63,5 +64,8 @@ exec niri -c "$DEV/niri.kdl" -- dbus-run-session -- sh -c '
     # No accessibility bus in the private D-Bus session.
     export GTK_A11Y=none
     export XDG_CONFIG_HOME="$1/config" XDG_DATA_HOME="$1/data" XDG_STATE_HOME="$1/state"
-    exec "$2" 2>&1 | tee "$1/nshell.log"
+    "$2" 2>&1 | tee "$1/nshell.log"
+    # The private bus ends with this script: keep it, so the shell can be restarted on it
+    # (scripts/dev-restart.sh) with the watcher and test apps still there.
+    exec sleep infinity
 ' sh "$DEV" "$BIN"

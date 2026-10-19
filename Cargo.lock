@@ -784,7 +784,9 @@ name = "nshell"
 version = "0.1.0"
 dependencies = [
  "gdk4-wayland",
+ "gio",
  "gio-unix",
+ "glib",
  "glib-build-tools",
  "glib-unix",
  "gtk4",

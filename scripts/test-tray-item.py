@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """A fake tray app for testing nshell's tray in the sandbox.
 
-    scripts/dev-run.sh python3 scripts/test-tray-item.py [--pixmap] [--passive]
+    scripts/dev-run.sh python3 scripts/test-tray-item.py [--pixmap] [--passive] [--qt]
+
+Like Qt apps, it registers once and never again. With --qt it also owns the name
+org.kde.StatusNotifierItem-<pid>-1 and registers by that name, as Qt does.
 
 Prints every menu click and activation. Send SIGUSR1 to switch its icon.
 """
+import os
 import signal
 import sys
 
@@ -121,10 +125,17 @@ def main():
 
     GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, next_icon)
 
+    service = conn.get_unique_name()
+    if "--qt" in sys.argv:
+        service = f"org.kde.StatusNotifierItem-{os.getpid()}-1"
+        conn.call_sync("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+                       "RequestName", GLib.Variant("(su)", (service, 0)), None,
+                       Gio.DBusCallFlags.NONE, -1, None)
+
     def register():
         conn.call_sync("org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher",
                        "org.kde.StatusNotifierWatcher", "RegisterStatusNotifierItem",
-                       GLib.Variant("(s)", (conn.get_unique_name(),)), None,
+                       GLib.Variant("(s)", (service,)), None,
                        Gio.DBusCallFlags.NONE, -1, None)
         print("registered", flush=True)
         return GLib.SOURCE_REMOVE

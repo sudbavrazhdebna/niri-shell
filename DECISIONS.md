@@ -39,6 +39,18 @@ each section. Read before changing any of these.
   never-revealed revealer doesn't know its child's width), so hovering did nothing after a
   restart.
 
+## Tray
+
+- The StatusNotifierWatcher runs as its own small process (`nshell-tray-watcher`, no GTK,
+  ~2 MB of its own memory, no CPU while idle), started before the shell; the shell reads
+  the items from it. Qt apps register their icon once: when the watcher went away with a
+  restarting shell, AmneziaVPN's icon never came back. Without that process the shell is
+  the watcher itself, as before.
+- Whoever becomes the watcher adopts the `org.kde.StatusNotifierItem-…` names already on
+  the bus (Qt and KDE apps own one per icon), so their icons survive a handover.
+- The watcher always answers "a host is registered", so apps put up their icon even while
+  the shell restarts.
+
 ## Config
 
 - The dock's pin/unpin writes the `pinned` line back into config.kdl through the `kdl` crate,
@@ -150,6 +162,8 @@ each section. Read before changing any of these.
 
 ## Sandbox lessons
 
+- The sandbox's private bus outlives the shell (it used to end with it, taking test apps
+  and the tray watcher along), so `scripts/dev-restart.sh` can restart just the shell.
 - One nested niri at a time: GNOME stops drawing a covered nested window, and that niri then
   hangs waiting for a frame (and ignores SIGTERM). `dev-nested.sh` stops the previous one.
 - The sandbox replaces `XDG_DATA_HOME`; user icon themes and app entries are linked in, or
