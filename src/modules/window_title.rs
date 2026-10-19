@@ -10,9 +10,6 @@ use gtk4::prelude::*;
 
 use super::Context;
 
-/// Longer titles are cut with "…".
-const MAX_CHARS: i32 = 80;
-
 /// Terminal titles animate (spinners, progress) many times a second, and every change
 /// redraws the bar. Title-only changes are shown at most this often; switching windows
 /// is always instant.
@@ -42,7 +39,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     icon.add_css_class("app-icon");
     let label = gtk4::Label::new(None);
     label.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-    label.set_max_width_chars(MAX_CHARS);
+    label.set_max_width_chars(ctx.config.window_title.max_length);
     root.append(&icon);
     root.append(&label);
 

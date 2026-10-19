@@ -20,9 +20,7 @@ pub fn build(name: &str, ctx: &Context) -> Option<gtk4::Widget> {
     match name {
         "clock" => Some(clock::build(ctx)),
         "window-title" => Some(window_title::build(ctx)),
-        _ => {
-            tracing::warn!("unknown module {name:?}");
-            None
-        }
+        // Accepted by the config, not written yet.
+        _ => None,
     }
 }

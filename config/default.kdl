@@ -1,0 +1,33 @@
+// nshell config. Saved changes apply right away, no restart needed.
+// If something here is wrong, the bar shows ⚠ (hover it for the reason)
+// and keeps the previous settings.
+
+// Icon theme for app icons. Without it, the GTK theme is used.
+// icon-theme "MoreWaita-Yaru"
+
+bar {
+    // Height in pixels; icons and text are centered vertically.
+    height 34
+
+    left "window-title"
+    center "clock"
+    right "tray" "keyboard" "network" "bluetooth" "volume" "battery" "control"
+}
+
+clock {
+    // %d day, %b month, %a weekday, %H:%M time, %S seconds.
+    format "%d %b  %H:%M"
+}
+
+window-title {
+    // Longer titles are cut with "…".
+    max-length 80
+
+    // "pattern" "replacement": the first matching one wins, $1 is the part in ( ).
+    rewrite "^(.*) - YouTube — Mozilla Firefox$" "$1"
+    rewrite "^(.*) — Mozilla Firefox$" "$1"
+    rewrite "^(.*) - Text Editor$" "$1"
+    rewrite "^(.*) - Discord$" "$1"
+    rewrite "^(.*) - Sublime Text( \\(UNREGISTERED\\))?$" "$1"
+    rewrite "^(.*) – GIMP$" "$1"
+}

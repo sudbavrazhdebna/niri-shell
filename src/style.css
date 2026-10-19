@@ -21,3 +21,7 @@ window.bar {
 .window-title .app-icon {
     -gtk-icon-size: 20px;
 }
+
+.bar-content .problem {
+    color: #ffcc33;
+}

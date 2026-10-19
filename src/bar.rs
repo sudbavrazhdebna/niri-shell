@@ -1,4 +1,4 @@
-//! One bar window per monitor, kept in sync with monitor hotplug.
+//! One bar window per monitor, kept in sync with monitor hotplug and config reloads.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -13,30 +13,57 @@ use crate::niri::Niri;
 
 pub struct Bars {
     app: gtk4::Application,
-    config: Rc<Config>,
     niri: Niri,
+    config: RefCell<Rc<Config>>,
+    /// Shown as ⚠ on the bar, with the text in the tooltip.
+    problems: RefCell<Vec<String>>,
     windows: RefCell<Vec<(gdk::Monitor, gtk4::ApplicationWindow)>>,
 }
 
 impl Bars {
-    pub fn start(app: &gtk4::Application, config: Rc<Config>, niri: Niri) {
-        let Some(display) = gdk::Display::default() else {
-            tracing::error!("no display");
-            return;
-        };
-
+    pub fn start(app: &gtk4::Application, config: Rc<Config>, niri: Niri) -> Rc<Bars> {
         let bars = Rc::new(Bars {
             app: app.clone(),
-            config,
             niri,
+            config: RefCell::new(config),
+            problems: RefCell::new(Vec::new()),
             windows: RefCell::new(Vec::new()),
         });
 
-        let monitors = display.monitors();
-        bars.sync(&monitors);
+        if let Some(display) = gdk::Display::default() {
+            let monitors = display.monitors();
+            bars.sync(&monitors);
+            let this = bars.clone();
+            monitors.connect_items_changed(move |monitors, _, _, _| this.sync(monitors));
+        } else {
+            tracing::error!("no display");
+        }
+        bars
+    }
 
-        // The handler owns the bars: they live as long as the display does.
-        monitors.connect_items_changed(move |monitors, _, _, _| bars.sync(monitors));
+    /// Rebuilds every bar with new settings.
+    pub fn set_config(&self, config: Rc<Config>, problems: Vec<String>) {
+        self.config.replace(config);
+        self.problems.replace(problems);
+        self.rebuild();
+    }
+
+    /// Updates the ⚠ indicator; an empty list hides it.
+    pub fn set_problems(&self, problems: Vec<String>) {
+        if *self.problems.borrow() == problems {
+            return;
+        }
+        self.problems.replace(problems);
+        self.rebuild();
+    }
+
+    fn rebuild(&self) {
+        for (_, window) in self.windows.take() {
+            window.destroy();
+        }
+        if let Some(display) = gdk::Display::default() {
+            self.sync(&display.monitors());
+        }
     }
 
     /// Opens a bar on every new monitor and closes bars of the removed ones.
@@ -61,7 +88,7 @@ impl Bars {
             let output = monitor.connector().map(String::from).unwrap_or_default();
             tracing::info!(output, "bar opened");
             let ctx = modules::Context {
-                config: self.config.clone(),
+                config: self.config.borrow().clone(),
                 niri: self.niri.clone(),
                 output,
             };
@@ -70,8 +97,12 @@ impl Bars {
         }
     }
 
-    fn build_window(&self, monitor: &gdk::Monitor, ctx: &modules::Context) -> gtk4::ApplicationWindow {
-        let height = self.config.bar.height;
+    fn build_window(
+        &self,
+        monitor: &gdk::Monitor,
+        ctx: &modules::Context,
+    ) -> gtk4::ApplicationWindow {
+        let height = ctx.config.bar.height;
         let window = gtk4::ApplicationWindow::new(&self.app);
         window.add_css_class("bar");
 
@@ -94,9 +125,10 @@ impl Bars {
     /// Three zones like a menu bar: left, center, right. The center stays centered
     /// on the screen no matter how wide the sides get.
     fn build_content(&self, ctx: &modules::Context) -> gtk4::CenterBox {
+        let bar = &ctx.config.bar;
         let content = gtk4::CenterBox::new();
         content.add_css_class("bar-content");
-        content.set_height_request(self.config.bar.height);
+        content.set_height_request(bar.height);
 
         let zone = |class: &str, names: &[String]| {
             let zone = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
@@ -110,10 +142,25 @@ impl Bars {
             }
             zone
         };
-        let bar = &self.config.bar;
-        content.set_start_widget(Some(&zone("left", &bar.left)));
+        let left = zone("left", &bar.left);
+        if let Some(warning) = self.problem_indicator() {
+            left.prepend(&warning);
+        }
+        content.set_start_widget(Some(&left));
         content.set_center_widget(Some(&zone("center", &bar.center)));
         content.set_end_widget(Some(&zone("right", &bar.right)));
         content
+    }
+
+    fn problem_indicator(&self) -> Option<gtk4::Label> {
+        let problems = self.problems.borrow();
+        if problems.is_empty() {
+            return None;
+        }
+        let label = gtk4::Label::new(Some("⚠"));
+        label.add_css_class("module");
+        label.add_css_class("problem");
+        label.set_tooltip_text(Some(&problems.join("\n")));
+        Some(label)
     }
 }

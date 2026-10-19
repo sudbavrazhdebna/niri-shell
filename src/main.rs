@@ -3,8 +3,7 @@ mod bar;
 mod config;
 mod modules;
 mod niri;
-
-use std::rc::Rc;
+mod settings;
 
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
@@ -13,6 +12,12 @@ use tracing_subscriber::EnvFilter;
 const APP_ID: &str = "dev.nshell.Shell";
 
 fn main() -> glib::ExitCode {
+    if std::env::var_os("GSK_RENDERER").is_none() {
+        // GL: least CPU when text changes often (measured in the wayle fork), and GTK's
+        // default Vulkan renderer was seen stalling for minutes while opening a bar window.
+        // SAFETY: nothing else runs yet, so no thread can read the environment concurrently.
+        unsafe { std::env::set_var("GSK_RENDERER", "gl") };
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_env("NSHELL_LOG").unwrap_or_else(|_| EnvFilter::new("info")),
@@ -29,9 +34,11 @@ fn main() -> glib::ExitCode {
         // Without this the app quits as soon as the last bar goes away
         // (e.g. all monitors unplugged).
         std::mem::forget(app.hold());
-        let config = Rc::new(config::Config::default());
+        let (config, problem) = settings::Settings::initial_config();
         let niri = niri::Niri::connect();
-        bar::Bars::start(app, config, niri);
+        let bars = bar::Bars::start(app, config.clone(), niri);
+        // Lives as long as the app: it holds the file watcher.
+        std::mem::forget(settings::Settings::start(bars, &config, problem));
     });
 
     app.run_with_args::<&str>(&[])

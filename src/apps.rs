@@ -25,6 +25,11 @@ pub fn icon(app_id: &str) -> Option<gio::Icon> {
     })
 }
 
+/// Forgets looked-up icons, e.g. after the icon theme changed.
+pub fn clear_cache() {
+    ICONS.with_borrow_mut(|cache| cache.clear());
+}
+
 fn lookup(app_id: &str) -> Option<gio::Icon> {
     let icon = desktop_entry(app_id)?.icon()?;
 
