@@ -1,0 +1,74 @@
+# Styling nshell
+
+nshell is drawn with GTK4, and GTK is styled with CSS — close to the CSS of web pages, with
+GTK's own properties and without layout (no `display`, `flex`, `position`: the layout comes
+from the code).
+
+## Where the styles come from
+
+1. **Built-in style**: [`src/style.css`](src/style.css), compiled into the program. It holds
+   the whole look: bar, menus, OSD, notifications, dock.
+2. **Your style**: `~/.config/nshell/style.css` (doesn't exist until you create it). It goes on
+   top of the built-in one, so a rule there wins over the same rule built in. **Saved changes
+   apply at once**, no restart. A mistake shows ⚠ on the bar with the line in its tooltip.
+
+So: don't edit `src/style.css` for personal taste (that needs a rebuild); put overrides in your
+`style.css`. Copy a rule from the built-in file and change what you need.
+
+The font family is never set: the system font is used. Colours are not taken from the GTK theme
+either: the shell looks the same whatever apps use.
+
+## Examples
+
+```css
+/* Bigger battery icon */
+.bar-content .battery { -gtk-icon-size: 28px; }
+
+/* All bar icons more transparent */
+.bar-content .icon { opacity: 0.75; }
+
+/* Bar text: smaller and lighter */
+.bar-content .module { font-size: 15px; font-weight: normal; }
+
+/* No hover plate on the bar */
+.bar-content .module.has-menu:hover { background-color: transparent; }
+
+/* Menus: more see-through glass, rounder corners */
+.menu-card { background-color: rgba(28, 29, 32, 0.55); border-radius: 18px; }
+
+/* OSD bar colour */
+.osd-level trough block.filled { background: #4ea1ff; }
+
+/* Focused app dot in the dock */
+.dock-item.focused .dot { background-color: #ff9f0a; }
+```
+
+Note: blur follows the rounded shape of menus, popups, the OSD and the dock, and the code
+knows their corner radius (14 px menus, 12 px notifications, 18 px OSD, 16 px dock). With a
+different `border-radius` the blur corners won't match exactly.
+
+## GTK specifics worth knowing
+
+- **Buttons** need `background`, not `background-color`, to change their fill: the theme paints
+  buttons with a background image that would cover the colour.
+- **Icon size** is `-gtk-icon-size`, not `width`/`height`.
+- **Shadows**: `box-shadow` for boxes, `text-shadow` for text, `-gtk-icon-shadow` for icons.
+- **Sizes**: `min-width` / `min-height`, there is no `width`/`height`.
+- **Hover** is `:hover`; nshell also adds classes: `.has-menu` (the module has a menu),
+  `.menu-open` (its menu is open), `.active` (a tile that's on, the connected network row),
+  `.focused` / `.urgent` (dock apps), `.critical` (notifications).
+
+## Where things are
+
+| Part | Classes |
+|---|---|
+| bar | `window.bar`, `.bar-content`; every module is `.module` plus its name: `.clock`, `.window-title`, `.keyboard`, `.network`, `.bluetooth`, `.volume`, `.battery`, `.control`, `.tray-item`; icon modules also `.icon` |
+| clock extras | `.clock-dot` (unseen notifications), `.clock-dnd` |
+| menus | `.menu-card` (the glass card), `.menu-title`, `.menu-note`, `.menu-separator`, `button.menu-item`, `.menu-check`, `.menu-header` (title with a switch), `.menu-slider-row`, `.menu-value`, `.menu-trailing` |
+| network menu | `.connected-card`, `.connected-name`, `.connected-details`, `.menu-password` |
+| battery menu | `.battery-facts`, `.fact-name`, `.fact-value` |
+| sound menu | `.app-stream-name` |
+| control center | `.control-center`, `button.tile` (+ `.active`), `.tile-title`, `.tile-subtitle`, `.control-sliders`, `.system-stats`, `.stat-bar`, `.player`, `.power-profiles`, `button.session-button` (+ `.armed`) |
+| OSD | `.osd-card`, `.osd-icon`, `.osd-level` (the bar: `trough`, `block.filled`), `.osd-text` |
+| notifications | `.notification` (+ `.critical`), `.notification-image`, `.summary`, `.body`, `.time`, `button.close-button`, `button.action`; popups sit in `.popup-column`, the center is `.notification-center` with `button.stack-more`, `button.clear-all` |
+| dock | `.dock` (the card), `.dock-item` (+ `.focused`, `.urgent`), `.dock-icon`, `.dot`, `button.dock-button` (overview), `.dock-hot-edge` |
