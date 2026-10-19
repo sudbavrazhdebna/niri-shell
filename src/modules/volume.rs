@@ -50,8 +50,9 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     let (a, b) = (audio.clone(), audio.clone());
     let output = LevelRow::new(move || a.toggle_mute(), move |v| b.set_percent(v));
     column.append(&output.row);
-    let row = output.row.clone();
-    audio.state.bind(&row, move |_, state| {
+    // Bound to the column, not the row: the closure owns the row, which would then
+    // never go away, and neither would the listener.
+    audio.state.bind(&column, move |_, state| {
         output.show(icon(state), state.percent, state.muted);
     });
 

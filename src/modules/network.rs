@@ -50,6 +50,7 @@ fn wifi_icon(strength: u8) -> &'static str {
 fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
     let column = ui::column();
     column.set_width_request(320);
+    // The switch's handler keeps the Wi-Fi session alive for as long as the menu shows.
     let w = wifi.clone();
     let (header, set_switch) = ui::header_switch("Wi-Fi", move |on| w.set_enabled(on));
     column.append(&header);
@@ -63,8 +64,11 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
         ui::launch("nm-connection-editor");
     }));
 
-    let w = wifi.clone();
+    // Weak: the session's own state holds this listener, and a strong reference here
+    // kept the session (and its NetworkManager signals) after the menu closed.
+    let w = Rc::downgrade(&wifi);
     wifi.state.bind(&list, move |list, state| {
+        let Some(w) = w.upgrade() else { return };
         set_switch(state.enabled);
         card.update(state.networks.iter().find(|n| n.active).filter(|_| state.enabled), state);
         ui::clear(list);

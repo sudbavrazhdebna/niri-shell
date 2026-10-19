@@ -119,6 +119,11 @@ each section. Read before changing any of these.
 - A `Watch` listener must not change the same watch while it runs (the value is borrowed
   during notification): defer with `glib::idle_add_local_once`, as popups and the menu's
   focus rule do.
+- `Watch::bind` drops its listener once the bound widget is gone, so the closure must not
+  own that widget (or anything owning it): the sound menu bound its row and captured the
+  row, and every opening left a listener for good. Nor may it hold the service that owns
+  the watch (an `Rc` cycle: the Wi-Fi menu kept NetworkManager signals after closing).
+  Dead bound listeners are cleared at the next subscription, not only the next change.
 - niri's `State::layout_serial` skips title-only changes; anything that doesn't show titles
   (the dock) should check it before recomputing.
 
