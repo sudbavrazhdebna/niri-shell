@@ -66,7 +66,7 @@ Docker comes at the very end, as its own module.
 
 One menu with the everyday things:
 
-1. Toggle tiles: Wi-Fi, Bluetooth, Stay awake (blocks idle); Do not disturb comes with step 8.
+1. Toggle tiles: Wi-Fi, Bluetooth, Stay awake (blocks idle), Keyboard light (Off → Low → High).
 2. Sliders: volume, screen brightness.
 3. Player (what's playing, previous / play-pause / next), only while something plays.
 4. Power mode: saver / balanced / performance.

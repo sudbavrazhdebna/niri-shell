@@ -114,48 +114,90 @@ fn led_state(file: &File) -> bool {
     ok && bits[0] & (1 << LED_CAPSL) != 0
 }
 
-/// Keyboard backlight level in percent, changed with the Fn key. Each change bumps
-/// the counter, so the same level twice still counts as an event.
-pub fn keyboard_backlight() -> Watch<Option<(u32, u64)>> {
-    let watch = Watch::new(None);
-    let w = watch.clone();
-    glib::spawn_future_local(async move {
-        let proxy = gio::DBusProxy::for_bus_future(
-            gio::BusType::System,
-            gio::DBusProxyFlags::DO_NOT_LOAD_PROPERTIES,
-            None,
-            "org.freedesktop.UPower",
-            "/org/freedesktop/UPower/KbdBacklight",
-            "org.freedesktop.UPower.KbdBacklight",
-        )
-        .await;
-        let Ok(proxy) = proxy else { return };
-        let max = proxy
-            .call_future("GetMaxBrightness", None, gio::DBusCallFlags::NONE, -1)
-            .await
-            .ok()
-            .and_then(|v| v.get::<(i32,)>())
-            .map(|(m,)| m)
-            .filter(|m| *m > 0);
-        let Some(max) = max else { return };
-        // The handler keeps the proxy alive for the life of the process.
-        proxy.connect_local("g-signal", false, move |args| {
-            let name = args.get(2).and_then(|v| v.get::<String>().ok()).unwrap_or_default();
-            let params = args.get(3).and_then(|v| v.get::<glib::Variant>().ok());
-            // "internal" is the Fn key; "external" are changes made by software.
-            if name == "BrightnessChangedWithSource"
-                && let Some((value, source)) = params.and_then(|p| p.get::<(i32, String)>())
-                && source == "internal"
-            {
-                let percent = (f64::from(value) * 100.0 / f64::from(max)).round() as u32;
-                w.update(|state| {
-                    let serial = state.map_or(0, |(_, s)| s + 1);
-                    *state = Some((percent, serial));
-                    true
-                });
-            }
-            None
+/// Keyboard backlight (UPower): the level for the control center, and Fn-key changes
+/// for the OSD.
+pub struct KeyboardLight {
+    /// (level, max), None without a backlight.
+    pub level: Watch<Option<(i32, i32)>>,
+    /// Level in percent after each Fn-key change; the counter makes repeats count.
+    pub fn_key: Watch<Option<(u32, u64)>>,
+    proxy: std::rc::Rc<std::cell::RefCell<Option<gio::DBusProxy>>>,
+}
+
+impl KeyboardLight {
+    pub fn start() -> KeyboardLight {
+        let light = KeyboardLight {
+            level: Watch::new(None),
+            fn_key: Watch::new(None),
+            proxy: std::rc::Rc::default(),
+        };
+        let (level, fn_key, slot) = (light.level.clone(), light.fn_key.clone(), light.proxy.clone());
+        glib::spawn_future_local(async move {
+            let proxy = gio::DBusProxy::for_bus_future(
+                gio::BusType::System,
+                gio::DBusProxyFlags::DO_NOT_LOAD_PROPERTIES,
+                None,
+                "org.freedesktop.UPower",
+                "/org/freedesktop/UPower/KbdBacklight",
+                "org.freedesktop.UPower.KbdBacklight",
+            )
+            .await;
+            let Ok(proxy) = proxy else { return };
+            let get = |method: &'static str| {
+                let proxy = proxy.clone();
+                async move {
+                    proxy
+                        .call_future(method, None, gio::DBusCallFlags::NONE, -1)
+                        .await
+                        .ok()
+                        .and_then(|v| v.get::<(i32,)>())
+                        .map(|(x,)| x)
+                }
+            };
+            let Some(max) = get("GetMaxBrightness").await.filter(|m| *m > 0) else { return };
+            level.set(get("GetBrightness").await.map(|now| (now, max)));
+            slot.replace(Some(proxy.clone()));
+            // The handler keeps the proxy alive for the life of the process.
+            proxy.connect_local("g-signal", false, move |args| {
+                let name = args.get(2).and_then(|v| v.get::<String>().ok()).unwrap_or_default();
+                let params = args.get(3).and_then(|v| v.get::<glib::Variant>().ok());
+                match name.as_str() {
+                    "BrightnessChanged" => {
+                        if let Some((value,)) = params.and_then(|p| p.get::<(i32,)>()) {
+                            level.set(Some((value, max)));
+                        }
+                    }
+                    // "internal" is the Fn key; "external" are changes made by software.
+                    "BrightnessChangedWithSource" => {
+                        if let Some((value, source)) = params.and_then(|p| p.get::<(i32, String)>()) {
+                            level.set(Some((value, max)));
+                            if source == "internal" {
+                                let percent = (f64::from(value) * 100.0 / f64::from(max)).round() as u32;
+                                fn_key.update(|state| {
+                                    let serial = state.map_or(0, |(_, s)| s + 1);
+                                    *state = Some((percent, serial));
+                                    true
+                                });
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+                None
+            });
         });
-    });
-    watch
+        light
+    }
+
+    pub fn set(&self, value: i32) {
+        let Some(proxy) = self.proxy.borrow().clone() else { return };
+        glib::spawn_future_local(async move {
+            let result = proxy
+                .call_future("SetBrightness", Some(&(value,).to_variant()), gio::DBusCallFlags::NONE, -1)
+                .await;
+            if let Err(err) = result {
+                tracing::warn!("keyboard backlight: {err}");
+            }
+        });
+    }
 }

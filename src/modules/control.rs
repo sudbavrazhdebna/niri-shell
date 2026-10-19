@@ -95,7 +95,39 @@ fn tiles(services: &Rc<Services>) -> gtk4::Grid {
     grid.attach(&wifi.button, 0, 0, 1, 1);
     grid.attach(&bt.button, 1, 0, 1, 1);
     grid.attach(&awake.button, 0, 1, 1, 1);
+    grid.attach(&keyboard_light_tile(services), 1, 1, 1, 1);
     grid
+}
+
+/// Keyboard backlight: a click steps through the levels (Off → Low → High → Off).
+fn keyboard_light_tile(services: &Rc<Services>) -> gtk4::Button {
+    let light = services.keyboard_light();
+    // Hidden until UPower answers, and for good on machines without a backlight.
+    let s = services.clone();
+    let tile = tile("keyboard-brightness-symbolic", "Keyboard light", move |_| {
+        let light = s.keyboard_light();
+        if let Some((now, max)) = *light.level.get() {
+            light.set(if now >= max { 0 } else { now + 1 });
+        }
+    });
+    let (subtitle, set) = (tile.subtitle.clone(), tile.set.clone());
+    light.level.bind(&tile.button, move |button, level| {
+        button.set_visible(level.is_some());
+        let Some((now, max)) = *level else { return };
+        set(now > 0);
+        subtitle.set_label(&level_name(now, max));
+    });
+    tile.button
+}
+
+/// "Off", "Low", "High" for three levels; a percent for more.
+fn level_name(now: i32, max: i32) -> String {
+    match (now, max) {
+        (0, _) => "Off".into(),
+        (1, 2) => "Low".into(),
+        (n, m) if n == m => "High".into(),
+        (n, m) => format!("{}%", n * 100 / m.max(1)),
+    }
 }
 
 struct Tile {

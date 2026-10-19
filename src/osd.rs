@@ -94,7 +94,7 @@ impl Osd {
         });
 
         let weak = Rc::downgrade(self);
-        services.keyboard_backlight().subscribe(move |level| {
+        services.keyboard_light().fn_key.subscribe(move |level| {
             if let (Some(osd), Some((percent, _))) = (weak.upgrade(), level) {
                 osd.show(Content::Level {
                     icon: "keyboard-brightness-symbolic".into(),
@@ -201,12 +201,13 @@ impl Osd {
 }
 
 fn volume(state: &AudioState) -> Content {
+    // The same icons as the bar.
     let icon = match state.percent {
-        _ if state.muted => "audio-volume-muted-symbolic",
-        0 => "audio-volume-muted-symbolic",
-        1..=33 => "audio-volume-low-symbolic",
-        34..=66 => "audio-volume-medium-symbolic",
-        _ => "audio-volume-high-symbolic",
+        _ if state.muted => "nshell-volume-mute",
+        0 => "nshell-volume-mute",
+        1..=33 => "nshell-volume-20",
+        34..=66 => "nshell-volume-50",
+        _ => "nshell-volume-100",
     };
     let percent = if state.muted { 0 } else { state.percent };
     Content::Level { icon: icon.into(), percent }

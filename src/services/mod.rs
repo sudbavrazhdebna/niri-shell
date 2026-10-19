@@ -34,7 +34,7 @@ pub struct Services {
     clock: OnceCell<Rc<clock::Clock>>,
     notifications: OnceCell<Rc<notifications::Notifications>>,
     caps_lock: OnceCell<crate::watch::Watch<Option<bool>>>,
-    keyboard_backlight: OnceCell<crate::watch::Watch<Option<(u32, u64)>>>,
+    keyboard_light: OnceCell<keys::KeyboardLight>,
     audio: OnceCell<Option<Rc<audio::Audio>>>,
 }
 
@@ -53,7 +53,7 @@ impl Services {
             clock: OnceCell::new(),
             notifications: OnceCell::new(),
             caps_lock: OnceCell::new(),
-            keyboard_backlight: OnceCell::new(),
+            keyboard_light: OnceCell::new(),
             audio: OnceCell::new(),
         })
     }
@@ -94,8 +94,8 @@ impl Services {
         self.caps_lock.get_or_init(keys::caps_lock)
     }
 
-    pub fn keyboard_backlight(&self) -> &crate::watch::Watch<Option<(u32, u64)>> {
-        self.keyboard_backlight.get_or_init(keys::keyboard_backlight)
+    pub fn keyboard_light(&self) -> &keys::KeyboardLight {
+        self.keyboard_light.get_or_init(keys::KeyboardLight::start)
     }
 
     pub fn notifications(&self) -> &Rc<notifications::Notifications> {
