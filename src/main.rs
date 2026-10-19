@@ -1,4 +1,10 @@
+mod apps;
 mod bar;
+mod config;
+mod modules;
+mod niri;
+
+use std::rc::Rc;
 
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
@@ -23,7 +29,9 @@ fn main() -> glib::ExitCode {
         // Without this the app quits as soon as the last bar goes away
         // (e.g. all monitors unplugged).
         std::mem::forget(app.hold());
-        bar::Bars::start(app);
+        let config = Rc::new(config::Config::default());
+        let niri = niri::Niri::connect();
+        bar::Bars::start(app, config, niri);
     });
 
     app.run_with_args::<&str>(&[])

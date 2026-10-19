@@ -1,15 +1,23 @@
-/* Built-in look. A user style.css on top of this comes in step 2. */
+/* Built-in look. A user style.css on top of this comes in step 2.
+   The font family is not set on purpose: the system one is used. */
 
 window.bar {
     background: transparent;
 }
 
 .bar-content {
-    padding: 0 10px;
+    padding: 0 6px;
 }
 
-.bar-content label {
+.bar-content .module {
+    margin: 0 8px;
     color: white;
-    font-weight: bold;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    font-size: 16px;
+    font-weight: 500;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+    -gtk-icon-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.window-title .app-icon {
+    -gtk-icon-size: 20px;
 }

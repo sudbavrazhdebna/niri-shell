@@ -4,19 +4,22 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk4::prelude::*;
-use gtk4::{gdk, gio, glib};
+use gtk4::{gdk, gio};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
-/// Bar height in pixels. Moves to the config in step 2.
-const HEIGHT: i32 = 34;
+use crate::config::Config;
+use crate::modules;
+use crate::niri::Niri;
 
 pub struct Bars {
     app: gtk4::Application,
+    config: Rc<Config>,
+    niri: Niri,
     windows: RefCell<Vec<(gdk::Monitor, gtk4::ApplicationWindow)>>,
 }
 
 impl Bars {
-    pub fn start(app: &gtk4::Application) {
+    pub fn start(app: &gtk4::Application, config: Rc<Config>, niri: Niri) {
         let Some(display) = gdk::Display::default() else {
             tracing::error!("no display");
             return;
@@ -24,6 +27,8 @@ impl Bars {
 
         let bars = Rc::new(Bars {
             app: app.clone(),
+            config,
+            niri,
             windows: RefCell::new(Vec::new()),
         });
 
@@ -53,56 +58,62 @@ impl Bars {
             if windows.iter().any(|(m, _)| *m == monitor) {
                 continue;
             }
-            tracing::info!(connector = ?monitor.connector(), "bar opened");
-            let window = build_window(&self.app, &monitor);
+            let output = monitor.connector().map(String::from).unwrap_or_default();
+            tracing::info!(output, "bar opened");
+            let ctx = modules::Context {
+                config: self.config.clone(),
+                niri: self.niri.clone(),
+                output,
+            };
+            let window = self.build_window(&monitor, &ctx);
             windows.push((monitor, window));
         }
     }
-}
 
-fn build_window(app: &gtk4::Application, monitor: &gdk::Monitor) -> gtk4::ApplicationWindow {
-    let window = gtk4::ApplicationWindow::new(app);
-    window.add_css_class("bar");
+    fn build_window(&self, monitor: &gdk::Monitor, ctx: &modules::Context) -> gtk4::ApplicationWindow {
+        let height = self.config.bar.height;
+        let window = gtk4::ApplicationWindow::new(&self.app);
+        window.add_css_class("bar");
 
-    window.init_layer_shell();
-    window.set_namespace(Some("nshell-bar"));
-    window.set_layer(Layer::Top);
-    window.set_monitor(Some(monitor));
-    window.set_keyboard_mode(KeyboardMode::None);
-    for edge in [Edge::Top, Edge::Left, Edge::Right] {
-        window.set_anchor(edge, true);
+        window.init_layer_shell();
+        window.set_namespace(Some("nshell-bar"));
+        window.set_layer(Layer::Top);
+        window.set_monitor(Some(monitor));
+        window.set_keyboard_mode(KeyboardMode::None);
+        for edge in [Edge::Top, Edge::Left, Edge::Right] {
+            window.set_anchor(edge, true);
+        }
+        window.auto_exclusive_zone_enable();
+        window.set_default_size(-1, height);
+
+        window.set_child(Some(&self.build_content(ctx)));
+        window.present();
+        window
     }
-    window.auto_exclusive_zone_enable();
-    window.set_default_size(-1, HEIGHT);
 
-    window.set_child(Some(&build_content()));
-    window.present();
-    window
-}
+    /// Three zones like a menu bar: left, center, right. The center stays centered
+    /// on the screen no matter how wide the sides get.
+    fn build_content(&self, ctx: &modules::Context) -> gtk4::CenterBox {
+        let content = gtk4::CenterBox::new();
+        content.add_css_class("bar-content");
+        content.set_height_request(self.config.bar.height);
 
-/// Three zones like a menu bar: left, center, right. The center stays centered
-/// on the screen no matter how wide the sides get.
-fn build_content() -> gtk4::CenterBox {
-    let content = gtk4::CenterBox::new();
-    content.add_css_class("bar-content");
-    content.set_height_request(HEIGHT);
-
-    let zone = |name: &str| {
-        let zone = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-        zone.add_css_class(name);
-        zone.set_valign(gtk4::Align::Center);
-        zone
-    };
-    let (left, center, right) = (zone("left"), zone("center"), zone("right"));
-
-    left.append(&gtk4::Label::new(Some("nshell")));
-    center.append(&gtk4::Label::new(Some(&glib::DateTime::now_local().map_or_else(
-        |_| String::new(),
-        |now| now.format("%H:%M").map(String::from).unwrap_or_default(),
-    ))));
-
-    content.set_start_widget(Some(&left));
-    content.set_center_widget(Some(&center));
-    content.set_end_widget(Some(&right));
-    content
+        let zone = |class: &str, names: &[String]| {
+            let zone = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+            zone.add_css_class(class);
+            zone.set_valign(gtk4::Align::Center);
+            for name in names {
+                if let Some(widget) = modules::build(name, ctx) {
+                    widget.set_valign(gtk4::Align::Center);
+                    zone.append(&widget);
+                }
+            }
+            zone
+        };
+        let bar = &self.config.bar;
+        content.set_start_widget(Some(&zone("left", &bar.left)));
+        content.set_center_widget(Some(&zone("center", &bar.center)));
+        content.set_end_widget(Some(&zone("right", &bar.right)));
+        content
+    }
 }
