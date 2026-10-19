@@ -13,6 +13,9 @@ use wayland_protocols::ext::background_effect::v1::client::ext_background_effect
 
 use crate::wayland;
 
+/// How far inside a card's edge the blur stops.
+const INSET: i32 = 1;
+
 /// A rectangle in surface coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
@@ -99,12 +102,14 @@ pub fn behind(
                 // Not laid out yet (right after mapping): wait for the resize.
                 .filter(|b| b.width() > 0.0 && b.height() > 0.0)
                 .flat_map(|b| {
+                    // A pixel inside the card's edge: the blur's corners are pixel steps,
+                    // and level with the card's smooth edge they showed as jagged corners.
                     rounded_rect(
-                        b.x().round() as i32,
-                        b.y().round() as i32,
-                        b.width().round() as i32,
-                        b.height().round() as i32,
-                        radius,
+                        b.x().round() as i32 + INSET,
+                        b.y().round() as i32 + INSET,
+                        b.width().round() as i32 - 2 * INSET,
+                        b.height().round() as i32 - 2 * INSET,
+                        radius - INSET,
                     )
                 })
                 .collect();
