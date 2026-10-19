@@ -21,6 +21,14 @@ each section. Read before changing any of these.
 - **wayland-client on GDK's connection** (`wayland.rs`) for protocols GTK lacks (blur, idle
   inhibit), instead of the fork's raw FFI.
 
+## Dock
+
+- Autohide: a hidden dock has no window at all (unmapped once it slid out); a separate 2 px
+  transparent layer window along the whole bottom edge brings it back. The first version kept
+  a strip inside the dock window, which had zero width until the dock had been shown once (a
+  never-revealed revealer doesn't know its child's width), so hovering did nothing after a
+  restart.
+
 ## Config
 
 - The dock's pin/unpin writes the `pinned` line back into config.kdl through the `kdl` crate,

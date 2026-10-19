@@ -49,13 +49,21 @@ struct Autohide {
     enabled: bool,
     revealer: gtk4::Revealer,
     window: glib::WeakRef<gtk4::ApplicationWindow>,
+    /// The invisible strip along the screen's bottom edge that brings a hidden dock back.
+    hot_edge: Option<gtk4::Window>,
     hovered: Cell<bool>,
+    /// The pointer rests on the hot edge.
+    on_edge: Cell<bool>,
     hide: Cell<Option<glib::SourceId>>,
 }
 
 impl Autohide {
     fn show(self: &Rc<Self>) {
         self.cancel_hide();
+        // A hidden dock has no window on screen at all; it maps again, then slides in.
+        if let Some(window) = self.window.upgrade() {
+            window.set_visible(true);
+        }
         self.revealer.set_reveal_child(true);
     }
 
@@ -69,7 +77,7 @@ impl Autohide {
         let source = glib::timeout_add_local_once(delay, move || {
             let Some(this) = weak.upgrade() else { return };
             this.hide.set(None);
-            if this.hovered.get() {
+            if this.hovered.get() || this.on_edge.get() {
                 return;
             }
             if menu::is_open() {
@@ -126,8 +134,8 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     overview.connect_clicked(move |_| n.action(Action::ToggleOverview {}));
     dock.append(&overview);
 
-    // With autohide the dock slides down out of sight, leaving a thin strip at the
-    // screen edge: touching it brings the dock back.
+    // With autohide the dock slides down and its window goes away entirely; a separate
+    // two-pixel strip along the bottom edge brings it back.
     let autohide = config.dock.autohide;
     let revealer = gtk4::Revealer::new();
     revealer.set_transition_type(gtk4::RevealerTransitionType::SlideUp);
@@ -136,11 +144,6 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     revealer.set_reveal_child(!autohide);
     let root = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     root.append(&revealer);
-    if autohide {
-        let strip = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-        strip.add_css_class("dock-hot-edge");
-        root.append(&strip);
-    }
 
     let (dock_weak, revealer_weak) = (dock.downgrade(), revealer.downgrade());
     let wrapped = blur::behind(
@@ -159,18 +162,39 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
         enabled: autohide,
         revealer: revealer.clone(),
         window: window.downgrade(),
+        hot_edge: autohide.then(|| hot_edge(monitor)),
         hovered: Cell::new(false),
+        on_edge: Cell::new(false),
         hide: Cell::new(None),
     });
-    // Hidden again: give the space back (the window only shrinks when asked).
+    // Slid out: the window goes, so nothing of the dock is drawn while hidden.
     let weak = Rc::downgrade(&state);
     revealer.connect_child_revealed_notify(move |revealer| {
         if !revealer.is_child_revealed()
             && let Some(window) = weak.upgrade().and_then(|s| s.window.upgrade())
         {
-            ui::shrink_to_fit(window.upcast_ref());
+            window.set_visible(false);
         }
     });
+    if let Some(edge) = &state.hot_edge {
+        let touch = gtk4::EventControllerMotion::new();
+        let weak = Rc::downgrade(&state);
+        touch.connect_enter(move |_, _, _| {
+            if let Some(state) = weak.upgrade() {
+                state.on_edge.set(true);
+                state.show();
+            }
+        });
+        let weak = Rc::downgrade(&state);
+        touch.connect_leave(move |_| {
+            if let Some(state) = weak.upgrade() {
+                state.on_edge.set(false);
+                // Left the strip without reaching the dock: it goes again.
+                state.hide_after(HIDE_DELAY);
+            }
+        });
+        edge.add_controller(touch);
+    }
     let motion = gtk4::EventControllerMotion::new();
     let weak = Rc::downgrade(&state);
     motion.connect_enter(move |_, _, _| {
@@ -195,7 +219,12 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     }
     // The handlers hold only weak references; this one keeps the state as long as the
     // window lives, and stops a pending hide with it.
-    window.connect_destroy(move |_| state.cancel_hide());
+    window.connect_destroy(move |_| {
+        state.cancel_hide();
+        if let Some(edge) = &state.hot_edge {
+            edge.destroy();
+        }
+    });
 
     let (config, niri2) = (config.clone(), niri.clone());
     let last = RefCell::new(None::<Vec<Item>>);
@@ -219,8 +248,30 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
         }
         last.replace(Some(items));
     });
-    window.set_visible(true);
+    // With autohide the dock starts hidden: no window until it is called.
+    window.set_visible(!autohide);
     window
+}
+
+/// A transparent strip, two pixels high, along the bottom of the screen.
+fn hot_edge(monitor: &gdk::Monitor) -> gtk4::Window {
+    let edge = gtk4::Window::new();
+    edge.add_css_class("dock-hot-edge");
+    edge.init_layer_shell();
+    edge.set_namespace(Some("nshell-dock-edge"));
+    edge.set_layer(Layer::Top);
+    edge.set_monitor(Some(monitor));
+    edge.set_keyboard_mode(KeyboardMode::None);
+    for side in [Edge::Bottom, Edge::Left, Edge::Right] {
+        edge.set_anchor(side, true);
+    }
+    edge.set_exclusive_zone(0);
+    edge.set_default_size(-1, 2);
+    let fill = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+    fill.set_size_request(-1, 2);
+    edge.set_child(Some(&fill));
+    edge.set_visible(true);
+    edge
 }
 
 /// Pinned apps in their order, then running ones that aren't pinned.

@@ -434,8 +434,8 @@ window.nshell-dock {
 
 .dock {
     padding: 6px 8px 4px;
-    /* Room for the shadow, and the gap to the screen edge. */
-    margin: 0 14px 19px;
+    /* Room for the shadow at the sides, and the gap to the screen edge. */
+    margin: 0 14px 6px;
     border-radius: 16px;
     background-color: rgba(33, 34, 37, 0.72);
     box-shadow: inset 0 0 0 1px rgba(200, 202, 208, 0.09), 0 6px 16px rgba(0, 0, 0, 0.4);
@@ -478,9 +478,9 @@ window.nshell-dock {
     background-color: #ff4444;
 }
 
-/* The strip a hidden dock leaves at the screen edge; touching it brings the dock. */
-.dock-hot-edge {
-    min-height: 3px;
+/* The invisible strip along the screen edge that brings a hidden dock back. */
+window.dock-hot-edge {
+    background: transparent;
 }
 
 button.dock-button {
