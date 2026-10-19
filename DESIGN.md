@@ -1,144 +1,141 @@
-# nshell — проектный документ
+# nshell — design document
 
-Черновик 2026-10-19. Правь прямо тут: вычеркивай, дописывай, ставь `?` где не согласен.
-Отмеченное **[решить]** — вопросы, на которые нужен твой ответ до соответствующего шага.
+Draft, 2026-10-19. Edit it right here: strike things out, add notes, put `?` where you disagree.
+Items marked **[decide]** need your answer before the step they belong to.
 
-Живое ТЗ на поведение — форк `~/Projects/wayle` (+ `NEW-SHELL.md`, `ROADMAP.md`, `TODO.md` в нем).
-Код оттуда не копируем, смотрим как справочник.
+The living spec for behaviour is the fork in `~/Projects/wayle` (plus its `NEW-SHELL.md`,
+`ROADMAP.md`, `TODO.md`). We don't copy code from it; it's a reference for the tricky parts.
 
-## 1. Что это
+## 1. What it is
 
-Свой шелл для niri: один процесс вместо waybar + ironbar + swayosd + swaync + stasis + swaybg.
-Для одного человека и одной машины: никаких «настроек на все случаи», только то, чем пользуешься.
+A shell for niri: one process instead of waybar + ironbar + swayosd + swaync + stasis + swaybg.
+For one person and one machine: no "settings for every case", only what is actually used.
 
-Входит: бар, меню модулей, пункт управления, OSD, уведомления, idle manager, обои, док.
-Не входит: экран блокировки (остается `veila`, свой — когда-нибудь потом и отдельным бинарником),
-GUI настроек, темы, переводы, поддержка других композиторов.
+In: bar, module menus, control center, OSD, notifications, idle manager, wallpaper, dock.
+Out: lock screen (stays `veila`; our own maybe later, as a separate binary), settings GUI, themes,
+translations, other compositors. All text in the UI is English.
 
-Название — **nshell** (решено 2026-10-19).
+Name: **nshell** (decided 2026-10-19).
 
-## 2. Как выглядит (общее)
+## 2. Look (overall)
 
-- Верхняя панель как строка меню macOS: каждый значок справа — модуль, клик открывает его меню.
-  Если одно меню открыто, наведение на соседний модуль сразу переключает меню.
-- Значки: белые SVG с полупрозрачностью, легкая тень под значками и текстом. Свои иконки —
-  из `~/.config/waybar/icons` (батарея 10..100 + зарядка, wifi, громкость, bluetooth).
-- Бар прозрачный, меню и всплывающее — «стекло»: полупрозрачный темный фон + blur от niri,
-  скругление, тонкая рамка, мягкая тень.
-- Hover на модуле — плашка, как в GNOME; при открытом меню плашка плотнее.
-- Точные цвета и размеры берем из форка, дальше крутим на глаз.
+- A top bar with clickable modules; each icon on the right is a module and a click opens its menu.
+  While one menu is open, hovering a neighbour switches to its menu. macOS is a loose reference
+  for the general feel, not something to copy exactly.
+- Icons: white SVGs with some transparency, a soft shadow under icons and text. Our own icon set
+  comes from `~/.config/waybar/icons` (battery 10..100 + charging, Wi-Fi, volume, Bluetooth).
+- The bar is transparent; menus and popups are "glass": a translucent dark card + blur from niri,
+  rounded corners, a thin border, a soft shadow.
+- Hovering a module shows a plate behind it, like GNOME; a module with an open menu gets a denser one.
+- Exact colours and sizes start from the fork and get tuned by eye.
 
-## 3. Бар
+## 3. Bar
 
-На каждом мониторе. Высота задается в конфиге (по умолчанию 34 px), значки и текст
-центрируются по вертикали при любой высоте. Шрифт — системный (тот, что выставлен в GNOME/GTK),
-свой не задаем.
+On every monitor. Height is set in the config (default 34 px); icons and text stay vertically
+centered at any height. The font is the system one (whatever GNOME/GTK is set to).
 
-| Где | Модуль | Показывает |
+| Where | Module | Shows |
 |---|---|---|
-| слева | window-title | цветная иконка приложения + заголовок окна в фокусе (с правилами обрезки как в waybar); нет окна — пусто |
-| центр | clock | время |
-| справа | tray | значки приложений (Telegram, clash-verge и т.д.) |
-| справа | keyboard | EN / RU |
-| справа | network | wifi по уровню / off |
-| справа | bluetooth | значок, только когда адаптер включен |
-| справа | volume | громкость по уровню / mute |
-| справа | battery | уровень, зарядка |
-| справа | control | значок пункта управления |
+| left | window-title | app colour icon + focused window title (rewrite rules as in waybar); empty without a window |
+| center | clock | time |
+| right | tray | app icons (Telegram, clash-verge, …) |
+| right | keyboard | EN / RU |
+| right | network | Wi-Fi by signal / off |
+| right | bluetooth | icon, only while the adapter is on |
+| right | volume | volume level / mute |
+| right | battery | level, charging |
+| right | control | control center icon |
 
-Docker — в самом конце, отдельным модулем.
+Docker comes at the very end, as its own module.
 
-### Клики и меню модулей (черновик, правь)
+### Clicks and menus
 
-| Модуль | ЛКМ | ПКМ | Колесо | Меню |
-|---|---|---|---|---|
-| window-title | — | меню окна? | — | **[решить]** нужно ли: закрыть, на весь экран, плавающее |
-| clock | меню | — | — | календарь + центр уведомлений (как в GNOME) |
-| tray | меню приложения | меню приложения | — | меню самого приложения |
-| keyboard | меню | следующая раскладка | смена раскладки | список раскладок |
-| network | меню | — | — | вкл/выкл wifi, список сетей, подключение, текущая сеть |
-| bluetooth | меню | — | — | вкл/выкл, устройства, подключить/отключить, заряд устройства |
-| volume | меню | mute | громкость | слайдер, выбор выхода (динамики/наушники), микрофон |
-| battery | меню | — | — | процент, время до разряда/заряда, режим питания |
-| control | пункт управления | — | — | см. ниже |
+| Module | Left | Right | Middle | Wheel | Menu |
+|---|---|---|---|---|---|
+| window-title | — | window menu? | — | — | **[decide]** needed at all: close, fullscreen, floating |
+| clock | menu | — | — | — | calendar (+ notification center, step 8) |
+| tray | app action, or its menu | app menu | app's secondary action | passed to app | the app's own menu |
+| keyboard | menu | next layout | — | switch layout | layout list |
+| network | menu | — | — | — | Wi-Fi on/off, networks, connect (password in the menu) |
+| bluetooth | menu | — | — | — | on/off, paired devices, connect/disconnect, device battery |
+| volume | menu | mute | mute | volume | slider, output device |
+| battery | menu | — | — | — | percent, time to empty/full, power mode |
+| control | control center | — | — | — | see below |
 
-Средняя кнопка на volume — тоже mute? **[решить]**
+## 4. Control center
 
-## 4. Пункт управления
+One menu with the everyday things:
 
-Одно меню с самым частым, вместо нынешнего dashboard. Порядок сверху вниз (черновик):
+1. Toggle tiles: Wi-Fi, Bluetooth, Stay awake (blocks idle); Do not disturb comes with step 8.
+2. Sliders: volume, screen brightness.
+3. Player (what's playing, previous / play-pause / next), only while something plays.
+4. Power mode: saver / balanced / performance.
+5. Buttons: lock, sleep, restart, shut down (the last two need a second click).
 
-1. Плитки-переключатели: Wi-Fi, Bluetooth, «Не беспокоить», «Не засыпать» (блокировка idle).
-2. Слайдеры: громкость, яркость экрана.
-3. Плеер (что играет сейчас, пауза/вперед/назад), только если что-то играет.
-4. Режим питания: экономия / баланс / производительность.
-5. Кнопки: заблокировать, сон, перезагрузка, выключение.
-
-Убрал из dashboard: system stats (CPU/RAM). Вернуть? **[решить]**
+Left out compared to the fork's dashboard: system stats (CPU/RAM). Bring back? **[decide]**
 
 ## 5. OSD
 
-Появляется по центру снизу (~84% высоты) на мониторе в фокусе, через секунду-две исчезает.
-Стекло, белая полоса, без процентов.
+Appears bottom-center (~84% of the height) on the focused monitor, fades after a second or two.
+Glass, a white bar, no percent.
 
-- громкость (+ mute), яркость экрана, подсветка клавиатуры;
+- volume (+ mute), screen brightness, keyboard backlight;
 - Caps Lock;
-- смена раскладки — крупно EN/RU (в самом конце).
+- layout switch — big EN/RU (at the very end).
 
-## 6. Уведомления
+## 6. Notifications
 
-- Попапы справа сверху на мониторе в фокусе, стекло, иконка приложения, кнопки действий.
-- Центр уведомлений — в меню часов (см. выше): история, очистить, «Не беспокоить».
-- «Не беспокоить» переживает перезапуск шелла.
-- Подробности вида — **[решить] позже**, перед этим шагом (ты хотел переделать текст и вид).
+- Popups top-right on the focused monitor: glass, app icon, action buttons.
+- Notification center in the clock menu: history, clear, Do not disturb.
+- Do not disturb survives a shell restart.
+- Details of the look — **[decide] later**, before this step (you wanted to redo text and look).
 
 ## 7. Idle manager
 
-Делаем тут, вместо stasis. Поведение — как у тебя в `stasis.rune`, логика из разбора в
-`wayle/ROADMAP.md`, фаза 3. Главное отличие от stasis: ничего не опрашиваем, ждем события от niri.
+Done here, replacing stasis. Behaviour as in your `stasis.rune`, logic from the analysis in
+`wayle/ROADMAP.md`, phase 3. The main difference from stasis: no polling, niri tells us.
 
-Этапы: **dim** (экран до 5%, подсветка клавиатуры в 0) → **lock** (`veila lock`) → **dpms**
-(выключить мониторы) → **suspend** (сон). Любое движение мыши/клавиша — откат всех этапов
-в обратном порядке (яркость возвращается, мониторы включаются).
+Stages: **dim** (screen to 5%, keyboard backlight off) → **lock** (`veila lock`) → **dpms**
+(monitors off) → **suspend**. Any mouse move or key undoes the stages in reverse order
+(brightness comes back, monitors turn on).
 
-Профили — от питания: от сети (ac) и от батареи.
+Profiles by power source: on AC and on battery.
 
-Не засыпать, пока:
-- видео в браузере / mpv / Firefox (это niri учитывает сам);
-- играет локальный звук (не системные звуки, не удаленное воспроизведение);
-- открыто окно `vlc`, `mpv`, `steam_app_*`;
-- включена плитка «Не засыпать».
+Don't go idle while:
+- a browser / mpv / Firefox plays video (niri handles this itself);
+- local sound plays (not system sounds, not remote playback);
+- a `vlc`, `mpv`, `steam_app_*` window is open;
+- the Stay awake tile is on.
 
-Перед сном экран всегда блокируется (и при закрытии крышки тоже).
+The screen is always locked before sleep (lid close included).
 
-**Время [решить].** В stasis каждое время отсчитывается от *предыдущего* этапа, + 4 с. Реально
-у тебя сейчас выходит:
+**Timings [decide].** In stasis each timeout counts from the *previous* stage, plus 4 s. What you
+actually get today:
 
 | | dim | lock | dpms | suspend |
 |---|---|---|---|---|
 | ac | 2:04 | 5:08 | 15:12 | 30:16 |
-| battery | 1:04 | 6:12 (после dpms) | 3:08 | 9:36 |
+| battery | 1:04 | 6:12 (after dpms) | 3:08 | 9:36 |
 
-Предлагаю в конфиге писать время **от начала простоя** — так понятнее, что когда случится.
-Числа — по таблице выше, округлить (2m, 5m, 15m, 30m)? На батарее lock после dpms — так задумано?
+Proposal: in the config, times count **from the start of idle** — clearer what happens when.
+Round the numbers from the table (2m, 5m, 15m, 30m)? On battery, lock after dpms — intended?
 
-## 8. Обои
+## 8. Wallpaper
 
-Одна картинка на все мониторы (`~/.config/wallpapers/m.jpg`), режим «заполнить».
-Перечитывается при смене конфига.
+One image on all monitors (`~/.config/wallpapers/m.jpg`), "fill" mode. Reloaded on config change.
 
-## 9. Док
+## 9. Dock
 
-Внизу, поверх окон, без резерва места. Закрепленные: ghostty, zed, firefox, telegram,
-sublime_text, nautilus, clash-verge, AmneziaVPN + запущенные. Точки под иконками: открыто —
-серая, в фокусе — синяя, требует внимания — красная. Клики: ЛКМ — фокус/запуск, СКМ — новое окно,
-ПКМ — меню (закрепить, закрыть), колесо — по окнам приложения. Кнопка overview.
-Autohide **[решить]** — нужен?
+At the bottom, over windows, no reserved space. Pinned: ghostty, zed, firefox, telegram,
+sublime_text, nautilus, clash-verge, AmneziaVPN + running apps. Dots under icons: open — grey,
+focused — blue, needs attention — red. Clicks: left — focus/launch, middle — new window,
+right — menu (pin, close), wheel — through the app's windows. An overview button.
+Autohide **[decide]** — needed?
 
-## 10. Конфиг
+## 10. Config
 
-Один файл `~/.config/nshell/config.kdl`, формат как у niri. Сохранил — шелл подхватил сам.
-Примерно так (в начале настроек будет мало, дальше пополняется):
+One file, `~/.config/nshell/config.kdl`, the same format as niri. Save it and the shell picks it
+up. Roughly (it grows as steps land):
 
 ```kdl
 bar {
@@ -149,12 +146,12 @@ bar {
 }
 
 clock {
-    format "%a %e %b  %H:%M"
+    format "%d %b  %H:%M"
 }
 
 window-title {
-    rewrite "(.*) — Mozilla Firefox" "$1"
-    rewrite "(.*) - Discord" "$1"
+    rewrite "^(.*) — Mozilla Firefox$" "$1"
+    rewrite "^(.*) - Discord$" "$1"
 }
 
 idle {
@@ -182,90 +179,90 @@ dock {
 }
 ```
 
-Стили (цвета, прозрачность, радиусы) — отдельным `style.css` рядом, тоже на лету.
-Ошибка в конфиге — шелл не падает, а оставляет старые настройки и показывает уведомление с ошибкой.
+Styles (colours, transparency, radii) live in `style.css` next to it, also applied on save.
+A mistake in the config doesn't crash the shell: it keeps the previous settings and shows ⚠ on
+the bar with the reason in its tooltip.
 
-## 11. Технологии (решения)
+## 11. Technology (decisions)
 
-Подробные объяснения — в `wayle/NEW-SHELL.md`. Коротко:
+Longer explanations are in `wayle/NEW-SHELL.md`. In short:
 
-| Что | Решение | Почему |
+| What | Decision | Why |
 |---|---|---|
-| язык | Rust | быстро, мало памяти, наработки форка |
-| окна | GTK4 + gtk4-layer-shell | проверено: blur, тени, прозрачность |
-| UI-код | «голый» gtk-rs, без relm4 | проще и прозрачнее для маленького проекта |
-| асинхронность | главный цикл GTK | без лишних потоков |
-| D-Bus | D-Bus из GLib (gio) | уже есть внутри GTK, работает в главном цикле: ни потоков, ни лишних библиотек (было: zbus) |
-| niri | официальный `niri-ipc` | окна, раскладки, мониторы, dpms |
-| звук | libpulse (PipeWire его поддерживает) на главном цикле GTK | готовая, без своих потоков |
-| конфиг | KDL | как у niri |
-| рендер | GL | меньше CPU при частой смене текста |
+| language | Rust | fast, little memory, the fork's experience |
+| windows | GTK4 + gtk4-layer-shell | tested: blur, shadows, transparency |
+| UI code | plain gtk-rs, no relm4 | simpler and clearer for a small project |
+| async | the GTK main loop | no extra threads |
+| D-Bus | GLib's D-Bus (gio) | already inside GTK, runs on the main loop: no threads, no extra crates (was: zbus) |
+| niri | official `niri-ipc` | windows, layouts, outputs, dpms |
+| sound | libpulse (PipeWire speaks it) on the GTK main loop | ready-made, no threads of its own |
+| config | KDL | same as niri |
+| rendering | GL | less CPU when text changes often |
+| menus | own layer-shell windows, not GTK popovers | niri closes a popover when its size changes |
+| blur, idle inhibit | Wayland protocols via wayland-client on GDK's connection | no raw FFI |
 
-**Библиотеки vs сами.** Батарея (UPower), яркость, раскладки, заголовок окна, idle, обои — сами,
-это немного кода. Звук, сеть, bluetooth, трей, сервер уведомлений — сначала ищем готовый крейт.
-Крейты `wayle-*` работают на tokio: если возьмем какой-то, tokio запустится с одним потоком
-только под него. Цель — со временем обойтись без tokio совсем.
+**Libraries vs our own.** Battery (UPower), brightness, layouts, window title, idle, wallpaper —
+our own, little code. Sound, tray, notification server — prefer a ready crate where one fits.
 
-## 12. Цели по ресурсам
+## 12. Resource targets
 
-Память ~40–60 МБ, меньше 10 потоков, ~0% CPU в простое (форк сейчас: 94 МБ, 36 потоков, 0.25%).
+Memory ~40–60 MB, under 10 threads, ~0% CPU when idle (the fork today: 94 MB, 36 threads, 0.25%).
 
-- ничего не опрашиваем по таймеру, все по событиям; часы просыпаются раз в минуту;
-- меню, OSD, попапы создаются, когда нужны;
-- по одному подключению к каждому сервису.
+- no timer polling, everything event-driven; the clock wakes once a minute;
+- menus, OSD, popups are created when needed;
+- one connection per service.
 
-Замер — после каждого крупного шага, тем же способом, что в форке, чтобы было честное «было/стало».
+Measure after each big step, the same way as in the fork, for an honest before/after.
 
-| Шаг | Память (PSS) | Потоки | CPU в простое | Примечание |
+| Step | Memory (PSS) | Threads | Idle CPU | Note |
 |---|---|---|---|---|
-| 1, Vulkan | 24 МБ | 10 | 0% | спиннер в заголовке 10 раз/с: 0.8% |
-| 3, GL | 38 МБ | 17 | 0% (0 пробуждений/с) | 13 потоков — драйвер Mesa для GL, спят |
+| 1, Vulkan | 24 MB | 10 | 0% | title spinner at 10/s: 0.8% |
+| 3, GL | 38 MB | 17 | 0% (0 wakeups/s) | 13 threads are Mesa's GL driver, sleeping |
+| 5, menu open | 50 MB | 24 | 0% | |
 
-Вложенный niri, release. Потоки Mesa попробуем урезать позже настройками драйвера.
+Nested niri, release build. We'll try trimming Mesa's threads with driver settings later.
 
-## 13. Как работаем
+## 13. How we work
 
-- Ты сейчас в GNOME. Сам бар в GNOME не запустится (GNOME не дает окон-панелей), поэтому
-  проверяем во **вложенном niri** — niri открывается окном внутри GNOME, шелл живет в нем.
-  Твоя рабочая сессия при этом не задевается. Скриншоты снимаю сам.
-- Idle и блокировку проверить в окне нельзя — для этого шага нужна настоящая сессия niri на ноутбуке.
-- git с самого начала, один шаг — один коммит. Сломалось — откатываемся.
-- После каждого шага: что сделано, скриншот, на что посмотреть и что потыкать.
-- Форк wayle остается основным, пока nshell его не заменит.
+- You're in GNOME right now. The bar can't run in GNOME itself (GNOME has no panel windows), so
+  it's tested in a **nested niri** — niri opens as a window inside GNOME and the shell runs there.
+  Your session isn't touched. I take the screenshots.
+- Idle and locking can't be tested in a window — that step needs a real niri session.
+- git from the start, one step — one commit. Something breaks — we roll back.
+- After each step: what's done, a screenshot, what to look at and try.
+- The wayle fork stays the main bar until nshell replaces it.
 
-## 14. Порядок шагов
+## 14. Steps
 
-Каждый шаг заканчивается тем, что можно увидеть или потыкать.
+Each step ends with something you can see or try.
 
-0. ✅ **Каркас.** Проект, песочница с вложенным niri, пустой прозрачный бар на экране.
-   Замер форка wayle для «было».
-1. ✅ **Бар: часы и заголовок окна.** Стекло, тени, иконка приложения, правила обрезки.
-2. ✅ **Конфиг KDL** с перечитыванием на лету + `style.css`.
-3. ✅ **Простые модули:** батарея, раскладка, громкость.
-4. ✅ **Сложные модули:** сеть, bluetooth, трей.
-5. ✅ **Меню модулей** + переключение наведением.
-6. **Пункт управления.**
+0. ✅ **Skeleton.** Project, nested niri sandbox, an empty transparent bar.
+1. ✅ **Bar: clock and window title.** Shadows, app icon, rewrite rules.
+2. ✅ **KDL config** reloaded on save + `style.css`.
+3. ✅ **Simple modules:** battery, keyboard layout, volume.
+4. ✅ **Harder modules:** network, Bluetooth, tray.
+5. ✅ **Module menus** + switching on hover, blur.
+6. ✅ **Control center.**
 7. **OSD.**
-8. **Уведомления** (попапы + центр в меню часов).
-9. **Idle manager** — нужна реальная сессия niri. После него выключаем stasis.
-10. **Обои** — выключаем swaybg.
-11. **Док** — выключаем ironbar.
-12. **Переезд:** nshell вместо форка wayle, итоговый замер.
-13. Потом: docker-модуль, OSD раскладки, свой экран блокировки.
+8. **Notifications** (popups + center in the clock menu).
+9. **Idle manager** — needs a real niri session. Then stasis goes.
+10. **Wallpaper** — swaybg goes.
+11. **Dock** — ironbar goes.
+12. **Switch over:** nshell instead of the wayle fork, final measurement.
+13. Later: docker module, layout OSD, our own lock screen.
 
-После шагов 7 и 8 можно выключать swayosd и swaync.
+After steps 7 and 8 swayosd and swaync can go.
 
-### Что понадобится при переезде
+### Needed when switching over
 
-- Правило в конфиге niri, чтобы меню размывали окна под собой, а не только обои (x-ray):
+- A rule in the niri config so menus blur the windows under them, not just the wallpaper (x-ray):
   `layer-rule { match namespace="^nshell-"; background-effect { xray false; }; }`
-  (в песочнице уже добавлено, см. `scripts/dev-nested.sh`).
+  (already in the sandbox, see `scripts/dev-nested.sh`).
 
-## 15. Открытые вопросы (сводка)
+## 15. Open questions (summary)
 
-- меню у window-title;
-- средняя кнопка на volume;
-- system stats в пункте управления;
-- времена idle и порядок на батарее;
-- autohide у дока;
-- вид уведомлений — перед шагом 8.
+- window-title menu;
+- system stats in the control center;
+- idle timings and the order on battery;
+- dock autohide;
+- notification look — before step 8.

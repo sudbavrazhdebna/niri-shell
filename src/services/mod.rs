@@ -4,9 +4,12 @@
 pub mod audio;
 pub mod battery;
 pub mod bluetooth;
+pub mod brightness;
 pub mod dbus;
+pub mod media;
 pub mod network;
 pub mod power;
+pub mod session;
 pub mod tray;
 pub mod wifi;
 
@@ -22,6 +25,9 @@ pub struct Services {
     network: OnceCell<network::Network>,
     tray: OnceCell<Rc<tray::Tray>>,
     power: OnceCell<power::Power>,
+    brightness: OnceCell<brightness::Brightness>,
+    media: OnceCell<media::Media>,
+    session: OnceCell<session::Session>,
     audio: OnceCell<Option<Rc<audio::Audio>>>,
 }
 
@@ -34,6 +40,9 @@ impl Services {
             network: OnceCell::new(),
             tray: OnceCell::new(),
             power: OnceCell::new(),
+            brightness: OnceCell::new(),
+            media: OnceCell::new(),
+            session: OnceCell::new(),
             audio: OnceCell::new(),
         })
     }
@@ -56,6 +65,18 @@ impl Services {
 
     pub fn power(&self) -> &power::Power {
         self.power.get_or_init(power::Power::start)
+    }
+
+    pub fn brightness(&self) -> &brightness::Brightness {
+        self.brightness.get_or_init(brightness::Brightness::start)
+    }
+
+    pub fn media(&self) -> &media::Media {
+        self.media.get_or_init(media::Media::start)
+    }
+
+    pub fn session(&self) -> &session::Session {
+        self.session.get_or_init(session::Session::start)
     }
 
     /// None only if libpulse can't run at all.

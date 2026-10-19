@@ -44,7 +44,7 @@ fn icon(state: &AudioState) -> &'static str {
 fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     let column = ui::column();
     column.set_width_request(300);
-    column.append(&ui::title("Звук"));
+    column.append(&ui::title("Sound"));
 
     let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
     row.add_css_class("menu-slider-row");
@@ -84,7 +84,7 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
         }
         outputs.set_visible(true);
         outputs.append(&ui::separator());
-        outputs.append(&ui::title("Выход"));
+        outputs.append(&ui::title("Output"));
         for output in &state.outputs {
             let (a, name) = (a.clone(), output.name.clone());
             outputs.append(&ui::item(&output.description, output.name == state.default, move || {

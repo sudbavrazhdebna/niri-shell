@@ -9,6 +9,7 @@ mod services;
 mod settings;
 mod ui;
 mod watch;
+mod wayland;
 
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};

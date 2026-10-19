@@ -4,18 +4,11 @@
 //! corners. A protocol error kills the whole Wayland connection, so a [`Blur`] must be
 //! dropped before its surface goes away: create it on map, drop it on unmap.
 
-use std::cell::RefCell;
-
-use gdk4_wayland::prelude::*;
 use gtk4::gdk;
+use gtk4::prelude::*;
+use wayland_protocols::ext::background_effect::v1::client::ext_background_effect_surface_v1::ExtBackgroundEffectSurfaceV1;
 
-use wayland_client::globals::{GlobalListContents, registry_queue_init};
-use wayland_client::protocol::{wl_compositor, wl_region, wl_registry};
-use wayland_client::{Connection, Dispatch, EventQueue, QueueHandle, WEnum};
-use wayland_protocols::ext::background_effect::v1::client::{
-    ext_background_effect_manager_v1::{self, Capability, ExtBackgroundEffectManagerV1},
-    ext_background_effect_surface_v1::ExtBackgroundEffectSurfaceV1,
-};
+use crate::wayland;
 
 /// A rectangle in surface coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,10 +27,9 @@ pub struct Blur {
 impl Blur {
     /// None if the compositor can't blur or the surface isn't on Wayland.
     pub fn new(surface: &gdk::Surface) -> Option<Blur> {
-        let wl_surface = surface.downcast_ref::<gdk4_wayland::WaylandSurface>()?.wl_surface()?;
-        GLOBALS.with_borrow_mut(|globals| {
-            let g = globals.get_or_insert_with(Globals::bind).as_mut()?;
-            let effect = g.manager.get_background_effect(&wl_surface, &g.qh, ());
+        let wl_surface = wayland::wl_surface(surface)?;
+        wayland::with(|g| {
+            let effect = g.blur.as_ref()?.get_background_effect(&wl_surface, &g.qh, ());
             Some(Blur { effect })
         })
     }
@@ -45,8 +37,7 @@ impl Blur {
     /// Blurs behind the union of `rects` (empty: nothing). Takes effect with the
     /// surface's next commit, which this asks GDK for.
     pub fn set_region(&self, surface: &gdk::Surface, rects: &[Rect]) {
-        GLOBALS.with_borrow_mut(|globals| {
-            let Some(Some(g)) = globals.as_mut() else { return };
+        wayland::with(|g| {
             if rects.is_empty() {
                 self.effect.set_blur_region(None);
             } else {
@@ -58,7 +49,7 @@ impl Blur {
                 // Regions are copied on use.
                 region.destroy();
             }
-            let _ = g.conn.flush();
+            Some(())
         });
         surface.queue_render();
     }
@@ -67,11 +58,7 @@ impl Blur {
 impl Drop for Blur {
     fn drop(&mut self) {
         self.effect.destroy();
-        GLOBALS.with_borrow(|globals| {
-            if let Some(Some(g)) = globals.as_ref() {
-                let _ = g.conn.flush();
-            }
-        });
+        wayland::with(|_| Some(()));
     }
 }
 
@@ -96,85 +83,6 @@ pub fn rounded_rect(x: i32, y: i32, width: i32, height: i32, radius: i32) -> Vec
         rects.push(Rect { x, y: y + radius, width, height: height - 2 * radius });
     }
     rects
-}
-
-thread_local! {
-    /// Bound once on first use; None inside if blur isn't available.
-    static GLOBALS: RefCell<Option<Option<Globals>>> = const { RefCell::new(None) };
-}
-
-struct Globals {
-    conn: Connection,
-    qh: QueueHandle<State>,
-    manager: ExtBackgroundEffectManagerV1,
-    compositor: wl_compositor::WlCompositor,
-    /// Our own queue on GDK's connection. Nothing on it needs handling after binding,
-    /// it is kept so the objects stay valid.
-    _queue: EventQueue<State>,
-}
-
-#[derive(Default)]
-struct State {
-    can_blur: bool,
-}
-
-impl Globals {
-    fn bind() -> Option<Globals> {
-        let display = gdk::Display::default()?.downcast::<gdk4_wayland::WaylandDisplay>().ok()?;
-        let wl_display = display.wl_display()?;
-        let backend = wayland_client::Proxy::backend(&wl_display).upgrade()?;
-        let conn = Connection::from_backend(backend);
-        let (globals, mut queue) = registry_queue_init::<State>(&conn)
-            .inspect_err(|err| tracing::warn!("blur: {err}"))
-            .ok()?;
-        let qh = queue.handle();
-        let manager: ExtBackgroundEffectManagerV1 = globals
-            .bind(&qh, 1..=1, ())
-            .inspect_err(|_| tracing::info!("blur: the compositor doesn't support it"))
-            .ok()?;
-        let compositor: wl_compositor::WlCompositor = globals.bind(&qh, 1..=6, ()).ok()?;
-
-        // The manager announces what it can do right after binding.
-        let mut state = State::default();
-        queue.roundtrip(&mut state).ok()?;
-        if !state.can_blur {
-            tracing::info!("blur: not offered by the compositor");
-            return None;
-        }
-        tracing::info!("blur: ready");
-        Some(Globals { conn, qh, manager, compositor, _queue: queue })
-    }
-}
-
-impl Dispatch<ExtBackgroundEffectManagerV1, ()> for State {
-    fn event(
-        state: &mut Self,
-        _: &ExtBackgroundEffectManagerV1,
-        event: ext_background_effect_manager_v1::Event,
-        _: &(),
-        _: &Connection,
-        _: &QueueHandle<Self>,
-    ) {
-        if let ext_background_effect_manager_v1::Event::Capabilities { flags } = event {
-            state.can_blur = matches!(flags, WEnum::Value(f) if f.contains(Capability::Blur));
-        }
-    }
-}
-
-impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for State {
-    fn event(_: &mut Self, _: &wl_registry::WlRegistry, _: wl_registry::Event, _: &GlobalListContents, _: &Connection, _: &QueueHandle<Self>) {}
-}
-
-impl Dispatch<ExtBackgroundEffectSurfaceV1, ()> for State {
-    fn event(_: &mut Self, _: &ExtBackgroundEffectSurfaceV1, _: <ExtBackgroundEffectSurfaceV1 as wayland_client::Proxy>::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
-}
-
-impl Dispatch<wl_compositor::WlCompositor, ()> for State {
-    fn event(_: &mut Self, _: &wl_compositor::WlCompositor, _: wl_compositor::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
-}
-
-impl Dispatch<wl_region::WlRegion, ()> for State {
-    fn event(_: &mut Self, _: &wl_region::WlRegion, _: wl_region::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
 }
 
 #[cfg(test)]

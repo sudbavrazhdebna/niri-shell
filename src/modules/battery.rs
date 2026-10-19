@@ -38,7 +38,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     column.append(&heading);
     column.append(&status);
     services.battery().state.bind(&column, move |_, state| {
-        heading.set_label(&format!("Батарея {:.0}%", state.percent));
+        heading.set_label(&format!("Battery {:.0}%", state.percent));
         status.set_label(&status_text(state));
     });
 
@@ -52,7 +52,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
             return;
         }
         profiles.append(&ui::separator());
-        profiles.append(&ui::title("Режим питания"));
+        profiles.append(&ui::title("Power mode"));
         for profile in &state.profiles {
             let (s, name) = (s.clone(), profile.clone());
             profiles.append(&ui::item(profile_name(profile), *profile == state.active, move || {
@@ -66,9 +66,9 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
 
 fn profile_name(profile: &str) -> &str {
     match profile {
-        "power-saver" => "Экономия",
-        "balanced" => "Баланс",
-        "performance" => "Производительность",
+        "power-saver" => "Power saver",
+        "balanced" => "Balanced",
+        "performance" => "Performance",
         other => other,
     }
 }
@@ -76,25 +76,25 @@ fn profile_name(profile: &str) -> &str {
 fn status_text(state: &BatteryState) -> String {
     match state.charge {
         Charge::Charging if state.time_to_full > 0 => {
-            format!("Заряжается, до полной {}", duration(state.time_to_full))
+            format!("Charging, full in {}", duration(state.time_to_full))
         }
-        Charge::Charging => "Заряжается".into(),
-        Charge::Plugged if state.percent >= 99.0 => "Заряжена".into(),
-        Charge::Plugged => "Подключена, не заряжается (порог заряда)".into(),
+        Charge::Charging => "Charging".into(),
+        Charge::Plugged if state.percent >= 99.0 => "Fully charged".into(),
+        Charge::Plugged => "Plugged in, not charging (charge limit)".into(),
         Charge::Discharging if state.time_to_empty > 0 => {
-            format!("От батареи, осталось {}", duration(state.time_to_empty))
+            format!("On battery, {} left", duration(state.time_to_empty))
         }
-        Charge::Discharging => "От батареи".into(),
+        Charge::Discharging => "On battery".into(),
     }
 }
 
-/// 4500 → "1 ч 15 мин".
+/// 4500 → "1 h 15 min".
 fn duration(seconds: i64) -> String {
     let minutes = seconds / 60;
     match (minutes / 60, minutes % 60) {
-        (0, m) => format!("{m} мин"),
-        (h, 0) => format!("{h} ч"),
-        (h, m) => format!("{h} ч {m} мин"),
+        (0, m) => format!("{m} min"),
+        (h, 0) => format!("{h} h"),
+        (h, m) => format!("{h} h {m} min"),
     }
 }
 
@@ -102,8 +102,8 @@ fn duration(seconds: i64) -> String {
 mod tests {
     #[test]
     fn durations() {
-        assert_eq!(super::duration(4500), "1 ч 15 мин");
-        assert_eq!(super::duration(600), "10 мин");
-        assert_eq!(super::duration(7200), "2 ч");
+        assert_eq!(super::duration(4500), "1 h 15 min");
+        assert_eq!(super::duration(600), "10 min");
+        assert_eq!(super::duration(7200), "2 h");
     }
 }

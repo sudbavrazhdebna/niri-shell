@@ -12,13 +12,12 @@ pub const DEFAULT_KDL: &str = include_str!("../config/default.kdl");
 /// so a config written today keeps working as modules land.
 pub const MODULES: &[&str] = &[
     "clock", "window-title", "keyboard", "volume", "battery", "network", "bluetooth", "tray",
-];
-pub const PLANNED: &[&str] = &[
     "control",
 ];
+pub const PLANNED: &[&str] = &["docker"];
 
 /// Top-level sections of later steps, accepted and ignored for now.
-const LATER: &[&str] = &["idle", "dock", "wallpaper", "osd", "notifications"];
+const LATER: &[&str] = &["dock", "wallpaper", "osd", "notifications"];
 
 pub struct Config {
     pub icon_theme: Option<String>,
@@ -26,6 +25,7 @@ pub struct Config {
     pub clock: ClockConfig,
     pub window_title: WindowTitleConfig,
     pub volume: VolumeConfig,
+    pub idle: IdleConfig,
 }
 
 pub struct BarConfig {
@@ -39,6 +39,11 @@ pub struct BarConfig {
 pub struct ClockConfig {
     /// strftime-like format, see `glib::DateTime::format`.
     pub format: String,
+}
+
+pub struct IdleConfig {
+    /// Runs to lock the screen (from the control center, and later before sleep).
+    pub lock_command: String,
 }
 
 pub struct VolumeConfig {
@@ -70,6 +75,9 @@ impl Default for Config {
                 rewrite: Vec::new(),
             },
             volume: VolumeConfig { scroll_step: 1 },
+            idle: IdleConfig {
+                lock_command: "loginctl lock-session".into(),
+            },
         }
     }
 }
@@ -107,13 +115,13 @@ impl Config {
             let line = diag.map_or(1, |d| line_of(text, d.span.offset()));
             let what = diag
                 .and_then(|d| d.message.clone().or_else(|| d.label.clone()))
-                .unwrap_or_else(|| "синтаксическая ошибка".into());
-            format!("строка {line}: {what}")
+                .unwrap_or_else(|| "syntax error".into());
+            format!("line {line}: {what}")
         })?;
 
         let mut config = Config::default();
         let at = |node: &KdlNode, msg: String| {
-            format!("строка {}: {msg}", line_of(text, node.span().offset()))
+            format!("line {}: {msg}", line_of(text, node.span().offset()))
         };
 
         for node in doc.nodes() {
@@ -140,10 +148,10 @@ impl Config {
                             "rewrite" => {
                                 let args = strings(child).map_err(|e| at(child, e))?;
                                 let [pattern, replace] = args.as_slice() else {
-                                    return Err(at(child, "нужно два значения: \"шаблон\" \"замена\"".into()));
+                                    return Err(at(child, "needs two values: \"pattern\" \"replacement\"".into()));
                                 };
                                 let re = Regex::new(pattern)
-                                    .map_err(|e| at(child, format!("ошибка в шаблоне: {e}")))?;
+                                    .map_err(|e| at(child, format!("bad pattern: {e}")))?;
                                 wt.rewrite.push((re, replace.clone()));
                             }
                             other => return Err(at(child, unknown(other))),
@@ -158,6 +166,18 @@ impl Config {
                                     int_arg(child, 1..=50).map_err(|e| at(child, e))?
                             }
                             other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
+                "idle" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "lock-command" => {
+                                config.idle.lock_command =
+                                    string_arg(child).map_err(|e| at(child, e))?
+                            }
+                            // Stages and profiles come with the idle manager (step 9).
+                            _ => {}
                         }
                     }
                 }
@@ -193,7 +213,7 @@ fn parse_bar(
             let all: Vec<_> = MODULES.iter().chain(PLANNED).copied().collect();
             return Err(at(
                 child,
-                format!("нет модуля \"{bad}\", есть: {}", all.join(", ")),
+                format!("no module \"{bad}\", available: {}", all.join(", ")),
             ));
         }
         *zone = names;
@@ -206,7 +226,7 @@ fn children(node: &KdlNode) -> &[KdlNode] {
 }
 
 fn unknown(name: &str) -> String {
-    format!("неизвестная настройка \"{name}\"")
+    format!("unknown setting \"{name}\"")
 }
 
 /// All arguments of a node as strings.
@@ -216,7 +236,7 @@ fn strings(node: &KdlNode) -> Result<Vec<String>, String> {
         .filter(|e| e.name().is_none())
         .map(|e| match e.value() {
             KdlValue::String(s) => Ok(s.clone()),
-            other => Err(format!("ожидалась строка в кавычках, а не {other}")),
+            other => Err(format!("expected a quoted string, not {other}")),
         })
         .collect()
 }
@@ -224,7 +244,7 @@ fn strings(node: &KdlNode) -> Result<Vec<String>, String> {
 fn string_arg(node: &KdlNode) -> Result<String, String> {
     match strings(node)?.as_slice() {
         [one] => Ok(one.clone()),
-        _ => Err("нужно одно значение в кавычках".into()),
+        _ => Err("needs one quoted value".into()),
     }
 }
 
@@ -238,7 +258,7 @@ fn int_arg(node: &KdlNode, range: std::ops::RangeInclusive<i32>) -> Result<i32, 
         .filter(|v| range.contains(v))
         .ok_or_else(|| {
             format!(
-                "нужно одно число от {} до {}",
+                "needs one number from {} to {}",
                 range.start(),
                 range.end()
             )
@@ -271,13 +291,13 @@ mod tests {
     #[test]
     fn errors_point_at_line() {
         let err = Config::parse("bar {\n    height 5000\n}").err().unwrap_or_default();
-        assert!(err.starts_with("строка 2:"), "{err}");
+        assert!(err.starts_with("line 2:"), "{err}");
         let err = Config::parse("clock {\n  format \"x\"\n}\nbar { left \"nope\" }")
             .err()
             .unwrap_or_default();
-        assert!(err.starts_with("строка 4:") && err.contains("nope"), "{err}");
+        assert!(err.starts_with("line 4:") && err.contains("nope"), "{err}");
         let err = Config::parse("bar {").err().unwrap_or_default();
-        assert!(err.starts_with("строка"), "{err}");
+        assert!(err.starts_with("line"), "{err}");
     }
 
     #[test]

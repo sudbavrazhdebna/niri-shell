@@ -41,12 +41,12 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
             return;
         }
         if state.devices.is_empty() {
-            devices.append(&ui::note("Нет сопряжённых устройств"));
+            devices.append(&ui::note("No paired devices"));
         }
         for device in &state.devices {
             let trailing = match (device.connected, device.battery) {
                 (true, Some(battery)) => format!("{battery}%"),
-                (true, None) => "подключено".into(),
+                (true, None) => "connected".into(),
                 (false, _) => String::new(),
             };
             let icon = if device.icon.is_empty() {
@@ -70,7 +70,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     });
     column.append(&devices);
     column.append(&ui::separator());
-    column.append(&ui::item("Настройки Bluetooth…", false, || {
+    column.append(&ui::item("Bluetooth Settings…", false, || {
         menu::close();
         ui::launch("blueman-manager");
     }));

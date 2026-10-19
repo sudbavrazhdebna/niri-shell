@@ -66,7 +66,7 @@ impl Settings {
         settings.user_css.connect_parsing_error(move |_, section, err| {
             let line = section.start_location().lines() + 1;
             this.style_problem
-                .replace(Some(format!("style.css, строка {line}: {err}")));
+                .replace(Some(format!("style.css, line {line}: {err}")));
         });
 
         settings.load_style();
@@ -135,7 +135,7 @@ impl Settings {
             .config_problem
             .borrow()
             .as_ref()
-            .map(|e| format!("config.kdl, {e}\nПрименены прошлые настройки."));
+            .map(|e| format!("config.kdl, {e}\nKeeping the previous settings."));
         config
             .into_iter()
             .chain(self.style_problem.borrow().clone())

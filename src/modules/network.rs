@@ -42,10 +42,10 @@ fn menu_content() -> gtk4::Box {
     let column = ui::column();
     column.set_width_request(320);
     let list = ui::column();
-    list.append(&ui::note("Поиск сетей…"));
+    list.append(&ui::note("Searching for networks…"));
     column.append(&list);
     column.append(&ui::separator());
-    column.append(&ui::item("Настройки сети…", false, || {
+    column.append(&ui::item("Network Settings…", false, || {
         menu::close();
         ui::launch("nm-connection-editor");
     }));
@@ -72,7 +72,7 @@ fn menu_content() -> gtk4::Box {
                 list.append(&ui::note(error));
             }
             if state.networks.is_empty() {
-                list.append(&ui::note("Сетей не найдено"));
+                list.append(&ui::note("No networks found"));
             }
             for network in state.networks.iter().take(MAX_NETWORKS) {
                 list.append(&network_row(&w, network));
@@ -86,7 +86,7 @@ fn menu_content() -> gtk4::Box {
 fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
     let trailing = if network.active {
-        "подключено"
+        "connected"
     } else if network.secured && !network.known {
         "🔒"
     } else {
@@ -119,7 +119,7 @@ fn show_password(holder: &gtk4::Box, wifi: &Rc<Wifi>, network: &Network) {
     let entry = gtk4::PasswordEntry::new();
     entry.add_css_class("menu-password");
     entry.set_show_peek_icon(true);
-    entry.set_placeholder_text(Some("Пароль"));
+    entry.set_placeholder_text(Some("Password"));
     let (w, n) = (wifi.clone(), network.clone());
     entry.connect_activate(move |entry| {
         let password = entry.text();

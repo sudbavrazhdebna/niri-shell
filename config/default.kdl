@@ -36,3 +36,8 @@ volume {
     // Percent per mouse wheel step.
     scroll-step 1
 }
+
+idle {
+    // Locks the screen: from the control center, and before sleep.
+    lock-command "veila lock"
+}

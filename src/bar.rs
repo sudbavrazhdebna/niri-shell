@@ -58,6 +58,8 @@ impl Bars {
     }
 
     fn rebuild(&self) {
+        // An open menu belongs to a module that is about to go away.
+        crate::menu::close();
         for (_, window) in self.windows.take() {
             window.destroy();
         }

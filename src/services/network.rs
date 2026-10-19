@@ -4,6 +4,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use gtk4::prelude::*;
 use gtk4::{gio, glib};
 
 use super::dbus::{on_properties_changed, prop, system_proxy};
@@ -70,6 +71,30 @@ impl Network {
             rescan(inner, state).await;
         });
         network
+    }
+}
+
+impl Network {
+    pub fn set_wifi_enabled(&self, on: bool) {
+        let Some(nm) = self.inner.nm.borrow().clone() else { return };
+        glib::spawn_future_local(async move {
+            let result = nm
+                .connection()
+                .call_future(
+                    Some(NM),
+                    "/org/freedesktop/NetworkManager",
+                    "org.freedesktop.DBus.Properties",
+                    "Set",
+                    Some(&(NM, "WirelessEnabled", on.to_variant()).to_variant()),
+                    None,
+                    gio::DBusCallFlags::NONE,
+                    -1,
+                )
+                .await;
+            if let Err(err) = result {
+                tracing::warn!("Wi-Fi on/off: {err}");
+            }
+        });
     }
 }
 

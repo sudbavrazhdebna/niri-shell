@@ -123,7 +123,7 @@ impl Wifi {
                     call(&this.nm, "AddAndActivateConnection", Some(args)).await
                 }
             };
-            let error = result.is_none().then(|| format!("Не удалось подключиться к {}", network.ssid));
+            let error = result.is_none().then(|| format!("Couldn't connect to {}", network.ssid));
             this.state.update(|s| std::mem::replace(&mut s.error, error.clone()) != error);
         });
     }

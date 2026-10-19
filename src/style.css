@@ -98,7 +98,7 @@ button.menu-item {
 }
 
 button.menu-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .menu-check {
@@ -148,4 +148,98 @@ button.menu-item.active {
 
 .menu-password {
     margin: 2px 8px 6px;
+}
+
+/* ---- Control center ---- */
+
+.control-center {
+    padding: 4px;
+}
+
+.control-center > * {
+    margin-bottom: 8px;
+}
+
+/* `background` (not -color): it also clears the theme's button image. */
+button.tile {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+button.tile:hover {
+    background: rgba(255, 255, 255, 0.13);
+}
+
+button.tile.active {
+    background: rgba(10, 132, 255, 0.85);
+}
+
+button.tile.active:hover {
+    background: rgba(40, 150, 255, 0.9);
+}
+
+.tile-icon {
+    -gtk-icon-size: 18px;
+}
+
+.tile-title {
+    font-weight: bold;
+}
+
+.tile-subtitle {
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.control-sliders {
+    padding: 6px 4px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.player {
+    padding: 8px 10px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.player-title {
+    font-weight: bold;
+}
+
+.player-artist {
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+button.player-button {
+    padding: 4px;
+    border-radius: 8px;
+}
+
+.power-profiles button {
+    padding: 6px;
+    font-size: 0.9em;
+}
+
+button.session-button {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+button.session-button:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+button.session-button.armed {
+    background: rgba(255, 69, 58, 0.9);
+}
+
+.session-caption {
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.75);
 }
