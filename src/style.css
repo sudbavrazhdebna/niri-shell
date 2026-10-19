@@ -59,9 +59,14 @@ window.bar {
 
 /* ---- Menus: dark glass card under the bar ---- */
 
-window.nshell-menu,
-window.menu-catcher {
+window.nshell-menu {
     background: transparent;
+}
+
+/* Almost, not fully, transparent: a window with nothing to draw may never reach the
+   compositor, and then it gets no pointer (clicks went through the catcher). */
+window.menu-catcher {
+    background: rgba(0, 0, 0, 0.004);
 }
 
 window.nshell-menu {
@@ -480,7 +485,7 @@ window.nshell-dock {
 
 /* The invisible strip along the screen edge that brings a hidden dock back. */
 window.dock-hot-edge {
-    background: transparent;
+    background: rgba(0, 0, 0, 0.004);
 }
 
 button.dock-button {

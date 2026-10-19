@@ -47,7 +47,6 @@ thread_local! {
 /// Slides the dock in and out: in while hovered (or asked to show), out after a moment.
 struct Autohide {
     enabled: bool,
-    revealer: gtk4::Revealer,
     window: glib::WeakRef<gtk4::ApplicationWindow>,
     /// The invisible strip along the screen's bottom edge that brings a hidden dock back.
     hot_edge: Option<gtk4::Window>,
@@ -55,16 +54,82 @@ struct Autohide {
     /// The pointer rests on the hot edge.
     on_edge: Cell<bool>,
     hide: Cell<Option<glib::SourceId>>,
+    /// How far out the dock is: 0 hidden below the screen edge, 1 fully up.
+    position: Cell<f64>,
+    target: Cell<f64>,
+    sliding: Cell<bool>,
+    /// The dock's height when last seen, for sliding it out from under the edge.
+    height: Cell<i32>,
+}
+
+/// How fast the dock slides: time constant of the ease-out, in microseconds.
+const SLIDE_TAU_US: f64 = 45_000.0;
+/// Animation step while sliding (about 60 per second).
+const SLIDE_STEP: Duration = Duration::from_millis(16);
+
+/// How far down a hidden dock goes: all but one pixel. A surface wholly off the screen
+/// gets no frames from niri, and GTK then never commits the next position.
+fn hidden_offset(height: i32) -> i32 {
+    (height - 1).max(0)
 }
 
 impl Autohide {
     fn show(self: &Rc<Self>) {
         self.cancel_hide();
-        // A hidden dock has no window on screen at all; it maps again, then slides in.
-        if let Some(window) = self.window.upgrade() {
+        self.slide_to(1.0);
+    }
+
+    /// Slides the whole window in or out by its bottom margin, so the dock moves as one
+    /// piece. A dock that is all the way out has no window on screen.
+    fn slide_to(self: &Rc<Self>, target: f64) {
+        let Some(window) = self.window.upgrade() else { return };
+        self.target.set(target);
+        if target > 0.0 && !window.is_visible() {
+            // Its real height, measured: a guess too large put it wholly off the screen,
+            // where it never got a frame and stayed blank.
+            if let Some(child) = window.child() {
+                let (_, natural, _, _) = child.measure(gtk4::Orientation::Vertical, -1);
+                if natural > 0 {
+                    self.height.set(natural);
+                }
+            }
+            // Starts below the screen edge (but one pixel), so its first frame isn't seen.
+            self.position.set(0.0);
+            window.set_margin(Edge::Bottom, -hidden_offset(self.height.get()));
             window.set_visible(true);
         }
-        self.revealer.set_reveal_child(true);
+        if self.sliding.replace(true) {
+            return;
+        }
+        // A timer, not the frame clock: niri sends no frames to a surface that is fully
+        // below the screen edge, so a frame-driven slide never started.
+        let weak = Rc::downgrade(self);
+        let last = Cell::new(std::time::Instant::now());
+        glib::timeout_add_local(SLIDE_STEP, move || {
+            let Some(this) = weak.upgrade() else { return glib::ControlFlow::Break };
+            let Some(window) = this.window.upgrade() else { return glib::ControlFlow::Break };
+            let dt = last.replace(std::time::Instant::now()).elapsed().as_micros() as f64;
+            let (pos, target) = (this.position.get(), this.target.get());
+            let mut next = pos + (target - pos) * (1.0 - (-dt / SLIDE_TAU_US).exp());
+            let done = (target - next).abs() < 0.01;
+            if done {
+                next = target;
+            }
+            this.position.set(next);
+            if window.height() > 0 {
+                this.height.set(window.height());
+            }
+            let offset = ((1.0 - next) * f64::from(hidden_offset(this.height.get()))).round() as i32;
+            window.set_margin(Edge::Bottom, -offset);
+            if !done {
+                return glib::ControlFlow::Continue;
+            }
+            this.sliding.set(false);
+            if target == 0.0 {
+                window.set_visible(false);
+            }
+            glib::ControlFlow::Break
+        });
     }
 
     /// Hides after `delay`, unless hovered or a dock menu is open then.
@@ -84,7 +149,7 @@ impl Autohide {
                 this.hide_after(HIDE_DELAY);
                 return;
             }
-            this.revealer.set_reveal_child(false);
+            this.slide_to(0.0);
         });
         self.hide.set(Some(source));
     }
@@ -134,25 +199,14 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     overview.connect_clicked(move |_| n.action(Action::ToggleOverview {}));
     dock.append(&overview);
 
-    // With autohide the dock slides down and its window goes away entirely; a separate
-    // two-pixel strip along the bottom edge brings it back.
+    // With autohide the dock slides below the screen edge and its window goes away
+    // entirely; a separate two-pixel strip along the bottom edge brings it back.
     let autohide = config.dock.autohide;
-    let revealer = gtk4::Revealer::new();
-    revealer.set_transition_type(gtk4::RevealerTransitionType::SlideUp);
-    revealer.set_transition_duration(200);
-    revealer.set_child(Some(&dock));
-    revealer.set_reveal_child(!autohide);
-    let root = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    root.append(&revealer);
-
-    let (dock_weak, revealer_weak) = (dock.downgrade(), revealer.downgrade());
+    let dock_weak = dock.downgrade();
     let wrapped = blur::behind(
         window.upcast_ref(),
-        &root,
-        move || {
-            let shown = revealer_weak.upgrade().is_some_and(|r| r.is_child_revealed() || r.reveals_child());
-            dock_weak.upgrade().filter(|_| shown).map(|d| d.upcast()).into_iter().collect()
-        },
+        &dock,
+        move || dock_weak.upgrade().map(|d| d.upcast()).into_iter().collect(),
         CARD_RADIUS,
         || {},
     );
@@ -160,21 +214,15 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
 
     let state = Rc::new(Autohide {
         enabled: autohide,
-        revealer: revealer.clone(),
         window: window.downgrade(),
         hot_edge: autohide.then(|| hot_edge(monitor)),
         hovered: Cell::new(false),
         on_edge: Cell::new(false),
         hide: Cell::new(None),
-    });
-    // Slid out: the window goes, so nothing of the dock is drawn while hidden.
-    let weak = Rc::downgrade(&state);
-    revealer.connect_child_revealed_notify(move |revealer| {
-        if !revealer.is_child_revealed()
-            && let Some(window) = weak.upgrade().and_then(|s| s.window.upgrade())
-        {
-            window.set_visible(false);
-        }
+        position: Cell::new(if autohide { 0.0 } else { 1.0 }),
+        target: Cell::new(if autohide { 0.0 } else { 1.0 }),
+        sliding: Cell::new(false),
+        height: Cell::new(80),
     });
     if let Some(edge) = &state.hot_edge {
         let touch = gtk4::EventControllerMotion::new();
@@ -266,7 +314,8 @@ fn hot_edge(monitor: &gdk::Monitor) -> gtk4::Window {
         edge.set_anchor(side, true);
     }
     edge.set_exclusive_zone(0);
-    edge.set_default_size(-1, 2);
+    // Not -1: GTK would fall back to its default 200 px window height.
+    edge.set_default_size(1, 2);
     let fill = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
     fill.set_size_request(-1, 2);
     edge.set_child(Some(&fill));
@@ -355,7 +404,7 @@ fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
         gdk::BUTTON_PRIMARY => activate(&it, &n, e.as_ref()),
         gdk::BUTTON_MIDDLE => {
             if let Some(entry) = &e {
-                crate::launch::app(entry);
+                crate::launch::new_window(entry);
             }
         }
         _ => {}
@@ -431,9 +480,13 @@ fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&Deskt
     }
 
     if let Some(entry) = entry.cloned() {
-        let label = if item.windows.is_empty() { "Open" } else { "New window" };
-        column.append(&ui::item(label, false, move || {
-            crate::launch::app(&entry);
+        let running = !item.windows.is_empty();
+        column.append(&ui::item(if running { "New window" } else { "Open" }, false, move || {
+            if running {
+                crate::launch::new_window(&entry);
+            } else {
+                crate::launch::app(&entry);
+            }
             menu::close();
         }));
     }

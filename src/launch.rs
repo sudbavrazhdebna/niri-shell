@@ -35,6 +35,23 @@ pub fn app(info: &DesktopAppInfo) {
     }
 }
 
+/// Opens a new window of an app. Many apps run one process and answer a plain launch by
+/// raising the window they have (Nautilus, Sublime Text): their desktop entry has a
+/// "new window" action for this, which GNOME uses too.
+pub fn new_window(info: &DesktopAppInfo) {
+    let actions = info.list_actions();
+    let action = actions
+        .iter()
+        .find(|a| ["new-window", "NewWindow", "new_window", "window-new"].contains(&a.as_str()));
+    match action {
+        Some(action) => {
+            let context = gdk::Display::default().map(|d| d.app_launch_context());
+            info.launch_action(action, context.as_ref());
+        }
+        None => app(info),
+    }
+}
+
 /// Runs a command line (no shell), e.g. a settings app or the lock command.
 pub fn command(command: &str) {
     let argv = match glib::shell_parse_argv(command) {

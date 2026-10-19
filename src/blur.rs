@@ -96,6 +96,8 @@ pub fn behind(
                 .iter()
                 .filter(|card| card.is_visible())
                 .filter_map(|card| card.compute_bounds(&window))
+                // Not laid out yet (right after mapping): wait for the resize.
+                .filter(|b| b.width() > 0.0 && b.height() > 0.0)
                 .flat_map(|b| {
                     rounded_rect(
                         b.x().round() as i32,

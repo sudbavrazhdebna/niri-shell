@@ -23,6 +23,16 @@ each section. Read before changing any of these.
 
 ## Dock
 
+- **A fully transparent GTK window never reaches the compositor**: with nothing to draw, GTK
+  attaches no buffer, the layer surface stays unmapped and gets no pointer (seen with
+  WAYLAND_DEBUG: no `wl_surface.attach`). The dock's hot edge and the menu catcher therefore
+  have a nearly transparent background (alpha 0.004). This is why hovering the bottom edge did
+  nothing and why a click beside a menu didn't close it.
+- Size such windows explicitly: `set_default_size(-1, h)` made GTK ask for its default 200 px.
+- The dock slides by its bottom margin on a 16 ms timer, not the frame clock, and never goes
+  wholly off the screen while mapped (one pixel stays): niri sends no frames to a surface
+  outside every output, GTK then never commits the next position, and the dock stayed blank.
+  Its height is measured before it maps (a guessed height put it wholly off screen).
 - Autohide: a hidden dock has no window at all (unmapped once it slid out); a separate 2 px
   transparent layer window along the whole bottom edge brings it back. The first version kept
   a strip inside the dock window, which had zero width until the dock had been shown once (a
