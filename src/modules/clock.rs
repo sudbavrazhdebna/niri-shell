@@ -15,10 +15,6 @@ use crate::services::Services;
 use crate::services::notifications::Notification;
 use crate::{menu, ui};
 
-/// More notifications than this and the list scrolls.
-const SCROLL_AFTER: usize = 3;
-/// Height the notification list may take before it scrolls.
-const LIST_MAX_HEIGHT: i32 = 480;
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let root = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
@@ -84,14 +80,8 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     center.append(&header);
 
     let list = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    let scroll = gtk4::ScrolledWindow::new();
-    // Scrolling only for long lists: the scrollbar's own minimum height left an empty
-    // area under a short one.
-    scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Never);
-    scroll.set_propagate_natural_height(true);
-    scroll.set_max_content_height(LIST_MAX_HEIGHT);
-    scroll.set_child(Some(&list));
-    center.append(&scroll);
+    // No scrolling of its own: the whole menu scrolls once it is taller than the screen.
+    center.append(&list);
 
     let clear = gtk4::Button::with_label("Clear all");
     clear.add_css_class("clear-all");
@@ -104,7 +94,6 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     let expanded: Rc<RefCell<HashSet<String>>> = Rc::default();
     let render = Rc::new(Render {
         list: list.downgrade(),
-        scroll: scroll.downgrade(),
         clear: clear.downgrade(),
         expanded,
         server: server.clone(),
@@ -117,7 +106,6 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
 /// Redraws the notification list (on changes, and when a stack is opened).
 struct Render {
     list: glib::WeakRef<gtk4::Box>,
-    scroll: glib::WeakRef<gtk4::ScrolledWindow>,
     clear: glib::WeakRef<gtk4::Button>,
     expanded: Rc<RefCell<HashSet<String>>>,
     server: Rc<crate::services::notifications::Notifications>,
@@ -130,11 +118,6 @@ impl Render {
         ui::clear(&list);
         if let Some(clear) = self.clear.upgrade() {
             clear.set_visible(!notifications.is_empty());
-        }
-        if let Some(scroll) = self.scroll.upgrade() {
-            let long = notifications.len() > SCROLL_AFTER;
-            let policy = if long { gtk4::PolicyType::Automatic } else { gtk4::PolicyType::Never };
-            scroll.set_policy(gtk4::PolicyType::Never, policy);
         }
         if notifications.is_empty() {
             list.append(&ui::note("No notifications"));

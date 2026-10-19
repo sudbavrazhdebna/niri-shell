@@ -47,6 +47,9 @@ each section. Read before changing any of these.
   width before it shows, so it doesn't jump sideways.
 - The OSD stays quiet only for changes made with a slider in a menu (the slider shows them);
   keys always get it, menu open or not.
+- Menus scroll as a whole (calendar and notifications together) once taller than the screen;
+  no inner scrolled lists. An inner list with a height cap made the clock menu shrink to half
+  a notification when a stack was expanded, and a scrollbar's minimum height left gaps.
 - Hover switching waits 250 ms when the pointer heads diagonally into the open menu (the fork's
   "safe triangle"), switches at once along the bar.
 

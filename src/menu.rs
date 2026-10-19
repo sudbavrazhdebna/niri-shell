@@ -205,7 +205,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         while let Some(child) = card.first_child() {
             card.remove(&child);
         }
-        card.append(content);
+        card.append(&scrolling(content, &monitor, &bar));
         placed_under.replace(anchor.downgrade());
         if let Some(wrapped) = window.child() {
             let (_, natural, _, _) = wrapped.measure(gtk4::Orientation::Horizontal, -1);
@@ -268,7 +268,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
 
     let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     card.add_css_class("menu-card");
-    card.append(content);
+    card.append(&scrolling(content, &monitor, &bar));
     // Re-centered under its module and re-blurred whenever the card changes size.
     let placed_under = Rc::new(RefCell::new(anchor.downgrade()));
     let (window_weak, under, card_weak) = (window.downgrade(), placed_under.clone(), card.downgrade());
@@ -310,6 +310,23 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         upward,
         placed_under,
     }));
+}
+
+/// Room the card's padding, shadow margin and a gap at the far screen edge take, beyond
+/// the content.
+const MENU_FRAME: i32 = 60;
+
+/// Wraps menu content so that a menu taller than the screen scrolls (with the wheel)
+/// instead of running off it; shorter ones are exactly their content's size.
+fn scrolling(content: &impl IsA<gtk4::Widget>, monitor: &gdk::Monitor, owner: &gtk4::Window) -> gtk4::ScrolledWindow {
+    let scroll = gtk4::ScrolledWindow::new();
+    scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+    scroll.set_propagate_natural_height(true);
+    scroll.set_propagate_natural_width(true);
+    let room = monitor.geometry().height() - owner.height() - GAP - MENU_FRAME;
+    scroll.set_max_content_height(room.max(200));
+    scroll.set_child(Some(content));
+    scroll
 }
 
 /// Transparent window over the screen below the bar: a click on it closes the menu.
