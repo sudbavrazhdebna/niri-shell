@@ -116,8 +116,15 @@ async fn add(
     players: Rc<RefCell<Vec<gio::DBusProxy>>>,
     current: Watch<Option<Track>>,
 ) {
-    let proxy = gio::DBusProxy::new_future(&bus, gio::DBusProxyFlags::NONE, None, Some(&name), PATH, PLAYER).await;
+    let proxy =
+        gio::DBusProxy::new_future(&bus, gio::DBusProxyFlags::DO_NOT_AUTO_START, None, Some(&name), PATH, PLAYER)
+            .await;
     let Ok(proxy) = proxy else { return };
+    // A player that quit while the proxy was made: its NameOwnerChanged came before it
+    // was in the list, and an empty "Untitled" player stayed for good.
+    if proxy.name_owner().is_none() {
+        return;
+    }
     let (p, c) = (players.clone(), current.clone());
     proxy.connect_local("g-properties-changed", false, move |args| {
         let changed = args.first().and_then(|v| v.get::<gio::DBusProxy>().ok());
@@ -132,7 +139,12 @@ async fn add(
 /// Moves the player to show to the front: a playing one wins, then the one that just
 /// changed.
 fn pick(players: &RefCell<Vec<gio::DBusProxy>>, current: &Watch<Option<Track>>, changed: Option<gio::DBusProxy>) {
-    let mut players = players.borrow_mut();
+    let track = reorder(&mut players.borrow_mut(), changed);
+    // Not while the list is borrowed: listeners may call the players.
+    current.set(track);
+}
+
+fn reorder(players: &mut Vec<gio::DBusProxy>, changed: Option<gio::DBusProxy>) -> Option<Track> {
     let playing = |p: &gio::DBusProxy| prop::<String>(p, "PlaybackStatus").as_deref() == Some("Playing");
     let front_plays = players.first().is_some_and(playing);
     if let Some(changed) = changed
@@ -145,7 +157,7 @@ fn pick(players: &RefCell<Vec<gio::DBusProxy>>, current: &Watch<Option<Track>>, 
         let p = players.remove(i);
         players.insert(0, p);
     }
-    current.set(players.first().map(read));
+    players.first().map(read)
 }
 
 fn read(proxy: &gio::DBusProxy) -> Track {
