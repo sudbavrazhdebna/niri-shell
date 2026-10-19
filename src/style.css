@@ -1,4 +1,4 @@
-/* Built-in look. A user style.css on top of this comes in step 2.
+/* Built-in look. ~/.config/nshell/style.css goes on top of this.
    The font family is not set on purpose: the system one is used. */
 
 window.bar {
@@ -9,21 +9,27 @@ window.bar {
     padding: 0 6px;
 }
 
+/* ---- Modules: white text and icons with a soft shadow, a plate on hover ---- */
+
 .bar-content .module {
-    margin: 0 8px;
+    margin: 0 2px;
+    padding: 3px 9px;
+    border-radius: 9px;
     color: white;
     font-size: 16px;
     font-weight: 500;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
     -gtk-icon-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+    transition: background-color 120ms ease-out;
 }
 
-.window-title .app-icon {
-    -gtk-icon-size: 20px;
+.bar-content .module.has-menu:hover {
+    background-color: rgba(255, 255, 255, 0.12);
 }
 
-.bar-content .problem {
-    color: #ffcc33;
+.bar-content .module.menu-open,
+.bar-content .module.menu-open:hover {
+    background-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Icons keep their own colors; opacity and shadow make them look like glass. */
@@ -36,10 +42,84 @@ window.bar {
     font-weight: 600;
 }
 
-/* Menus are children of bar modules in the widget tree: don't inherit the bar's text look. */
-.bar-content popover {
-    text-shadow: none;
-    -gtk-icon-shadow: none;
-    font-size: 1rem;
+.window-title .app-icon {
+    -gtk-icon-size: 20px;
+}
+
+.bar-content .problem {
+    color: #ffcc33;
+}
+
+/* ---- Menus: dark glass card under the bar ---- */
+
+window.nshell-menu,
+window.menu-catcher {
+    background: transparent;
+}
+
+window.nshell-menu {
+    color: white;
+}
+
+.menu-card {
+    background-color: rgba(28, 29, 32, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    padding: 8px;
+    /* Room for the shadow inside the window. */
+    margin: 0 14px 18px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.menu-body {
+    min-width: 200px;
+}
+
+.menu-title {
+    font-weight: bold;
+    padding: 4px 8px 2px;
+}
+
+.menu-note {
+    color: rgba(255, 255, 255, 0.65);
+    padding: 0 8px 4px;
+}
+
+.menu-separator {
+    margin: 6px 4px;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+button.menu-item {
+    padding: 5px 8px;
+    border-radius: 8px;
     font-weight: normal;
+}
+
+button.menu-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.menu-check {
+    -gtk-icon-size: 14px;
+}
+
+.menu-slider-row {
+    padding: 2px 4px;
+}
+
+.menu-value {
+    color: rgba(255, 255, 255, 0.7);
+    font-feature-settings: "tnum";
+}
+
+button.menu-icon-button {
+    padding: 4px;
+    border-radius: 8px;
+    -gtk-icon-size: 18px;
+}
+
+.menu-calendar {
+    background: transparent;
+    border: none;
 }

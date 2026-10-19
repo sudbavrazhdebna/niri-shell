@@ -118,7 +118,10 @@ impl Bars {
         window.set_default_size(-1, height);
 
         window.set_child(Some(&self.build_content(ctx)));
+        crate::menu::watch_bar(window.upcast_ref());
         window.present();
+        #[cfg(debug_assertions)]
+        crate::menu::dev_open(window.upcast_ref());
         window
     }
 

@@ -7,7 +7,9 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use super::{Context, LEFT, MIDDLE, RIGHT, on_click, on_scroll};
-use crate::services::tray::{Item, Status, menu};
+use crate::services::tray::menu::{self as tray_menu, Entry, Sender};
+use crate::services::tray::{Item, Status};
+use crate::{menu, ui};
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
@@ -40,6 +42,16 @@ fn item_widget(item: &Rc<Item>) -> gtk4::Image {
         image.set_tooltip_text(Some(&state.title).filter(|t| !t.is_empty()).map(|t| t.as_str()));
     });
 
+    let i = item.clone();
+    menu::register(&image, move |anchor| {
+        let (item, anchor) = (i.clone(), anchor.clone());
+        glib::spawn_future_local(async move {
+            if let Some(image) = anchor.downcast_ref::<gtk4::Image>() {
+                show_menu(&item, image).await;
+            }
+        });
+    });
+    menu::on_button(&image, RIGHT);
     let (i, w) = (item.clone(), image.downgrade());
     on_click(&image, LEFT, move || {
         let (item, weak) = (i.clone(), w.clone());
@@ -49,16 +61,7 @@ fn item_widget(item: &Rc<Item>) -> gtk4::Image {
             if (is_menu || item.activate().await.is_err())
                 && let Some(image) = weak.upgrade()
             {
-                show_menu(&item, &image).await;
-            }
-        });
-    });
-    let (i, w) = (item.clone(), image.downgrade());
-    on_click(&image, RIGHT, move || {
-        let (item, weak) = (i.clone(), w.clone());
-        glib::spawn_future_local(async move {
-            if let Some(image) = weak.upgrade() {
-                show_menu(&item, &image).await;
+                crate::menu::toggle(image.upcast_ref());
             }
         });
     });
@@ -69,44 +72,80 @@ fn item_widget(item: &Rc<Item>) -> gtk4::Image {
     image
 }
 
-async fn show_menu(item: &Item, anchor: &gtk4::Image) -> Option<gtk4::PopoverMenu> {
+async fn show_menu(item: &Item, anchor: &gtk4::Image) -> Option<()> {
     let path = item.state.get().menu.clone()?;
-    let (model, actions) = menu::load(item.connection(), &item.bus, &path).await?;
-    let popover = gtk4::PopoverMenu::from_model(Some(&model));
-    popover.add_css_class("tray-menu");
-    popover.set_has_arrow(false);
-    popover.insert_action_group(menu::GROUP, Some(&actions));
-    popover.set_parent(anchor);
-    popover.connect_closed(|popover| {
-        // Unparent after the click that closed it has been handled.
-        let popover = popover.clone();
-        glib::idle_add_local_once(move || popover.unparent());
-    });
-    popover.popup();
-    Some(popover)
+    let (entries, sender) = tray_menu::load(item.connection(), &item.bus, &path).await?;
+    let stack = gtk4::Stack::new();
+    stack.set_transition_type(gtk4::StackTransitionType::SlideLeftRight);
+    stack.set_vhomogeneous(false);
+    stack.set_interpolate_size(true);
+    add_page(&stack, "root", None, &entries, &sender);
+    // Submenu pages are added before their parent; start at the top.
+    stack.set_visible_child_name("root");
+    menu::show(anchor.upcast_ref(), &stack);
+    Some(())
 }
 
-/// Sandbox testing without a mouse: with NSHELL_DEV_TRAY_MENU=<n> (or "open") set, a debug build
-/// opens the menu of each new tray item 3 s after it appears (apps often map a window
-/// first, which closes popups) and clicks its item with id n two seconds later.
+/// One level of the menu; submenus become further pages with a back row.
+fn add_page(
+    stack: &gtk4::Stack,
+    name: &str,
+    back: Option<(&str, &str)>,
+    entries: &[Entry],
+    sender: &Sender,
+) {
+    let column = ui::column();
+    if let Some((parent, title)) = back {
+        let (stack_weak, parent) = (stack.downgrade(), parent.to_string());
+        let row = ui::item(&format!("‹  {title}"), false, move || {
+            if let Some(stack) = stack_weak.upgrade() {
+                stack.set_visible_child_name(&parent);
+            }
+        });
+        row.add_css_class("menu-back");
+        column.append(&row);
+        column.append(&ui::separator());
+    }
+    for (i, entry) in entries.iter().enumerate() {
+        match entry {
+            Entry::Separator => column.append(&ui::separator()),
+            Entry::Item { id, label, enabled, toggle } => {
+                let (sender, id) = (sender.clone(), *id);
+                let row = ui::item(label, toggle.unwrap_or(false), move || {
+                    sender.clicked(id);
+                    menu::close();
+                });
+                row.set_sensitive(*enabled);
+                column.append(&row);
+            }
+            Entry::Submenu { label, enabled, children } => {
+                let page = format!("{name}/{i}");
+                add_page(stack, &page, Some((name, label)), children, sender);
+                let stack_weak = stack.downgrade();
+                let row = ui::item(&format!("{label}  ›"), false, move || {
+                    if let Some(stack) = stack_weak.upgrade() {
+                        stack.set_visible_child_name(&page);
+                    }
+                });
+                row.set_sensitive(*enabled);
+                column.append(&row);
+            }
+        }
+    }
+    stack.add_named(&column, Some(name));
+}
+
+/// Sandbox testing without a mouse: with NSHELL_DEV_TRAY_MENU set, a debug build opens
+/// the menu of each new tray item 3 s after it appears (apps often map a window first).
 #[cfg(debug_assertions)]
 fn dev_auto_menu(item: &Rc<Item>, image: &gtk4::Image) {
-    let Some(click) = std::env::var("NSHELL_DEV_TRAY_MENU").ok() else {
+    if std::env::var_os("NSHELL_DEV_TRAY_MENU").is_none() {
         return;
-    };
+    }
     let (item, image) = (item.clone(), image.clone());
     glib::timeout_add_local_once(std::time::Duration::from_secs(3), move || {
         glib::spawn_future_local(async move {
-            let Some(popover) = show_menu(&item, &image).await else {
-                return;
-            };
-            if click == "open" {
-                return;
-            }
-            glib::timeout_add_local_once(std::time::Duration::from_secs(2), move || {
-                let _ = popover.activate_action(&format!("{}.i{click}", menu::GROUP), None);
-                popover.popdown();
-            });
+            show_menu(&item, &image).await;
         });
     });
 }

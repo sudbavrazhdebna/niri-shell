@@ -24,6 +24,15 @@ pub struct AudioState {
     /// 100 = the device's normal level.
     pub percent: u32,
     pub muted: bool,
+    /// All output devices; `default` is the one in use.
+    pub outputs: Vec<Output>,
+    pub default: String,
+}
+
+#[derive(Clone, Default, PartialEq, Debug)]
+pub struct Output {
+    pub name: String,
+    pub description: String,
 }
 
 pub struct Audio {
@@ -78,6 +87,13 @@ impl Audio {
         let current = self.state.get().percent;
         let target = current.saturating_add_signed(delta);
         self.set_percent(target);
+    }
+
+    /// Makes `name` the output in use.
+    pub fn set_default(&self, name: &str) {
+        if let Some(context) = &mut *self.context.borrow_mut() {
+            context.set_default_sink(name, |_| {});
+        }
     }
 
     pub fn toggle_mute(&self) {
@@ -147,13 +163,44 @@ impl Audio {
                 match facility {
                     // The default device may have changed.
                     Some(Facility::Server) => this.refresh_default(),
-                    Some(Facility::Sink) => this.refresh_sink(),
+                    Some(Facility::Sink) => {
+                        this.refresh_sink();
+                        this.refresh_outputs();
+                    }
                     _ => {}
                 }
             })));
             context.subscribe(InterestMaskSet::SINK | InterestMaskSet::SERVER, |_| {});
         }
         self.refresh_default();
+        self.refresh_outputs();
+    }
+
+    /// Device list for the menu. Devices come and go rarely, so this re-reads all.
+    fn refresh_outputs(self: &Rc<Self>) {
+        let Some(context) = &*self.context.borrow() else {
+            return;
+        };
+        let weak = Rc::downgrade(self);
+        let found = Rc::new(RefCell::new(Vec::new()));
+        context.introspect().get_sink_info_list(move |result| {
+            let Some(this) = weak.upgrade() else { return };
+            match result {
+                ListResult::Item(info) => found.borrow_mut().push(Output {
+                    name: info.name.as_deref().unwrap_or_default().to_string(),
+                    description: info.description.as_deref().unwrap_or_default().to_string(),
+                }),
+                ListResult::End => {
+                    let outputs = found.take();
+                    this.state.update(|state| {
+                        let changed = state.outputs != outputs;
+                        state.outputs = outputs;
+                        changed
+                    });
+                }
+                ListResult::Error => {}
+            }
+        });
     }
 
     fn refresh_default(self: &Rc<Self>) {
@@ -172,7 +219,10 @@ impl Audio {
                 }
                 None => {
                     this.sink.replace(None);
-                    this.state.set(AudioState::default());
+                    this.state.update(|state| {
+                        state.available = false;
+                        true
+                    });
                 }
             }
         });
@@ -207,10 +257,18 @@ impl Audio {
                     name: name.to_string(),
                     volume: info.volume,
                 }));
-                this.state.set(AudioState {
-                    available: true,
-                    percent,
-                    muted: info.mute,
+                let name = name.to_string();
+                this.state.update(|state| {
+                    let new = AudioState {
+                        available: true,
+                        percent,
+                        muted: info.mute,
+                        outputs: std::mem::take(&mut state.outputs),
+                        default: name,
+                    };
+                    let changed = *state != new;
+                    *state = new;
+                    changed
                 });
             });
     }

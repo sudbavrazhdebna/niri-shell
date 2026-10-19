@@ -6,6 +6,7 @@ pub mod battery;
 pub mod bluetooth;
 pub mod dbus;
 pub mod network;
+pub mod power;
 pub mod tray;
 
 use std::cell::OnceCell;
@@ -19,6 +20,7 @@ pub struct Services {
     bluetooth: OnceCell<bluetooth::Bluetooth>,
     network: OnceCell<network::Network>,
     tray: OnceCell<Rc<tray::Tray>>,
+    power: OnceCell<power::Power>,
     audio: OnceCell<Option<Rc<audio::Audio>>>,
 }
 
@@ -30,6 +32,7 @@ impl Services {
             bluetooth: OnceCell::new(),
             network: OnceCell::new(),
             tray: OnceCell::new(),
+            power: OnceCell::new(),
             audio: OnceCell::new(),
         })
     }
@@ -48,6 +51,10 @@ impl Services {
 
     pub fn tray(&self) -> &Rc<tray::Tray> {
         self.tray.get_or_init(tray::Tray::start)
+    }
+
+    pub fn power(&self) -> &power::Power {
+        self.power.get_or_init(power::Power::start)
     }
 
     /// None only if libpulse can't run at all.

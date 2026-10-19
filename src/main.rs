@@ -1,10 +1,12 @@
 mod apps;
 mod bar;
 mod config;
+mod menu;
 mod modules;
 mod niri;
 mod services;
 mod settings;
+mod ui;
 mod watch;
 
 use gtk4::prelude::*;
@@ -54,6 +56,10 @@ fn load_css() {
         tracing::error!("no display");
         return;
     };
+    // The shell looks the same whatever GTK theme apps use: built-in Adwaita, dark.
+    let settings = gtk4::Settings::for_display(&display);
+    settings.set_gtk_theme_name(Some("Adwaita"));
+    settings.set_gtk_application_prefer_dark_theme(true);
     let provider = gtk4::CssProvider::new();
     provider.load_from_string(include_str!("style.css"));
     gtk4::style_context_add_provider_for_display(

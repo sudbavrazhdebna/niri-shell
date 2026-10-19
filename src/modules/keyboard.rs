@@ -1,9 +1,11 @@
-//! Keyboard layout: EN / RU. Click or scroll switches to the next one.
+//! Keyboard layout: EN / RU. Left click: menu of layouts, right click or scroll:
+//! next layout.
 
 use gtk4::prelude::*;
 use niri_ipc::{Action, LayoutSwitchTarget};
 
-use super::{Context, LEFT, RIGHT, on_click, on_scroll};
+use super::{Context, RIGHT, on_click, on_scroll};
+use crate::{menu, ui};
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let label = gtk4::Label::new(None);
@@ -24,14 +26,32 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         }
     });
 
-    let switch = move |target: LayoutSwitchTarget| {
-        let niri = niri.clone();
-        move || niri.action(Action::SwitchLayout { layout: target })
-    };
-    // Left click opens the layout menu once menus exist (step 5).
-    on_click(&label, LEFT, switch(LayoutSwitchTarget::Next));
-    on_click(&label, RIGHT, switch(LayoutSwitchTarget::Next));
-    let niri = ctx.services.niri.clone();
+    let n = niri.clone();
+    menu::attach(&label, move |anchor| {
+        let column = ui::column();
+        column.append(&ui::title("Раскладка"));
+        let state = n.state.get();
+        if let Some(layouts) = &state.keyboard_layouts {
+            for (idx, name) in layouts.names.iter().enumerate() {
+                let n = n.clone();
+                let Ok(idx) = u8::try_from(idx) else { continue };
+                column.append(&ui::item(name, idx == layouts.current_idx, move || {
+                    n.action(Action::SwitchLayout {
+                        layout: LayoutSwitchTarget::Index(idx),
+                    });
+                    menu::close();
+                }));
+            }
+        }
+        menu::show(anchor, &column);
+    });
+
+    let n = niri.clone();
+    on_click(&label, RIGHT, move || {
+        n.action(Action::SwitchLayout {
+            layout: LayoutSwitchTarget::Next,
+        });
+    });
     on_scroll(&label, move |steps| {
         let layout = if steps > 0 {
             LayoutSwitchTarget::Prev
