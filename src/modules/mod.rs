@@ -1,8 +1,10 @@
 //! Bar modules. Each one builds its widget for one bar (one monitor) and keeps it updated.
 
 mod battery;
+mod bluetooth;
 mod clock;
 mod keyboard;
+mod network;
 mod volume;
 mod window_title;
 
@@ -28,6 +30,8 @@ pub fn build(name: &str, ctx: &Context) -> Option<gtk4::Widget> {
         "keyboard" => Some(keyboard::build(ctx)),
         "volume" => volume::build(ctx),
         "battery" => Some(battery::build(ctx)),
+        "network" => Some(network::build(ctx)),
+        "bluetooth" => Some(bluetooth::build(ctx)),
         // Accepted by the config, not written yet.
         _ => None,
     }

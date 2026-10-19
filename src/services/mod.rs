@@ -3,6 +3,9 @@
 
 pub mod audio;
 pub mod battery;
+pub mod bluetooth;
+mod dbus;
+pub mod network;
 
 use std::cell::OnceCell;
 use std::rc::Rc;
@@ -12,6 +15,8 @@ use crate::niri::Niri;
 pub struct Services {
     pub niri: Niri,
     battery: OnceCell<battery::Battery>,
+    bluetooth: OnceCell<bluetooth::Bluetooth>,
+    network: OnceCell<network::Network>,
     audio: OnceCell<Option<Rc<audio::Audio>>>,
 }
 
@@ -20,12 +25,22 @@ impl Services {
         Rc::new(Services {
             niri,
             battery: OnceCell::new(),
+            bluetooth: OnceCell::new(),
+            network: OnceCell::new(),
             audio: OnceCell::new(),
         })
     }
 
     pub fn battery(&self) -> &battery::Battery {
         self.battery.get_or_init(battery::Battery::start)
+    }
+
+    pub fn bluetooth(&self) -> &bluetooth::Bluetooth {
+        self.bluetooth.get_or_init(bluetooth::Bluetooth::start)
+    }
+
+    pub fn network(&self) -> &network::Network {
+        self.network.get_or_init(network::Network::start)
     }
 
     /// None only if libpulse can't run at all.
