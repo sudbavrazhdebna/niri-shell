@@ -94,7 +94,7 @@ impl Popups {
             let widget = match existing {
                 Some(widget) => widget,
                 None => {
-                    let widget = card(n, &server, Rc::new(|| {}));
+                    let widget = card(n, &server, Rc::new(|| {}), false);
                     self.watch_hover(&widget, id, n.timeout_ms);
                     let hide = Some(self.hide_later(id, n.timeout_ms));
                     self.cards

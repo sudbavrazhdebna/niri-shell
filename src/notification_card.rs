@@ -8,7 +8,8 @@ use gtk4::{gdk, glib};
 use crate::services::notifications::{Image, Notification, Notifications, Reason};
 
 /// Builds the card. `on_done` runs after a click or an action, e.g. to close a menu.
-pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn()>) -> gtk4::Box {
+/// `show_time`: the center says how old each one is; a popup is always "now".
+pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn()>, show_time: bool) -> gtk4::Box {
     let card = gtk4::Box::new(gtk4::Orientation::Horizontal, 14);
     card.add_css_class("notification");
     if n.critical {
@@ -32,6 +33,7 @@ pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn
     summary.set_max_width_chars(30);
     let time = gtk4::Label::new(Some(&relative_time(n.received.as_ref())));
     time.add_css_class("time");
+    time.set_visible(show_time);
     let close = gtk4::Button::from_icon_name("window-close-symbolic");
     close.add_css_class("close-button");
     close.set_valign(gtk4::Align::Start);

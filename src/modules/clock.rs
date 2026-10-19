@@ -128,7 +128,7 @@ impl Render {
             let open = group.len() == 1 || self.expanded.borrow().contains(&app);
             let shown = if open { &group[..] } else { &group[..1] };
             for n in shown {
-                list.append(&card(n, &self.server, Rc::new(menu::close)));
+                list.append(&card(n, &self.server, Rc::new(menu::close), true));
             }
             if !open {
                 let label = format!("+{} more from {}", group.len() - 1, app_label(&group[0]));
