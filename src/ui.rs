@@ -134,6 +134,15 @@ impl Slider {
         &self.0.scale
     }
 
+    /// Grey fill: the level holds but is off (muted).
+    pub fn set_dimmed(&self, dimmed: bool) {
+        if dimmed {
+            self.0.scale.add_css_class("dimmed");
+        } else {
+            self.0.scale.remove_css_class("dimmed");
+        }
+    }
+
     /// Shows a value from the system, unless the user is moving the slider.
     pub fn show(&self, value: f64) {
         let inner = &self.0;

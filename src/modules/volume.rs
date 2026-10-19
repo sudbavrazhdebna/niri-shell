@@ -52,7 +52,7 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     column.append(&output.row);
     let row = output.row.clone();
     audio.state.bind(&row, move |_, state| {
-        output.show(icon(state), state.percent);
+        output.show(icon(state), state.percent, state.muted);
     });
 
     // The microphone, if there is one.
@@ -69,7 +69,7 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
             } else {
                 "audio-input-microphone-symbolic"
             };
-            mic.show(icon, state.percent);
+            mic.show(icon, state.percent, state.muted);
         }
     });
     column.append(&mic_box);
@@ -101,7 +101,7 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
         }
         for (stream, (_, row)) in streams.iter().zip(rows.borrow().iter()) {
             let icon = if stream.icon.is_empty() { "audio-volume-high-symbolic" } else { &stream.icon };
-            row.show(if stream.muted { "audio-volume-muted-symbolic" } else { icon }, stream.percent);
+            row.show(if stream.muted { "audio-volume-muted-symbolic" } else { icon }, stream.percent, stream.muted);
         }
     });
     column.append(&apps);
@@ -158,9 +158,10 @@ impl LevelRow {
         LevelRow { row, icon, slider, percent }
     }
 
-    fn show(&self, icon: &str, percent: u32) {
+    fn show(&self, icon: &str, percent: u32, muted: bool) {
         self.icon.set_icon_name(Some(icon));
         self.slider.show(f64::from(percent));
+        self.slider.set_dimmed(muted);
         self.percent.set_label(&format!("{percent}%"));
     }
 }

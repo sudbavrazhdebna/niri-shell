@@ -186,7 +186,10 @@ fn sliders(services: &Rc<Services>) -> gtk4::Box {
         let slider = ui::Slider::new(f64::from(MAX_PERCENT), move |v| a.set_percent(v.round() as u32));
         let row = slider_row("audio-volume-high-symbolic", slider.widget());
         let s = slider.clone();
-        audio.state.bind(slider.widget(), move |_, state| s.show(f64::from(state.percent)));
+        audio.state.bind(slider.widget(), move |_, state| {
+            s.show(f64::from(state.percent));
+            s.set_dimmed(state.muted);
+        });
         column.append(&row);
     }
 

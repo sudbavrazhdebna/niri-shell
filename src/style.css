@@ -285,6 +285,10 @@ window.nshell-osd {
     background: white;
 }
 
+.osd-level.dimmed trough block.filled {
+    background: rgba(255, 255, 255, 0.35);
+}
+
 .osd-level trough block.empty {
     background: transparent;
 }
@@ -553,4 +557,9 @@ button.dock-button:hover {
 
 .fact-value {
     font-feature-settings: "tnum";
+}
+
+/* A muted level keeps its place, in grey. */
+scale.dimmed trough highlight {
+    background: rgba(255, 255, 255, 0.35);
 }

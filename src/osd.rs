@@ -23,7 +23,8 @@ const CARD_RADIUS: i32 = 18;
 
 /// What one OSD shows.
 pub enum Content {
-    Level { icon: String, percent: u32 },
+    /// `dimmed`: the level holds but is off (muted volume), drawn grey.
+    Level { icon: String, percent: u32, dimmed: bool },
     Text { icon: String, text: String },
 }
 
@@ -78,6 +79,7 @@ impl Osd {
                 osd.show(Content::Level {
                     icon: "display-brightness-symbolic".into(),
                     percent: *percent,
+                    dimmed: false,
                 });
             }
             true
@@ -102,6 +104,7 @@ impl Osd {
                 osd.show(Content::Level {
                     icon: "keyboard-brightness-symbolic".into(),
                     percent: *percent,
+                    dimmed: false,
                 });
             }
             true
@@ -120,7 +123,12 @@ impl Osd {
         let mut shown = self.shown.borrow_mut();
         let Some(shown) = shown.as_mut() else { return };
         match content {
-            Content::Level { icon, percent } => {
+            Content::Level { icon, percent, dimmed } => {
+                if dimmed {
+                    shown.level.add_css_class("dimmed");
+                } else {
+                    shown.level.remove_css_class("dimmed");
+                }
                 shown.icon.set_icon_name(Some(&icon));
                 let target = f64::from(percent.min(100)) / 100.0;
                 if shown.level.is_visible() {
@@ -249,6 +257,6 @@ fn volume(state: &AudioState) -> Content {
         34..=66 => "nshell-volume-50",
         _ => "nshell-volume-100",
     };
-    let percent = if state.muted { 0 } else { state.percent };
-    Content::Level { icon: icon.into(), percent }
+    // Muted keeps its level: changing it while muted shows where it will be, in grey.
+    Content::Level { icon: icon.into(), percent: state.percent, dimmed: state.muted }
 }
