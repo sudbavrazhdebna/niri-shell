@@ -264,7 +264,7 @@ impl Notifications {
             summary: text(3),
             body: checked_markup(&text(4)),
             actions: actions
-                .chunks_exact(2)
+                .as_chunks::<2>().0.iter()
                 .map(|pair| (pair[0].clone(), pair[1].clone()))
                 .collect(),
             image: image(&hint("image-data").or_else(|| hint("image_data")), &hint("image-path").or_else(|| hint("image_path")))
