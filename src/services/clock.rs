@@ -13,22 +13,32 @@ pub struct Clock {
     /// Bumped on every tick.
     pub tick: Watch<u64>,
     per_second: Cell<bool>,
+    /// The timer of the next tick.
+    next: Cell<Option<glib::SourceId>>,
 }
 
 impl Clock {
     pub fn start() -> Rc<Clock> {
-        let clock = Rc::new(Clock { tick: Watch::new(0), per_second: Cell::new(false) });
+        let clock = Rc::new(Clock { tick: Watch::new(0), per_second: Cell::new(false), next: Cell::new(None) });
         schedule(Rc::downgrade(&clock), false);
         clock
     }
 
     /// Ticks every second from now on if `on` (a format with seconds), else every minute.
-    pub fn set_per_second(&self, on: bool) {
-        self.per_second.set(on);
+    pub fn set_per_second(self: &Rc<Self>, on: bool) {
+        if self.per_second.replace(on) == on {
+            return;
+        }
+        // Now, not after the minute already waited for: seconds stood still till then.
+        if let Some(source) = self.next.take() {
+            source.remove();
+        }
+        schedule(Rc::downgrade(self), on);
     }
 }
 
 fn schedule(clock: Weak<Clock>, per_second: bool) {
+    let Some(this) = clock.upgrade() else { return };
     let Ok(now) = glib::DateTime::now_local() else { return };
     // Sleep until the next boundary, plus a little so we never land just before it.
     let ms_into_second = u64::from(now.microsecond().unsigned_abs() / 1000);
@@ -39,12 +49,14 @@ fn schedule(clock: Weak<Clock>, per_second: bool) {
     };
     // TODO: glib timers stop during suspend, so after waking up the time can lag up to
     // a minute. Tick on logind PrepareForSleep(false) once logind is wired (idle step).
-    glib::timeout_add_local_once(Duration::from_millis(ms_left + 20), move || {
+    let source = glib::timeout_add_local_once(Duration::from_millis(ms_left + 20), move || {
         let Some(this) = clock.upgrade() else { return };
+        this.next.set(None);
         this.tick.update(|t| {
             *t += 1;
             true
         });
         schedule(clock, this.per_second.get());
     });
+    this.next.set(Some(source));
 }
