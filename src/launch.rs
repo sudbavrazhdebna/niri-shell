@@ -75,8 +75,20 @@ pub fn new_window(info: &DesktopAppInfo) {
 }
 
 /// Runs one of the actions a desktop entry lists ("New Private Window" and the like).
+/// The process gets its own scope like any other launch; GIO tells its pid only through
+/// the context's "launched" signal (an app activated over D-Bus starts none).
 pub fn action(info: &DesktopAppInfo, name: &str) {
-    info.launch_action(name, launch_context().as_ref());
+    let context = launch_context();
+    if let Some(context) = &context {
+        let id = info.id().map(String::from).unwrap_or_default();
+        context.connect_launched(move |_, _, platform_data| {
+            let pid = crate::services::dbus::lookup(platform_data, "pid").and_then(|v| v.get::<i32>());
+            if let Some(pid) = pid {
+                own_scope(&id, pid);
+            }
+        });
+    }
+    info.launch_action(name, context.as_ref());
 }
 
 /// Runs a command line (no shell), e.g. a settings app or the lock command.
