@@ -38,8 +38,15 @@ impl Brightness {
         let watch = percent.clone();
         let fd = file.as_raw_fd();
         // The file stays open inside the handler for the life of the process.
+        let device = name.clone();
         glib_unix::unix_fd_add_local(fd, glib::IOCondition::PRI | glib::IOCondition::ERR, move |_, _| {
-            watch.set(read_percent(&mut file, max));
+            // Only a successful read re-arms the event; a device that went away (an
+            // external GPU) would call this again at once, forever.
+            let Some(percent) = read_percent(&mut file, max) else {
+                tracing::warn!("brightness: {device} can't be read any more");
+                return glib::ControlFlow::Break;
+            };
+            watch.set(Some(percent));
             glib::ControlFlow::Continue
         });
         Brightness { percent, device: Some((name, max)) }
