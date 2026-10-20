@@ -21,6 +21,23 @@ const POSITION: f64 = 0.84;
 /// Corner radius of `.osd-card` in style.css, for the blur shape.
 const CARD_RADIUS: i32 = 18;
 
+thread_local! {
+    /// Renames of keyboard layouts for the OSD (`keyboard { rename … }` in the config).
+    static LAYOUT_RENAME: RefCell<Vec<(regex::Regex, String)>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Takes the layout renames (at start and on config reload).
+pub fn set_layout_rename(rules: &[(regex::Regex, String)]) {
+    LAYOUT_RENAME.set(rules.to_vec());
+}
+
+/// "English (US)" → "English" with `rename " \(.*\)$" ""`: every rule in order.
+fn layout_name(name: &str) -> String {
+    LAYOUT_RENAME.with_borrow(|rules| {
+        rules.iter().fold(name.to_string(), |name, (re, to)| re.replace_all(&name, to.as_str()).into_owned())
+    })
+}
+
 /// What one OSD shows.
 pub enum Content {
     /// `dimmed`: the level holds but is off (muted volume), drawn grey.
@@ -108,7 +125,7 @@ impl Osd {
                 && let Some(osd) = weak.upgrade()
                 && let Some(name) = layouts.names.get(usize::from(now))
             {
-                let content = Content::Text { icon: "input-keyboard-symbolic".into(), text: name.clone() };
+                let content = Content::Text { icon: "input-keyboard-symbolic".into(), text: layout_name(name) };
                 // Not from inside niri's notification: showing builds a window.
                 glib::idle_add_local_once(move || osd.show(content));
             }

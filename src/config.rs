@@ -31,6 +31,8 @@ pub struct Config {
     pub laptop_screen_auto: bool,
     /// The image on every monitor, filling it; None: no wallpaper from the shell.
     pub wallpaper: Option<PathBuf>,
+    /// How the OSD names keyboard layouts: (pattern, replacement), all applied in order.
+    pub layout_rename: Vec<(Regex, String)>,
 }
 
 pub struct BarConfig {
@@ -95,6 +97,7 @@ impl Default for Config {
                 lock_command: "loginctl lock-session".into(),
             },
             laptop_screen_auto: true,
+            layout_rename: Vec::new(),
             wallpaper: Some(gtk4::glib::home_dir().join(".config/wallpapers/m.jpg")),
             dock: DockConfig {
                 enabled: true,
@@ -194,6 +197,22 @@ impl Config {
                             "scroll-step" => {
                                 config.volume.scroll_step =
                                     int_arg(child, 1..=50).map_err(|e| at(child, e))?
+                            }
+                            other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
+                "keyboard" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "rename" => {
+                                let args = strings(child).map_err(|e| at(child, e))?;
+                                let [pattern, replace] = args.as_slice() else {
+                                    return Err(at(child, "needs two values: \"pattern\" \"replacement\"".into()));
+                                };
+                                let re = Regex::new(pattern)
+                                    .map_err(|e| at(child, format!("bad pattern: {e}")))?;
+                                config.layout_rename.push((re, replace.clone()));
                             }
                             other => return Err(at(child, unknown(other))),
                         }
@@ -376,6 +395,16 @@ mod tests {
         assert_eq!(config.bar.height, 34);
         assert_eq!(config.window_title.rewrite.len(), 6);
         assert_eq!(config.bar.right.len(), 8);
+    }
+
+    #[test]
+    fn layout_names_lose_their_variant() {
+        let config = Config::parse(DEFAULT_KDL).unwrap_or_else(|e| panic!("{e}"));
+        let rename = |name: &str| {
+            config.layout_rename.iter().fold(name.to_string(), |n, (re, to)| re.replace_all(&n, to.as_str()).into_owned())
+        };
+        assert_eq!(rename("English (US)"), "English");
+        assert_eq!(rename("Russian"), "Russian");
     }
 
     #[test]

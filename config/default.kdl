@@ -46,6 +46,13 @@ idle {
     lock-command "veila lock"
 }
 
+keyboard {
+    // How the OSD names layouts when you switch: a pattern and its replacement, applied
+    // in order. This one drops "(US)" and the like: "English (US)" shows as "English".
+    // Another example: rename "^Russian$" "Русский"
+    rename " \\(.*\\)$" ""
+}
+
 wallpaper {
     // One image on every monitor, filling it (cropped, not stretched). Without this
     // section: ~/.config/wallpapers/m.jpg. `off` instead: no wallpaper from the shell.
