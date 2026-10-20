@@ -7,6 +7,7 @@ loose reference for the look.
 
 - [DECISIONS.md](DECISIONS.md) — non-obvious choices and why; read before changing them, add new ones.
 - [STYLING.md](STYLING.md) — how styles work and the CSS classes; keep it in step with style.css.
+- [TODO.md](TODO.md) — what is agreed but not done yet; take work from there, keep it current.
 - [DESIGN.md](DESIGN.md) — design document: what we build, decisions, step order. `[decide]`
   marks questions for the user; without an answer, take the document's proposal and say so.
 - The living spec for behaviour and the reference for tricky parts is the fork in
