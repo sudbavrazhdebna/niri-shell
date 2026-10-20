@@ -26,6 +26,8 @@ const CARD_RADIUS: i32 = 16;
 thread_local! {
     static OPEN: RefCell<Option<Rc<Launcher>>> = const { RefCell::new(None) };
     static SEARCH_PATHS: RefCell<Vec<PathBuf>> = const { RefCell::new(Vec::new()) };
+    /// The text of the last search: the launcher opens with it, selected (as Spotlight).
+    static LAST_QUERY: RefCell<String> = const { RefCell::new(String::new()) };
 }
 
 /// The folders whose files the launcher finds (at start and on config reload).
@@ -45,6 +47,7 @@ pub fn toggle(services: &Rc<Services>) {
 pub fn close() {
     // Out of the cell first: destroying the window runs handlers that look at it.
     if let Some(launcher) = OPEN.take() {
+        LAST_QUERY.set(launcher.entry.text().to_string());
         launcher.window.destroy();
     }
 }
@@ -89,9 +92,6 @@ fn open(services: &Rc<Services>) {
 
     let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     card.add_css_class("launcher-card");
-    card.set_halign(gtk4::Align::Center);
-    card.set_valign(gtk4::Align::Start);
-    card.set_margin_top(monitor.geometry().height() / 5);
     let entry = gtk4::Entry::new();
     entry.add_css_class("launcher-entry");
     entry.set_placeholder_text(Some("Search apps and files"));
@@ -106,19 +106,24 @@ fn open(services: &Rc<Services>) {
     scroll.set_child(Some(&list));
     card.append(&scroll);
 
-    let fill = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    fill.set_hexpand(true);
-    fill.set_vexpand(true);
-    fill.append(&card);
+    // The blur wraps the card itself, so it follows the card as results come and go
+    // (wrapped around the whole screen it never saw the card grow).
     let card_weak = card.downgrade();
     let wrapped = crate::blur::behind(
         &window,
-        &fill,
+        &card,
         move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
         CARD_RADIUS,
         || {},
     );
-    window.set_child(Some(&wrapped));
+    wrapped.set_halign(gtk4::Align::Center);
+    wrapped.set_valign(gtk4::Align::Start);
+    wrapped.set_margin_top(monitor.geometry().height() / 5);
+    let fill = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    fill.set_hexpand(true);
+    fill.set_vexpand(true);
+    fill.append(&wrapped);
+    window.set_child(Some(&fill));
 
     let launcher = Rc::new(Launcher {
         services: services.clone(),
@@ -181,6 +186,11 @@ fn open(services: &Rc<Services>) {
     OPEN.replace(Some(launcher.clone()));
     launcher.refresh();
     window.set_visible(true);
+    // The last search, selected: typing replaces it, Enter repeats it.
+    let last = LAST_QUERY.with_borrow(Clone::clone);
+    if !last.is_empty() {
+        entry.set_text(&last);
+    }
     entry.grab_focus();
 
     #[cfg(debug_assertions)]
