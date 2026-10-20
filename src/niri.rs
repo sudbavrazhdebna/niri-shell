@@ -166,14 +166,7 @@ impl Niri {
     /// Sends an action to niri without waiting for the result.
     pub fn action(&self, action: Action) {
         gtk4::glib::spawn_future_local(async move {
-            let result = async {
-                let (_conn, mut lines) = open(&Request::Action(action)).await?;
-                match read_reply(&mut lines).await? {
-                    Ok(_) => Ok(()),
-                    Err(msg) => Err(msg),
-                }
-            };
-            if let Err(err) = result.await {
+            if let Err(err) = request(Request::Action(action)).await {
                 tracing::warn!("niri action failed: {err}");
             }
         });
@@ -201,6 +194,12 @@ impl Niri {
             self.state.update(|state| state.apply(event));
         }
     }
+}
+
+/// Sends one request and waits for niri's answer.
+pub async fn request(request: Request) -> Result<Response, String> {
+    let (_conn, mut lines) = open(&request).await?;
+    read_reply(&mut lines).await?
 }
 
 /// Opens a connection to niri and sends one request. The connection must stay alive

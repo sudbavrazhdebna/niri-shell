@@ -44,6 +44,12 @@ idle {
     lock-command "veila lock"
 }
 
+displays {
+    // "auto": the laptop's own screen is off while an external monitor is on, and comes
+    // back when the last one goes. "on": leave it alone.
+    laptop-screen "auto"
+}
+
 dock {
     // Uncomment the next line to hide the dock.
     // off

@@ -27,6 +27,8 @@ pub struct Config {
     pub volume: VolumeConfig,
     pub idle: IdleConfig,
     pub dock: DockConfig,
+    /// The laptop's own screen goes off while an external monitor is on.
+    pub laptop_screen_auto: bool,
 }
 
 pub struct BarConfig {
@@ -90,6 +92,7 @@ impl Default for Config {
             idle: IdleConfig {
                 lock_command: "loginctl lock-session".into(),
             },
+            laptop_screen_auto: true,
             dock: DockConfig {
                 enabled: true,
                 autohide: false,
@@ -188,6 +191,20 @@ impl Config {
                             "scroll-step" => {
                                 config.volume.scroll_step =
                                     int_arg(child, 1..=50).map_err(|e| at(child, e))?
+                            }
+                            other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
+                "displays" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "laptop-screen" => {
+                                config.laptop_screen_auto = match string_arg(child).map_err(|e| at(child, e))?.as_str() {
+                                    "auto" => true,
+                                    "on" => false,
+                                    _ => return Err(at(child, "needs \"auto\" or \"on\"".into())),
+                                }
                             }
                             other => return Err(at(child, unknown(other))),
                         }

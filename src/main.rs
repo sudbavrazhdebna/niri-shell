@@ -2,6 +2,7 @@ mod apps;
 mod bar;
 mod blur;
 mod config;
+mod displays;
 mod dock;
 mod ipc;
 mod launch;
@@ -70,6 +71,7 @@ fn main() -> glib::ExitCode {
         let (config, problem) = settings::Settings::initial_config();
         let services = services::Services::new(niri::Niri::connect());
         menu::close_on_focus_change(&services.niri);
+        displays::configure(config.laptop_screen_auto);
         let bars = bar::Bars::start(app, config.clone(), services.clone());
         // Lives as long as the app: the services hold its subscriptions.
         std::mem::forget(osd::Osd::start(services.clone()));

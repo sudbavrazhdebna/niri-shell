@@ -44,6 +44,7 @@ impl Bars {
 
     /// Rebuilds every bar with new settings.
     pub fn set_config(&self, config: Rc<Config>, problems: Vec<String>) {
+        crate::displays::configure(config.laptop_screen_auto);
         self.config.replace(config);
         self.problems.replace(problems);
         self.rebuild();

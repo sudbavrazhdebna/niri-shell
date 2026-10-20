@@ -56,6 +56,13 @@ each section. Read before changing any of these.
 - The watcher always answers "a host is registered", so apps put up their icon even while
   the shell restarts.
 
+## Displays
+
+- The laptop panel (eDP/LVDS/DSI) is turned off through niri IPC while an external output
+  is on, and on again when none is (`displays { laptop-screen "auto" }`, the default).
+  Triggered by GDK's monitor list changing; niri's `Outputs` tells which are connected and
+  on (GDK only lists enabled ones). External outputs are never touched.
+
 ## Config
 
 - The dock's pin/unpin writes the `pinned` line back into config.kdl through the `kdl` crate,
