@@ -648,6 +648,11 @@ switch:checked {
     background: var(--accent);
 }
 
+/* Can't be flipped now (the last screen that is on). */
+switch:disabled {
+    opacity: 0.45;
+}
+
 switch > slider {
     min-width: 18px;
     min-height: 18px;

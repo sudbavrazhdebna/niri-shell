@@ -61,7 +61,10 @@ each section. Read before changing any of these.
 - The laptop panel (eDP/LVDS/DSI) is turned off through niri IPC while an external output
   is on, and on again when none is (`displays { laptop-screen "auto" }`, the default).
   Triggered by GDK's monitor list changing; niri's `Outputs` tells which are connected and
-  on (GDK only lists enabled ones). External outputs are never touched.
+  on (GDK only lists enabled ones). External outputs are never touched. It acts only when
+  "an external monitor is on" changes, so a screen turned on or off by hand in the
+  displays menu stays so; that menu lists niri's outputs (off ones too) and never lets
+  the last one that is on be turned off.
 
 ## Config
 

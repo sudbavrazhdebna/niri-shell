@@ -1,7 +1,8 @@
-//! The laptop's own screen goes off while an external monitor is on, and back on when the
-//! last external one goes (`displays { laptop-screen "auto" }`). Follows GDK's monitor
-//! list, which changes whenever niri enables, disables or loses an output; niri's own
-//! output list says which are connected and which are on.
+//! Displays as niri sees them (connected ones, on or off), and the rule that the laptop's
+//! own screen goes off while an external monitor is on and back on when the last one
+//! goes (`displays { laptop-screen "auto" }`). The rule follows GDK's monitor list, which
+//! changes whenever niri enables, disables or loses an output; it acts only when an
+//! external monitor comes or goes, so turning a screen on or off by hand sticks.
 
 use std::cell::Cell;
 
@@ -12,6 +13,54 @@ use niri_ipc::{OutputAction, Request, Response};
 thread_local! {
     static AUTO: Cell<bool> = const { Cell::new(false) };
     static FOLLOWING: Cell<bool> = const { Cell::new(false) };
+    /// Whether an external monitor was on when the rule last looked.
+    static EXTERNAL_ON: Cell<Option<bool>> = const { Cell::new(None) };
+}
+
+/// A connected display.
+#[derive(Clone, Debug)]
+pub struct Output {
+    /// Connector, e.g. "eDP-1".
+    pub name: String,
+    /// "Built-in display", or maker and model ("Samsung LF24T450F").
+    pub label: String,
+    pub on: bool,
+    pub internal: bool,
+}
+
+/// Every connected display, on or off, built-in ones first.
+pub async fn outputs() -> Vec<Output> {
+    let outputs = match crate::niri::request(Request::Outputs).await {
+        Ok(Response::Outputs(outputs)) => outputs,
+        Ok(_) => return Vec::new(),
+        Err(err) => {
+            tracing::warn!("displays: {err}");
+            return Vec::new();
+        }
+    };
+    let mut list: Vec<Output> = outputs
+        .into_values()
+        .map(|o| {
+            let internal = is_internal(&o.name);
+            let maker = o.make.split_whitespace().next().unwrap_or_default();
+            let label = if internal {
+                "Built-in display".to_string()
+            } else {
+                Some(format!("{maker} {}", o.model).trim().to_string()).filter(|l| !l.is_empty()).unwrap_or_else(|| o.name.clone())
+            };
+            Output { on: o.logical.is_some(), internal, label, name: o.name }
+        })
+        .collect();
+    list.sort_by(|a, b| b.internal.cmp(&a.internal).then(a.name.cmp(&b.name)));
+    list
+}
+
+/// Turns a display on or off.
+pub async fn set_on(name: &str, on: bool) {
+    let action = if on { OutputAction::On } else { OutputAction::Off };
+    if let Err(err) = crate::niri::request(Request::Output { output: name.to_string(), action }).await {
+        tracing::warn!("displays: {name}: {err}");
+    }
 }
 
 /// Turns the rule on or off (at start and on config reload).
@@ -31,7 +80,7 @@ pub fn configure(auto: bool) {
 }
 
 /// Built-in panels by connector name.
-fn is_internal(name: &str) -> bool {
+pub fn is_internal(name: &str) -> bool {
     ["eDP", "LVDS", "DSI"].iter().any(|prefix| name.starts_with(prefix))
 }
 
@@ -59,12 +108,14 @@ async fn apply() {
         }
     };
     let state: Vec<(String, bool)> = outputs.values().map(|o| (o.name.clone(), o.logical.is_some())).collect();
+    // Only when an external monitor came or went: a screen switched by hand stays so.
+    let external_on = state.iter().any(|(name, on)| *on && !is_internal(name));
+    if EXTERNAL_ON.replace(Some(external_on)) == Some(external_on) {
+        return;
+    }
     for (name, on) in plan(&state) {
         tracing::info!(output = name, on, "displays: laptop screen");
-        let action = if on { OutputAction::On } else { OutputAction::Off };
-        if let Err(err) = crate::niri::request(Request::Output { output: name, action }).await {
-            tracing::warn!("displays: {err}");
-        }
+        set_on(&name, on).await;
     }
 }
 

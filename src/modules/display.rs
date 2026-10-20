@@ -1,11 +1,12 @@
 //! Displays: a brightness icon; the wheel changes the built-in screen's brightness. Left
-//! click: every display that is on, by name, with a brightness slider. A display whose
+//! click: every connected display, on or off, with an on/off switch and a brightness
+//! slider. The built-in screen's brightness can be set while it is off. A display whose
 //! brightness the shell can't set (an external monitor: that needs DDC/CI) shows its
-//! slider greyed out.
+//! slider greyed out. The last display that is on can't be turned off.
 
 use std::rc::Rc;
 
-use gtk4::gdk;
+use gtk4::glib;
 use gtk4::prelude::*;
 
 use super::{Context, icon_module, on_scroll};
@@ -27,60 +28,66 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         }
     });
     let services = ctx.services.clone();
-    menu::attach(&image, move |anchor| menu::show(anchor, &menu_content(&services)));
+    menu::attach(&image, move |anchor| {
+        // Shown once niri has listed the displays (a few ms).
+        let (anchor, ticket, services) = (anchor.clone(), menu::ticket(), services.clone());
+        glib::spawn_future_local(async move {
+            let column = ui::column();
+            column.set_width_request(300);
+            column.append(&ui::title("Displays"));
+            column.append(&ui::separator());
+            let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
+            column.append(&rows);
+            fill(&rows, &services).await;
+            menu::show_for(ticket, &anchor, &column);
+        });
+    });
     image.upcast()
 }
 
-/// Built-in panels by connector name.
-fn is_internal(connector: &str) -> bool {
-    ["eDP", "LVDS", "DSI"].iter().any(|prefix| connector.starts_with(prefix))
-}
-
-/// "Built-in display", or maker and model ("Samsung LF24T450F"): the full description
-/// repeats the connector and the serial number.
-fn display_name(monitor: &gdk::Monitor, connector: &str) -> String {
-    if is_internal(connector) {
-        return "Built-in display".into();
-    }
-    let maker = monitor.manufacturer().map(String::from).unwrap_or_default();
-    let maker = maker.split_whitespace().next().unwrap_or_default();
-    let model = monitor.model().map(String::from).unwrap_or_default();
-    let name = format!("{maker} {model}").trim().to_string();
-    if name.is_empty() { connector.to_string() } else { name }
-}
-
-fn menu_content(services: &Rc<Services>) -> gtk4::Box {
-    let column = ui::column();
-    column.set_width_request(300);
-    column.append(&ui::title("Displays"));
-    column.append(&ui::separator());
-
+/// The rows: one block per connected display.
+async fn fill(rows: &gtk4::Box, services: &Rc<Services>) {
+    let outputs = crate::displays::outputs().await;
+    ui::clear(rows);
+    let lit = outputs.iter().filter(|o| o.on).count();
     let brightness = services.brightness();
-    let monitors: Vec<gdk::Monitor> = gdk::Display::default()
-        .map(|d| d.monitors())
-        .map(|list| (0..list.n_items()).filter_map(|i| list.item(i).and_downcast::<gdk::Monitor>()).collect())
-        .unwrap_or_default();
-    for monitor in &monitors {
-        let connector = monitor.connector().map(String::from).unwrap_or_default();
+    for output in &outputs {
         // The backlight belongs to the screen sysfs names, or to the built-in one.
         let has_backlight = brightness.percent.get().is_some()
             && match &brightness.connector {
-                Some(lit) => *lit == connector,
-                None => is_internal(&connector),
+                Some(lit) => *lit == output.name,
+                None => output.internal,
             };
 
         let head = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
         head.add_css_class("display-head");
-        let name = gtk4::Label::new(Some(&display_name(monitor, &connector)));
+        let name = gtk4::Label::new(Some(&output.label));
         name.add_css_class("display-name");
         name.set_xalign(0.0);
         name.set_hexpand(true);
         name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-        let port = gtk4::Label::new(Some(&connector));
+        let port = gtk4::Label::new(Some(&output.name));
         port.add_css_class("menu-trailing");
+        let switch = gtk4::Switch::new();
+        switch.set_valign(gtk4::Align::Center);
+        switch.set_active(output.on);
+        // Never the last screen that is on: that would leave nothing to see.
+        switch.set_sensitive(!(output.on && lit == 1));
+        let (connector, weak, s) = (output.name.clone(), rows.downgrade(), services.clone());
+        switch.connect_state_set(move |_, on| {
+            let (connector, weak, s) = (connector.clone(), weak.clone(), s.clone());
+            glib::spawn_future_local(async move {
+                crate::displays::set_on(&connector, on).await;
+                if let Some(rows) = weak.upgrade() {
+                    fill(&rows, &s).await;
+                }
+            });
+            glib::Propagation::Proceed
+        });
         head.append(&name);
         head.append(&port);
-        column.append(&head);
+        head.append(&switch);
+        rows.append(&head);
 
         let s = services.clone();
         let slider = ui::Slider::new(100.0, move |v| s.brightness().set_percent(v.round() as u32));
@@ -108,10 +115,9 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
             row.set_tooltip_text(Some("Set this display's brightness on the display itself"));
             value.set_label("—");
         }
-        column.append(&row);
+        rows.append(&row);
     }
-    if monitors.is_empty() {
-        column.append(&ui::note("No displays"));
+    if outputs.is_empty() {
+        rows.append(&ui::note("No displays"));
     }
-    column
 }
