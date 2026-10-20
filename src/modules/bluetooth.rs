@@ -103,6 +103,9 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
             devices.append(&row);
         }
     });
+    // A scan runs only while the menu shows.
+    let s = services.clone();
+    column.connect_destroy(move |_| s.bluetooth().stop_scan());
     column.append(&ui::separator());
     column.append(&ui::item("Bluetooth Settings…", false, || {
         menu::close();

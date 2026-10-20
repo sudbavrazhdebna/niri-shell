@@ -109,6 +109,16 @@ impl Bluetooth {
         }
     }
 
+    /// Stops a scan before its time (the menu closed): searching keeps the radio busy.
+    pub fn stop_scan(&self) {
+        if !self.state.get().scanning {
+            return;
+        }
+        for adapter in self.proxies("org.bluez.Adapter1") {
+            spawn_call(adapter, "org.bluez.Adapter1", "StopDiscovery", None);
+        }
+    }
+
     /// Pairs with a nearby device, trusts it (so it reconnects by itself) and connects.
     pub fn pair(&self, path: &str) {
         let Some(device) = self
