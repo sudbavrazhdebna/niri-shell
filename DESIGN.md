@@ -264,7 +264,7 @@ Each step ends with something you can see or try.
 10. ✅ **Wallpaper** — swaybg goes.
 11. ✅ **Dock** (basic) — ironbar goes. Later: pin order synced with niri binds.
 12. **Switch over:** nshell instead of the wayle fork, final measurement.
-13. Later: docker module, layout OSD, our own lock screen.
+13. Later: docker module, our own lock screen. (Layout OSD: done.)
 
 After steps 7 and 8 swayosd and swaync can go.
 

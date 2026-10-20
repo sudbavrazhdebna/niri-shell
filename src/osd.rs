@@ -98,6 +98,23 @@ impl Osd {
             true
         });
 
+        // The keyboard layout: on a switch, not at start.
+        let (weak, last) = (Rc::downgrade(self), RefCell::new(None::<u8>));
+        services.niri.state.subscribe(move |state| {
+            let Some(layouts) = &state.keyboard_layouts else { return true };
+            let now = layouts.current_idx;
+            let previous = last.replace(Some(now));
+            if previous.is_some_and(|p| p != now)
+                && let Some(osd) = weak.upgrade()
+                && let Some(name) = layouts.names.get(usize::from(now))
+            {
+                let content = Content::Text { icon: "input-keyboard-symbolic".into(), text: name.clone() };
+                // Not from inside niri's notification: showing builds a window.
+                glib::idle_add_local_once(move || osd.show(content));
+            }
+            true
+        });
+
         let weak = Rc::downgrade(self);
         services.keyboard_light().fn_key.subscribe(move |level| {
             if let (Some(osd), Some((percent, _))) = (weak.upgrade(), level) {
