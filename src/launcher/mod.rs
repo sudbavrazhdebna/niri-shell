@@ -63,7 +63,7 @@ struct Launcher {
     entry: gtk4::Entry,
     list: gtk4::Box,
     scroll: gtk4::ScrolledWindow,
-    apps: Vec<Rc<App>>,
+    apps: Rc<Vec<Rc<App>>>,
     history: RefCell<History>,
     /// Desktop id → the app's windows, most recently focused first.
     running: Vec<(String, Vec<u64>)>,

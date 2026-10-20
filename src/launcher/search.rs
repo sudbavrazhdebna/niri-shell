@@ -25,8 +25,33 @@ pub struct App {
     others: Vec<String>,
 }
 
-/// Every app the menus would show, once per desktop id.
-pub fn apps() -> Vec<Rc<App>> {
+thread_local! {
+    /// The app list, read once: reading every desktop file took ~20 ms per opening.
+    static APPS: RefCell<Option<Rc<Vec<Rc<App>>>>> = const { RefCell::new(None) };
+    /// Tells when apps are installed or removed; kept alive here.
+    static APP_MONITOR: RefCell<Option<gio::AppInfoMonitor>> = const { RefCell::new(None) };
+}
+
+/// Every app the menus would show, once per desktop id; read again only after apps
+/// were installed or removed.
+pub fn apps() -> Rc<Vec<Rc<App>>> {
+    if let Some(apps) = APPS.with_borrow(Clone::clone) {
+        return apps;
+    }
+    let apps = Rc::new(read_apps());
+    APPS.set(Some(apps.clone()));
+    // The monitor reports changes only after the list has been read, as just now.
+    APP_MONITOR.with_borrow_mut(|monitor| {
+        monitor.get_or_insert_with(|| {
+            let monitor = gio::AppInfoMonitor::get();
+            monitor.connect_changed(|_| APPS.set(None));
+            monitor
+        });
+    });
+    apps
+}
+
+fn read_apps() -> Vec<Rc<App>> {
     let mut seen = std::collections::HashSet::new();
     gio::AppInfo::all()
         .into_iter()
