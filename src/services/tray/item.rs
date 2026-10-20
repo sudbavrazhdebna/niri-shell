@@ -1,7 +1,11 @@
 //! One tray item: its icon, status and what clicking it does.
 
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
@@ -48,7 +52,16 @@ pub struct Item {
     pub state: Watch<ItemState>,
     conn: gio::DBusConnection,
     proxy: gio::DBusProxy,
+    /// When the properties were last read, and whether a later read is already due.
+    last_reload: Cell<Option<Instant>>,
+    reload_due: Cell<bool>,
+    /// An icon change waits in the due read.
+    icon_changed: Cell<bool>,
 }
+
+/// Reads of an item's properties at most this often: some apps (a counter in Telegram,
+/// Steam, Discord) announce a new icon many times a second.
+const RELOAD_INTERVAL: Duration = Duration::from_millis(500);
 
 impl Item {
     pub async fn connect(conn: &gio::DBusConnection, bus: &str, path: &str) -> Option<Rc<Item>> {
@@ -72,6 +85,9 @@ impl Item {
             state: Watch::new(ItemState::default()),
             conn: conn.clone(),
             proxy: proxy.clone(),
+            last_reload: Cell::new(None),
+            reload_due: Cell::new(false),
+            icon_changed: Cell::new(false),
         });
         item.state.set(item.read(0));
 
@@ -81,7 +97,7 @@ impl Item {
             if let Some(item) = weak.upgrade()
                 && signal.starts_with("New")
             {
-                glib::spawn_future_local(item.reload(signal == "NewIcon" || signal == "NewAttentionIcon"));
+                item.request_reload(signal == "NewIcon" || signal == "NewAttentionIcon");
             }
             None
         });
@@ -149,6 +165,28 @@ impl Item {
 
     /// Items announce changes with their own New* signals rather than PropertiesChanged,
     /// so the proxy's cache has to be refreshed by hand.
+    /// Reads the properties again, at most every RELOAD_INTERVAL; signals in between fold
+    /// into one read at the end of it, so the last change always shows.
+    fn request_reload(self: &Rc<Self>, icon_changed: bool) {
+        self.icon_changed.set(self.icon_changed.get() || icon_changed);
+        if self.reload_due.replace(true) {
+            return;
+        }
+        let wait = self
+            .last_reload
+            .get()
+            .map_or(Duration::ZERO, |at| RELOAD_INTERVAL.saturating_sub(at.elapsed()));
+        let weak = Rc::downgrade(self);
+        glib::timeout_add_local_once(wait, move || {
+            if let Some(item) = weak.upgrade() {
+                item.reload_due.set(false);
+                item.last_reload.set(Some(Instant::now()));
+                let icon_changed = item.icon_changed.replace(false);
+                glib::spawn_future_local(item.reload(icon_changed));
+            }
+        });
+    }
+
     async fn reload(self: Rc<Self>, icon_changed: bool) {
         let reply = self
             .conn
@@ -261,14 +299,7 @@ impl TrayIcon {
             TrayIcon::Name(name) => image.set_icon_name(Some(name)),
             TrayIcon::File(path) => image.set_from_file(Some(path)),
             TrayIcon::Pixels { width, height, data } => {
-                let texture = gdk::MemoryTexture::new(
-                    *width,
-                    *height,
-                    gdk::MemoryFormat::A8r8g8b8,
-                    &glib::Bytes::from(data),
-                    (*width * 4) as usize,
-                );
-                image.set_paintable(Some(&texture));
+                image.set_paintable(Some(&pixmap_texture(*width, *height, data)));
             }
         }
     }
@@ -279,6 +310,36 @@ impl TrayIcon {
 fn pixmap_size(width: i32, height: i32) -> Option<usize> {
     let (w, h) = (usize::try_from(width).ok()?, usize::try_from(height).ok()?);
     (w > 0 && h > 0).then(|| w.checked_mul(h)?.checked_mul(4)).flatten()
+}
+
+thread_local! {
+    /// Textures of pixmap icons by their content: an icon that flips between a few
+    /// states (a counter, a blinking dot) isn't made again each time.
+    static TEXTURES: RefCell<HashMap<u64, gdk::Texture>> = RefCell::default();
+}
+
+fn pixmap_texture(width: i32, height: i32, data: &[u8]) -> gdk::Texture {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    (width, height, data).hash(&mut hasher);
+    let key = hasher.finish();
+    if let Some(texture) = TEXTURES.with_borrow(|t| t.get(&key).cloned()) {
+        return texture;
+    }
+    let texture: gdk::Texture = gdk::MemoryTexture::new(
+        width,
+        height,
+        gdk::MemoryFormat::A8r8g8b8,
+        &glib::Bytes::from(data),
+        (width * 4) as usize,
+    )
+    .upcast();
+    TEXTURES.with_borrow_mut(|t| {
+        if t.len() >= 64 {
+            t.clear();
+        }
+        t.insert(key, texture.clone());
+    });
+    texture
 }
 
 fn has_themed_icon(name: &str) -> bool {
