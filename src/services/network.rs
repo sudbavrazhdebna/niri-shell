@@ -22,7 +22,7 @@ pub enum Link {
     Offline,
     Wifi {
         ssid: String,
-        /// 0..=100
+        /// The step of the signal (see [`step`]), not the exact percent.
         strength: u8,
     },
     Wired,
@@ -154,7 +154,7 @@ async fn rescan(inner: Rc<Inner>, state: Watch<NetworkState>) {
         on_properties_changed(ap, move |ap| {
             s.update(|state| match &mut state.link {
                 Link::Wifi { strength, .. } => {
-                    let new = prop(ap, "Strength").unwrap_or(0);
+                    let new = step(prop(ap, "Strength").unwrap_or(0));
                     std::mem::replace(strength, new) != new
                 }
                 _ => false,
@@ -166,10 +166,21 @@ async fn rescan(inner: Rc<Inner>, state: Watch<NetworkState>) {
             ssid: prop::<Vec<u8>>(ap, "Ssid")
                 .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
                 .unwrap_or_default(),
-            strength: prop(ap, "Strength").unwrap_or(0),
+            strength: step(prop(ap, "Strength").unwrap_or(0)),
         },
         (link, _) => link,
     };
     inner.access_point.replace(ap);
     state.set(NetworkState { link, wifi_enabled });
+}
+
+/// The signal strength by the steps the icon shows (66+, 33+, 10+, below): NetworkManager
+/// sends the exact percent every few seconds, and only a new step is worth waking anyone.
+fn step(strength: u8) -> u8 {
+    match strength {
+        66.. => 66,
+        33.. => 33,
+        10.. => 10,
+        _ => 0,
+    }
 }
