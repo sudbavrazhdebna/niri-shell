@@ -667,6 +667,21 @@ scale.dimmed trough highlight {
     background: rgba(255, 255, 255, 0.35);
 }
 
+/* ---- Displays ---- */
+
+/* A brightness the shell can't set: the slider shows, greyed out. */
+.menu-slider-row:disabled {
+    opacity: 0.4;
+}
+
+.display-head {
+    padding: 4px 8px 0;
+}
+
+.display-name {
+    font-weight: bold;
+}
+
 /* ---- Media ---- */
 
 .bar-content .media {

@@ -16,6 +16,8 @@ pub struct Brightness {
     pub percent: Watch<Option<u32>>,
     /// Device name and max value.
     device: Option<(String, u32)>,
+    /// The connector of the screen it lights ("eDP-1"), when sysfs says.
+    pub connector: Option<String>,
 }
 
 impl Brightness {
@@ -31,8 +33,14 @@ impl Brightness {
                 (max > 0).then(|| (entry.file_name().to_string_lossy().into_owned(), max, file))
             });
         let Some((name, max, mut file)) = found else {
-            return Brightness { percent: Watch::new(None), device: None };
+            return Brightness { percent: Watch::new(None), device: None, connector: None };
         };
+        // A GPU's backlight sits under its connector: …/drm/card1/card1-eDP-1/amdgpu_bl1.
+        let connector = std::fs::canonicalize(format!("/sys/class/backlight/{name}"))
+            .ok()
+            .and_then(|path| path.parent()?.file_name()?.to_str().map(String::from))
+            .and_then(|dir| dir.split_once('-').map(|(_, connector)| connector.to_string()))
+            .filter(|connector| !connector.is_empty());
 
         let percent = Watch::new(read_percent(&mut file, max));
         let watch = percent.clone();
@@ -49,7 +57,7 @@ impl Brightness {
             watch.set(Some(percent));
             glib::ControlFlow::Continue
         });
-        Brightness { percent, device: Some((name, max)) }
+        Brightness { percent, device: Some((name, max)), connector }
     }
 
     pub fn set_percent(&self, percent: u32) {

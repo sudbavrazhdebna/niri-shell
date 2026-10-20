@@ -10,7 +10,7 @@ bar {
     height 34
 
     // Modules: window-title, clock, media (what plays), tray, keyboard, network,
-    // bluetooth, volume, battery, control.
+    // bluetooth, volume, display (brightness), battery, control.
     left "window-title"
     center "clock"
     right "media" "tray" "keyboard" "network" "bluetooth" "volume" "battery" "control"

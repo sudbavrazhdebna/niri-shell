@@ -4,6 +4,7 @@ mod battery;
 mod bluetooth;
 mod clock;
 mod control;
+mod display;
 mod keyboard;
 mod media;
 mod network;
@@ -32,6 +33,7 @@ pub fn build(name: &str, ctx: &Context) -> Option<gtk4::Widget> {
         "window-title" => Some(window_title::build(ctx)),
         "keyboard" => Some(keyboard::build(ctx)),
         "media" => Some(media::build(ctx)),
+        "display" => Some(display::build(ctx)),
         "volume" => volume::build(ctx),
         "battery" => Some(battery::build(ctx)),
         "network" => Some(network::build(ctx)),
