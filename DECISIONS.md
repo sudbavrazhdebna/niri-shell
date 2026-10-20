@@ -66,6 +66,15 @@ each section. Read before changing any of these.
   displays menu stays so; that menu lists niri's outputs (off ones too) and never lets
   the last one that is on be turned off.
 
+## Wallpaper
+
+- A background-layer window per monitor (namespace `nshell-wallpaper`; niri needs
+  `place-within-backdrop true` for it to stay in the overview). The image is decoded on a
+  `gio::spawn_blocking` thread at the size that covers the monitor: the user's 6000×4000
+  JPEG would be ~96 MB as is, and decoding it on the main loop froze the shell. Decoded
+  images are shared by monitors of the same size; config reloads keep them unless the
+  image changed (style.css saves rebuild the bars, not the wallpaper).
+
 ## Config
 
 - The dock's pin/unpin writes the `pinned` line back into config.kdl through the `kdl` crate,

@@ -15,6 +15,7 @@ mod popups;
 mod services;
 mod settings;
 mod ui;
+mod wallpaper;
 mod watch;
 mod wayland;
 
@@ -72,6 +73,7 @@ fn main() -> glib::ExitCode {
         let services = services::Services::new(niri::Niri::connect());
         menu::close_on_focus_change(&services.niri);
         displays::configure(config.laptop_screen_auto);
+        wallpaper::configure(config.wallpaper.clone());
         let bars = bar::Bars::start(app, config.clone(), services.clone());
         // Lives as long as the app: the services hold its subscriptions.
         std::mem::forget(osd::Osd::start(services.clone()));

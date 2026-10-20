@@ -17,7 +17,7 @@ pub const MODULES: &[&str] = &[
 pub const PLANNED: &[&str] = &["docker"];
 
 /// Top-level sections of later steps, accepted and ignored for now.
-const LATER: &[&str] = &["wallpaper", "osd", "notifications"];
+const LATER: &[&str] = &["osd", "notifications"];
 
 pub struct Config {
     pub icon_theme: Option<String>,
@@ -29,6 +29,8 @@ pub struct Config {
     pub dock: DockConfig,
     /// The laptop's own screen goes off while an external monitor is on.
     pub laptop_screen_auto: bool,
+    /// The image on every monitor, filling it; None: no wallpaper from the shell.
+    pub wallpaper: Option<PathBuf>,
 }
 
 pub struct BarConfig {
@@ -93,6 +95,7 @@ impl Default for Config {
                 lock_command: "loginctl lock-session".into(),
             },
             laptop_screen_auto: true,
+            wallpaper: Some(gtk4::glib::home_dir().join(".config/wallpapers/m.jpg")),
             dock: DockConfig {
                 enabled: true,
                 autohide: false,
@@ -192,6 +195,21 @@ impl Config {
                                 config.volume.scroll_step =
                                     int_arg(child, 1..=50).map_err(|e| at(child, e))?
                             }
+                            other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
+                "wallpaper" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "image" => {
+                                let path = string_arg(child).map_err(|e| at(child, e))?;
+                                config.wallpaper = Some(match path.strip_prefix("~/") {
+                                    Some(rest) => gtk4::glib::home_dir().join(rest),
+                                    None => PathBuf::from(path),
+                                });
+                            }
+                            "off" => config.wallpaper = None,
                             other => return Err(at(child, unknown(other))),
                         }
                     }

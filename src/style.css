@@ -26,6 +26,11 @@ window.bar {
     background: transparent;
 }
 
+/* Black around an image that doesn't load yet. */
+window.nshell-wallpaper {
+    background: black;
+}
+
 .bar-content {
     padding: 0 6px;
 }

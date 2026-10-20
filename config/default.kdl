@@ -46,6 +46,12 @@ idle {
     lock-command "veila lock"
 }
 
+wallpaper {
+    // One image on every monitor, filling it (cropped, not stretched). Without this
+    // section: ~/.config/wallpapers/m.jpg. `off` instead: no wallpaper from the shell.
+    image "~/.config/wallpapers/m.jpg"
+}
+
 displays {
     // "auto": the laptop's own screen is off while an external monitor is on, and comes
     // back when the last one goes. "on": leave it alone.
