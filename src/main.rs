@@ -4,6 +4,7 @@ mod blur;
 mod config;
 mod displays;
 mod dock;
+mod images;
 mod ipc;
 mod launch;
 mod launcher;

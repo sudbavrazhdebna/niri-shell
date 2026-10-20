@@ -1,11 +1,11 @@
 //! The wallpaper: one image on every monitor, filling it (cropped, never stretched), on
 //! the background layer. The image is decoded at the size it is shown, off the main
-//! thread: a 6000×4000 photo would take ~96 MB as it is and freeze the shell while
-//! decoding. Monitors that come and go get theirs; a new image in the config replaces it.
+//! thread (`images`): a 6000×4000 photo would take ~96 MB as it is and freeze the shell
+//! while decoding. Monitors that come and go get theirs; a new image in the config replaces it.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
@@ -82,7 +82,9 @@ async fn show(monitor: gdk::Monitor, image: PathBuf) {
         Some(texture) => texture,
         None => {
             let path = image.clone();
-            let decoded = gio::spawn_blocking(move || decode(&path, size)).await;
+            let (w, h) = (u32::try_from(size.0).unwrap_or(0), u32::try_from(size.1).unwrap_or(0));
+            let decoded =
+                gio::spawn_blocking(move || crate::images::decode(&path, w, h, crate::images::Fit::Cover)).await;
             let Some(texture) = decoded.ok().flatten().and_then(|pixels| pixels.texture()) else {
                 tracing::warn!("wallpaper: can't load {}", image.display());
                 return;
@@ -125,45 +127,4 @@ fn window(monitor: &gdk::Monitor, texture: &gdk::Texture) -> gtk4::Window {
     window.set_child(Some(&picture));
     window.set_visible(true);
     window
-}
-
-/// Decoded pixels; plain data, so they can come from another thread.
-struct Pixels {
-    width: i32,
-    height: i32,
-    stride: usize,
-    alpha: bool,
-    bytes: glib::Bytes,
-}
-
-impl Pixels {
-    fn texture(self) -> Option<gdk::Texture> {
-        let format = if self.alpha { gdk::MemoryFormat::R8g8b8a8 } else { gdk::MemoryFormat::R8g8b8 };
-        let texture = gdk::MemoryTexture::new(self.width, self.height, format, &self.bytes, self.stride);
-        Some(texture.upcast())
-    }
-}
-
-/// Decodes the image just large enough to cover `size` (aspect kept; the picture crops
-/// the rest). JPEG decodes at a fraction of its size directly, which is much faster.
-fn decode(path: &Path, (width, height): (i32, i32)) -> Option<Pixels> {
-    let (_, image_width, image_height) = gtk4::gdk_pixbuf::Pixbuf::file_info(path)?;
-    if image_width <= 0 || image_height <= 0 {
-        return None;
-    }
-    let scale = (f64::from(width) / f64::from(image_width))
-        .max(f64::from(height) / f64::from(image_height))
-        .min(1.0);
-    let (w, h) = (
-        (f64::from(image_width) * scale).ceil() as i32,
-        (f64::from(image_height) * scale).ceil() as i32,
-    );
-    let pixbuf = gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(path, w, h, true).ok()?;
-    Some(Pixels {
-        width: pixbuf.width(),
-        height: pixbuf.height(),
-        stride: usize::try_from(pixbuf.rowstride()).ok()?,
-        alpha: pixbuf.has_alpha(),
-        bytes: pixbuf.read_pixel_bytes(),
-    })
 }

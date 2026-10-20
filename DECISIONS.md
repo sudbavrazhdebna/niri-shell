@@ -92,6 +92,17 @@ each section. Read before changing any of these.
   the launcher opens and the index is older than 60 s (no watching, no timer); hidden
   folders and build caches skipped, 100 000 entries at most.
 
+## Images
+
+- Wallpaper and cover art are decoded with the `image` crate on a blocking-pool thread,
+  never with gdk-pixbuf: Fedora's gdk-pixbuf hands every image to glycin, which starts a
+  sandboxed loader process (bwrap) each time — 366 ms just to read the wallpaper's size,
+  418 ms to decode it, loader processes left running, and cover art froze the shell for
+  that long since it loaded on the main loop. GTK's own texture loading (`set_from_file`,
+  `Texture::from_filename`, used for tray and notification images) doesn't go through
+  glycin. A DCT-scaled JPEG decoder saved only ~100 ms on the 6000×4000 wallpaper (340 →
+  240 ms, off the main thread): not worth a dependency.
+
 ## Config
 
 - The dock's pin/unpin writes the `pinned` line back into config.kdl through the `kdl` crate,

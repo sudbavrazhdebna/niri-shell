@@ -145,6 +145,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
 
     let ticking: Rc<RefCell<Option<glib::SourceId>>> = Rc::default();
     let last = RefCell::new(None::<(String, String, bool)>);
+    let shown_art: Rc<RefCell<String>> = Rc::default();
     let (services2, sp, tick) = (services.clone(), show_position.clone(), ticking.clone());
     let position_weak = position_box.downgrade();
     media.current.bind(&column, move |_, track| {
@@ -157,10 +158,20 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
         artist.set_visible(!track.artist.is_empty());
         album.set_label(&track.album);
         album.set_visible(!track.album.is_empty());
-        match media::art(&track.art_url, COVER) {
-            Some(texture) => cover.set_paintable(Some(&texture)),
-            None => cover.set_icon_name(Some("audio-x-generic-symbolic")),
-        }
+        // The cover may load a moment later: shown only if the track is still the same.
+        let (weak, url) = (cover.downgrade(), track.art_url.clone());
+        shown_art.replace(url.clone());
+        let wanted = shown_art.clone();
+        media::art(&track.art_url, COVER, move |texture| {
+            let Some(cover) = weak.upgrade() else { return };
+            if *wanted.borrow() != url {
+                return;
+            }
+            match texture {
+                Some(texture) => cover.set_paintable(Some(&texture)),
+                None => cover.set_icon_name(Some("audio-x-generic-symbolic")),
+            }
+        });
         play.set_icon_name(play_icon(track));
         previous.set_sensitive(track.can_previous);
         next.set_sensitive(track.can_next);

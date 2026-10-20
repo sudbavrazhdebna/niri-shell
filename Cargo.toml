@@ -25,6 +25,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "ansi"] }
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client", "staging", "unstable"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 
 [lints.clippy]
 unwrap_used = "deny"

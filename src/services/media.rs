@@ -259,29 +259,36 @@ thread_local! {
     static ART: RefCell<HashMap<String, Option<gtk4::gdk::Texture>>> = RefCell::default();
 }
 
-/// Cover art from a file:// URL, scaled to `size` pixels and cached; the original image
-/// (often a large JPEG) is not kept. Other URL kinds would need a download: none.
-pub fn art(url: &str, size: i32) -> Option<gtk4::gdk::Texture> {
+/// Cover art from a file:// URL, scaled to fit `size` pixels and cached; the original
+/// (often a large JPEG) is not kept. Decoded off the main thread: `ready` gets it, at once
+/// when cached. Other URL kinds would need a download: none.
+pub fn art(url: &str, size: i32, ready: impl FnOnce(Option<gtk4::gdk::Texture>) + 'static) {
     if url.is_empty() {
-        return None;
+        ready(None);
+        return;
     }
     if let Some(cached) = ART.with_borrow(|art| art.get(url).cloned()) {
-        return cached;
+        ready(cached);
+        return;
     }
-    let texture = glib::filename_from_uri(url).ok().and_then(|(path, _)| {
-        let pixbuf = gtk4::gdk_pixbuf::Pixbuf::from_file_at_scale(&path, size, size, true).ok()?;
-        let format = if pixbuf.has_alpha() { gtk4::gdk::MemoryFormat::R8g8b8a8 } else { gtk4::gdk::MemoryFormat::R8g8b8 };
-        let stride = usize::try_from(pixbuf.rowstride()).ok()?;
-        Some(gtk4::gdk::MemoryTexture::new(pixbuf.width(), pixbuf.height(), format, &pixbuf.read_pixel_bytes(), stride).upcast())
+    let Ok((path, _)) = glib::filename_from_uri(url) else {
+        ready(None);
+        return;
+    };
+    let (url, side) = (url.to_string(), u32::try_from(size).unwrap_or(0));
+    glib::spawn_future_local(async move {
+        let decoded =
+            gio::spawn_blocking(move || crate::images::decode(&path, side, side, crate::images::Fit::Within)).await;
+        let texture = decoded.ok().flatten().and_then(|pixels| pixels.texture());
+        ART.with_borrow_mut(|art| {
+            // A handful of covers is all anyone flips between.
+            if art.len() >= 16 {
+                art.clear();
+            }
+            art.insert(url, texture.clone());
+        });
+        ready(texture);
     });
-    ART.with_borrow_mut(|art| {
-        // A handful of covers is all anyone flips between.
-        if art.len() >= 16 {
-            art.clear();
-        }
-        art.insert(url.to_string(), texture.clone());
-    });
-    texture
 }
 
 fn read(proxy: &gio::DBusProxy) -> Track {
