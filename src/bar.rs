@@ -19,6 +19,8 @@ pub struct Bars {
     problems: RefCell<Vec<String>>,
     /// Per monitor: the bar, and the dock if it is on.
     windows: RefCell<Vec<(gdk::Monitor, gtk4::ApplicationWindow, Option<gtk4::ApplicationWindow>)>>,
+    /// Plugged-in monitors whose connector name isn't known yet (see `sync`).
+    waiting: RefCell<Vec<gdk::Monitor>>,
 }
 
 impl Bars {
@@ -29,6 +31,7 @@ impl Bars {
             config: RefCell::new(config),
             problems: RefCell::new(Vec::new()),
             windows: RefCell::new(Vec::new()),
+            waiting: RefCell::new(Vec::new()),
         });
 
         if let Some(display) = gdk::Display::default() {
@@ -43,7 +46,7 @@ impl Bars {
     }
 
     /// Rebuilds every bar with new settings.
-    pub fn set_config(&self, config: Rc<Config>, problems: Vec<String>) {
+    pub fn set_config(self: &Rc<Self>, config: Rc<Config>, problems: Vec<String>) {
         crate::displays::configure(config.laptop_screen_auto);
         self.config.replace(config);
         self.problems.replace(problems);
@@ -51,7 +54,7 @@ impl Bars {
     }
 
     /// Updates the ⚠ indicator; an empty list hides it.
-    pub fn set_problems(&self, problems: Vec<String>) {
+    pub fn set_problems(self: &Rc<Self>, problems: Vec<String>) {
         if *self.problems.borrow() == problems {
             return;
         }
@@ -59,7 +62,7 @@ impl Bars {
         self.rebuild();
     }
 
-    fn rebuild(&self) {
+    fn rebuild(self: &Rc<Self>) {
         // An open menu belongs to a module that is about to go away.
         crate::menu::close();
         for (_, bar, dock) in self.windows.take() {
@@ -74,7 +77,7 @@ impl Bars {
     }
 
     /// Opens a bar on every new monitor and closes bars of the removed ones.
-    fn sync(&self, monitors: &gio::ListModel) {
+    fn sync(self: &Rc<Self>, monitors: &gio::ListModel) {
         let current: Vec<gdk::Monitor> = (0..monitors.n_items())
             .filter_map(|i| monitors.item(i).and_downcast::<gdk::Monitor>())
             .collect();
@@ -95,7 +98,13 @@ impl Bars {
             if windows.iter().any(|(m, _, _)| *m == monitor) {
                 continue;
             }
-            let output = monitor.connector().map(String::from).unwrap_or_default();
+            // A monitor just plugged in tells its connector a moment later. Built before
+            // that, the window title followed no output (it stayed empty) and the dock
+            // answered to no name: wait for it.
+            let Some(output) = monitor.connector().map(String::from) else {
+                self.wait_for_connector(&monitor);
+                continue;
+            };
             tracing::info!(output, "bar opened");
             let ctx = modules::Context {
                 config: self.config.borrow().clone(),
@@ -110,6 +119,21 @@ impl Bars {
                 .then(|| crate::dock::build(&self.app, &monitor, &ctx.config, &self.services.niri));
             windows.push((monitor, bar, dock));
         }
+    }
+
+    fn wait_for_connector(self: &Rc<Self>, monitor: &gdk::Monitor) {
+        if self.waiting.borrow().contains(monitor) {
+            return;
+        }
+        self.waiting.borrow_mut().push(monitor.clone());
+        let weak = Rc::downgrade(self);
+        monitor.connect_connector_notify(move |monitor| {
+            let Some(this) = weak.upgrade() else { return };
+            this.waiting.borrow_mut().retain(|m| m != monitor);
+            if let Some(display) = gdk::Display::default() {
+                this.sync(&display.monitors());
+            }
+        });
     }
 
     fn build_window(
