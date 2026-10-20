@@ -97,3 +97,15 @@ fn desktop_entry(app_id: &str) -> Option<DesktopAppInfo> {
                 .is_some_and(|class| class.eq_ignore_ascii_case(app_id))
         })
 }
+
+/// Whether a window's app id belongs to an app (a pinned name, a desktop id): equal, or
+/// the same desktop entry.
+pub fn same_app(key: &str, app_id: &str) -> bool {
+    if key.eq_ignore_ascii_case(app_id) {
+        return true;
+    }
+    let (Some(a), Some(b)) = (entry(key), entry(app_id)) else {
+        return false;
+    };
+    a.id() == b.id()
+}

@@ -46,6 +46,13 @@ idle {
     lock-command "veila lock"
 }
 
+launcher {
+    // `nshell msg launcher` opens it; bind it in niri, e.g.
+    //   Mod+D { spawn "nshell" "msg" "launcher"; }
+    // Folders whose files it finds by name (hidden folders and build caches are skipped).
+    search-paths "~/Documents" "~/Downloads" "~/Desktop"
+}
+
 keyboard {
     // How the OSD names layouts when you switch: a pattern and its replacement, applied
     // in order. This one drops "(US)" and the like: "English (US)" shows as "English".

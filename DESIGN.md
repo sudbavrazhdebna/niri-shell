@@ -263,6 +263,7 @@ Each step ends with something you can see or try.
 9. **Idle manager** — needs a real niri session. Then stasis goes.
 10. ✅ **Wallpaper** — swaybg goes.
 11. ✅ **Dock** (basic) — ironbar goes. Later: pin order synced with niri binds.
+11b. ✅ **Launcher** — vicinae goes (apps, switching to running ones, files).
 12. **Switch over:** nshell instead of the wayle fork, final measurement.
 13. Later: docker module, our own lock screen. (Layout OSD: done.)
 

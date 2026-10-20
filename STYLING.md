@@ -100,6 +100,7 @@ different `border-radius` the blur corners won't match exactly.
 | battery menu | `.battery-facts`, `.fact-name`, `.fact-value` |
 | sound menu | `.app-stream-name` |
 | displays menu | `.display-head`, `.display-name` (each display's name above its slider) |
+| launcher | `window.nshell-launcher`, `.launcher-card`, `entry.launcher-entry`, `.launcher-list`, `.launcher-row` (+ `.selected`), `.launcher-icon`, `.launcher-name`, `.launcher-detail`, `.launcher-badge` ("Running"), `.launcher-section` |
 | media | `.media` (the module), `button.media-play`, `.media-title`; the menu: `.media-menu`, `.media-cover`, `.media-name`, `.media-artist`, `.media-album`, `.media-position`, `.media-times`, `button.media-control` |
 | control center | `.control-center`, `button.tile` (+ `.active`), `.tile-title`, `.tile-subtitle`, `.control-sliders`, `.system-stats`, `.stat-bar`, `.player`, `.power-profiles`, `button.session-button` (+ `.armed`) |
 | OSD | `.osd-card`, `.osd-icon`, `.osd-level` (the bar: `trough`, `block.filled`), `.osd-text` |

@@ -1,5 +1,6 @@
 //! `nshell msg <command>`: commands for the running shell over D-Bus, to bind to keys in
-//! niri (e.g. `Mod+A { spawn "nshell" "msg" "show-dock"; }`).
+//! niri (e.g. `Mod+A { spawn "nshell" "msg" "show-dock"; }`, `Mod+D { spawn "nshell" "msg"
+//! "launcher"; }`).
 
 use std::rc::Rc;
 
@@ -14,6 +15,7 @@ const XML: &str = r#"
 <node>
   <interface name="dev.nshell.Shell">
     <method name="ShowDock"><arg name="seconds" type="u" direction="in"/></method>
+    <method name="ToggleLauncher"/>
   </interface>
 </node>"#;
 
@@ -35,6 +37,10 @@ pub fn serve(services: Rc<Services>) {
                         crate::dock::peek(&services.niri, seconds);
                         invocation.return_value(None);
                     }
+                    "ToggleLauncher" => {
+                        crate::launcher::toggle(&services);
+                        invocation.return_value(None);
+                    }
                     _ => invocation.return_error(gio::IOErrorEnum::NotSupported, "unknown command"),
                 })
                 .build();
@@ -47,10 +53,12 @@ pub fn serve(services: Rc<Services>) {
     );
 }
 
-/// The client side: `nshell msg show-dock [seconds]`. Returns the process exit code.
+/// The client side: `nshell msg show-dock [seconds]`, `nshell msg launcher`. Returns the
+/// process exit code.
 pub fn client(args: &[String]) -> glib::ExitCode {
-    let usage = "usage: nshell msg show-dock [seconds]";
+    let usage = "usage: nshell msg show-dock [seconds] | nshell msg launcher";
     let call = match args {
+        [cmd] if cmd == "launcher" => ("ToggleLauncher", ().to_variant()),
         [cmd] if cmd == "show-dock" => ("ShowDock", (3u32,).to_variant()),
         [cmd, secs] if cmd == "show-dock" => match secs.parse::<u32>() {
             Ok(secs) => ("ShowDock", (secs,).to_variant()),

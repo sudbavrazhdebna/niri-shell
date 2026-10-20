@@ -33,6 +33,8 @@ pub struct Config {
     pub wallpaper: Option<PathBuf>,
     /// How the OSD names keyboard layouts: (pattern, replacement), all applied in order.
     pub layout_rename: Vec<(Regex, String)>,
+    /// Folders whose files the launcher finds.
+    pub launcher_paths: Vec<PathBuf>,
 }
 
 pub struct BarConfig {
@@ -98,6 +100,7 @@ impl Default for Config {
             },
             laptop_screen_auto: true,
             layout_rename: Vec::new(),
+            launcher_paths: Vec::new(),
             wallpaper: Some(gtk4::glib::home_dir().join(".config/wallpapers/m.jpg")),
             dock: DockConfig {
                 enabled: true,
@@ -197,6 +200,24 @@ impl Config {
                             "scroll-step" => {
                                 config.volume.scroll_step =
                                     int_arg(child, 1..=50).map_err(|e| at(child, e))?
+                            }
+                            other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
+                "launcher" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "search-paths" => {
+                                config.launcher_paths = strings(child)
+                                    .map_err(|e| at(child, e))?
+                                    .iter()
+                                    .map(|p| match p.strip_prefix("~/") {
+                                        Some(rest) => gtk4::glib::home_dir().join(rest),
+                                        None if p == "~" => gtk4::glib::home_dir(),
+                                        None => PathBuf::from(p),
+                                    })
+                                    .collect();
                             }
                             other => return Err(at(child, unknown(other))),
                         }

@@ -371,7 +371,7 @@ fn items(state: &State, pinned: &[String]) -> Vec<Item> {
     windows.sort_by_key(|w| w.id);
     for window in windows {
         let app_id = window.app_id.clone().unwrap_or_default();
-        let i = match items.iter().position(|item| same_app(&item.key, &app_id)) {
+        let i = match items.iter().position(|item| crate::apps::same_app(&item.key, &app_id)) {
             Some(i) => i,
             None => {
                 items.push(Item { key: app_id, pinned: false, windows: Vec::new(), recent: None, focused: None, urgent: false });
@@ -393,17 +393,6 @@ fn items(state: &State, pinned: &[String]) -> Vec<Item> {
         }
     }
     items
-}
-
-/// Whether a window's app id belongs to a pinned name: equal, or the same desktop entry.
-fn same_app(key: &str, app_id: &str) -> bool {
-    if key.eq_ignore_ascii_case(app_id) {
-        return true;
-    }
-    let (Some(a), Some(b)) = (crate::apps::entry(key), crate::apps::entry(app_id)) else {
-        return false;
-    };
-    a.id() == b.id()
 }
 
 fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri) -> gtk4::Box {

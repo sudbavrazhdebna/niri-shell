@@ -35,12 +35,34 @@ fn launch_context() -> Option<gdk::AppLaunchContext> {
     Some(context)
 }
 
-/// Launches a desktop entry (optionally with files or URLs).
+/// Launches a desktop entry.
 pub fn app(info: &DesktopAppInfo) {
+    app_with(info, &[]);
+}
+
+/// Opens a file in the app set for its type, started like any other app.
+pub fn open_file(path: &std::path::Path) {
+    let file = gio::File::for_path(path);
+    // A folder's type can't be told from its name.
+    let content_type = if path.is_dir() {
+        glib::GString::from("inode/directory")
+    } else {
+        gio::content_type_guess(Some(path), None::<&[u8]>).0
+    };
+    let app = gio::AppInfo::default_for_type(&content_type, false)
+        .and_then(|info| info.downcast::<DesktopAppInfo>().ok());
+    match app {
+        Some(app) => app_with(&app, &[file.uri().as_str()]),
+        None => tracing::warn!("no app opens {}", path.display()),
+    }
+}
+
+/// Launches a desktop entry with files or URLs.
+fn app_with(info: &DesktopAppInfo, uris: &[&str]) {
     let context = launch_context();
     let mut pids = Vec::new();
     let result = info.launch_uris_as_manager_with_fds(
-        &[],
+        uris,
         context.as_ref(),
         glib::SpawnFlags::SEARCH_PATH,
         None,

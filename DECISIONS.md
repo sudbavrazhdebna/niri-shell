@@ -75,6 +75,23 @@ each section. Read before changing any of these.
   images are shared by monitors of the same size; config reloads keep them unless the
   image changed (style.css saves rebuild the bars, not the wallpaper).
 
+## Launcher
+
+- Replaces vicinae (4 processes, ~195 MB, Node.js, a root helper) for starting apps and
+  opening files. A full-screen, nearly transparent overlay window with the card in it: a
+  click beside the card closes it. Keyboard mode *exclusive* (typing must reach it), unlike
+  the menus' on-demand.
+- A running app comes to the front (its most recently focused window) instead of starting
+  again; Ctrl+Enter starts another. Apps are matched to windows like the dock does
+  (`apps::same_app`).
+- Matching: whole name, its start, a word start, word initials ("vsc"), a substring, then
+  letters in order only from a word start and with few gaps ("fire" matched LibreOffice
+  Impress before). Launch counts (`~/.local/state/nshell/launcher-history`) add at most
+  150, less than a better match.
+- Files: names under `launcher { search-paths … }`, indexed on a blocking-pool thread when
+  the launcher opens and the index is older than 60 s (no watching, no timer); hidden
+  folders and build caches skipped, 100 000 entries at most.
+
 ## Config
 
 - The dock's pin/unpin writes the `pinned` line back into config.kdl through the `kdl` crate,
