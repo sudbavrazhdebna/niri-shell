@@ -375,8 +375,8 @@ window.nshell-popups {
     color: rgba(255, 255, 255, 0.85);
 }
 
-/* No outline of its own: a plate that lightens with the card under the pointer, and
-   more under the pointer itself. */
+/* Shown only while the pointer is on the card (it stays clickable when hidden); a plate
+   that lightens more under the pointer itself. */
 button.close-button {
     min-width: 22px;
     min-height: 22px;
@@ -386,10 +386,13 @@ button.close-button {
     border: none;
     box-shadow: none;
     outline: none;
+    opacity: 0;
+    transition: opacity 120ms ease-out;
     -gtk-icon-size: 12px;
 }
 
 .notification:hover button.close-button {
+    opacity: 1;
     background: rgba(255, 255, 255, 0.15);
 }
 
