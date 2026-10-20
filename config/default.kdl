@@ -9,9 +9,11 @@ bar {
     // Height in pixels; icons and text are centered vertically.
     height 34
 
+    // Modules: window-title, clock, media (what plays), tray, keyboard, network,
+    // bluetooth, volume, battery, control.
     left "window-title"
     center "clock"
-    right "tray" "keyboard" "network" "bluetooth" "volume" "battery" "control"
+    right "media" "tray" "keyboard" "network" "bluetooth" "volume" "battery" "control"
 }
 
 clock {

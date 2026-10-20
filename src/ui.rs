@@ -141,9 +141,10 @@ impl Slider {
         scale.add_controller(events);
 
         let weak = Rc::downgrade(&slider.0);
-        scale.connect_change_value(move |_, _, value| {
+        // Clamped to the range in effect: a slider's range can change (a track's length).
+        scale.connect_change_value(move |scale, _, value| {
             if let Some(inner) = weak.upgrade() {
-                Slider(inner).send(value.clamp(0.0, max));
+                Slider(inner).send(value.clamp(0.0, scale.adjustment().upper()));
             }
             glib::Propagation::Proceed
         });

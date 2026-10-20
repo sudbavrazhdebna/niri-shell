@@ -12,7 +12,7 @@ pub const DEFAULT_KDL: &str = include_str!("../config/default.kdl");
 /// so a config written today keeps working as modules land.
 pub const MODULES: &[&str] = &[
     "clock", "window-title", "keyboard", "volume", "battery", "network", "bluetooth", "tray",
-    "control",
+    "control", "media",
 ];
 pub const PLANNED: &[&str] = &["docker"];
 
@@ -357,7 +357,7 @@ mod tests {
         let config = Config::parse(DEFAULT_KDL).unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(config.bar.height, 34);
         assert_eq!(config.window_title.rewrite.len(), 6);
-        assert_eq!(config.bar.right.len(), 7);
+        assert_eq!(config.bar.right.len(), 8);
     }
 
     #[test]

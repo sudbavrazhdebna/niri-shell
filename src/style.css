@@ -615,6 +615,8 @@ scale trough {
 
 scale trough highlight {
     min-height: 4px;
+    /* The theme's negative margins gave an empty highlight a negative width. */
+    margin: 0;
     border-radius: 2px;
     background: var(--accent);
     border: none;
@@ -663,4 +665,63 @@ switch image {
 /* A muted level keeps its place, in grey. */
 scale.dimmed trough highlight {
     background: rgba(255, 255, 255, 0.35);
+}
+
+/* ---- Media ---- */
+
+.bar-content .media {
+    padding-left: 4px;
+}
+
+.bar-content button.media-play {
+    min-width: 0;
+    min-height: 0;
+    padding: 0 2px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: var(--text);
+    -gtk-icon-size: 16px;
+    -gtk-icon-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.media-head {
+    padding: 4px 4px 8px;
+}
+
+.media-name {
+    font-weight: bold;
+}
+
+.media-artist {
+    color: var(--text-dim);
+}
+
+.media-album {
+    font-size: 0.9em;
+    color: var(--text-faint);
+}
+
+.media-times {
+    padding: 0 6px;
+    font-size: 0.85em;
+    color: var(--text-dim);
+    font-feature-settings: "tnum";
+}
+
+.media-controls {
+    padding: 4px 0 2px;
+}
+
+button.media-control {
+    padding: 6px;
+    border-radius: 18px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    -gtk-icon-size: 20px;
+}
+
+button.media-control:hover {
+    background: var(--inner-hover);
 }
