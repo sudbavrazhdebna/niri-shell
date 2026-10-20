@@ -25,5 +25,6 @@ stops the previous sandbox first), restart only the shell (bus and apps stay)
 `pkill -f` with a pattern that may match the real session or your own shell), measure
 `scripts/dev-measure.sh 60`. Debug-build hooks: `NSHELL_DEV_MENU=<module>[@secs]` opens a
 menu, `NSHELL_DEV_TRAY_MENU=1` opens tray menus, `NSHELL_DEV_AWAKE=1` turns on Stay awake.
-Commands to the running shell: `nshell msg show-dock [secs]` (D-Bus `dev.nshell.Shell`).
+Commands to the running shell: `nshell-msg show-dock [secs]`, `nshell-msg launcher` (D-Bus
+`dev.nshell.Shell`; `nshell msg …` does the same but loads all of GTK, ~90 ms).
 Fake apps: `scripts/test-tray-item.py` (`--qt`: registers once, like Qt), `scripts/test-mpris-player.py`, `scripts/test-backdrop.py` (stripes to judge blur). One step — one commit.

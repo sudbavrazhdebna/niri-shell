@@ -47,8 +47,8 @@ idle {
 }
 
 launcher {
-    // `nshell msg launcher` opens it; bind it in niri, e.g.
-    //   Mod+D { spawn "nshell" "msg" "launcher"; }
+    // `nshell-msg launcher` opens it; bind it in niri, e.g.
+    //   Mod+D { spawn "nshell-msg" "launcher"; }
     // Folders whose files it finds by name (hidden folders and build caches are skipped).
     search-paths "~/Documents" "~/Downloads" "~/Desktop"
 }
@@ -77,8 +77,8 @@ dock {
     // off
 
     // Slides away until the pointer touches the bottom edge of the screen.
-    // `nshell msg show-dock` shows it for 3 seconds: bind it in niri, e.g.
-    //   Mod+A { spawn "nshell" "msg" "show-dock"; }
+    // `nshell-msg show-dock` shows it for 3 seconds: bind it in niri, e.g.
+    //   Mod+A { spawn "nshell-msg" "show-dock"; }
     autohide
 
     // App ids as niri reports them (`niri msg windows`), in order.
