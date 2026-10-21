@@ -18,6 +18,8 @@ struct State {
     /// Decoded images by shown size, for monitors of the same size.
     textures: HashMap<(i32, i32), gdk::Texture>,
     following: bool,
+    /// Monitors whose size isn't known yet (just plugged in or turned on).
+    waiting: Vec<gdk::Monitor>,
 }
 
 thread_local! {
@@ -75,6 +77,28 @@ async fn show(monitor: gdk::Monitor, image: PathBuf) {
     let scale = monitor.scale_factor().max(1);
     let size = (geometry.width() * scale, geometry.height() * scale);
     if size.0 <= 0 || size.1 <= 0 {
+        // A monitor just turned on tells its size a moment later: the laptop screen came
+        // back after sleep without its wallpaper. Try again once it does.
+        let first = STATE.with_borrow_mut(|state| {
+            let first = !state.waiting.contains(&monitor);
+            if first {
+                state.waiting.push(monitor.clone());
+            }
+            first
+        });
+        if first {
+            tracing::info!(output = monitor.connector().as_deref().unwrap_or("?"), "wallpaper: waiting for the monitor's size");
+            monitor.connect_geometry_notify(move |monitor| {
+                let was_waiting = STATE.with_borrow_mut(|state| {
+                    let before = state.waiting.len();
+                    state.waiting.retain(|m| m != monitor);
+                    state.waiting.len() != before
+                });
+                if was_waiting && let Some(display) = gdk::Display::default() {
+                    sync(&display.monitors());
+                }
+            });
+        }
         return;
     }
     let cached = STATE.with_borrow(|state| state.textures.get(&size).cloned());
