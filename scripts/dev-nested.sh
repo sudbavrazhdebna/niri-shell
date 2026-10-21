@@ -63,6 +63,9 @@ exec niri -c "$DEV/niri.kdl" -- dbus-run-session -- sh -c '
     echo "$WAYLAND_DISPLAY" > "$1/wayland-display"
     # No accessibility bus in the private D-Bus session.
     export GTK_A11Y=none
+    # Idle stages only log here: brightness, locking and suspend are those of the real machine
+    # (no apostrophes in this script: it is one single-quoted string).
+    export NSHELL_SANDBOX=1
     export XDG_CONFIG_HOME="$1/config" XDG_DATA_HOME="$1/data" XDG_STATE_HOME="$1/state"
     "$2" 2>&1 | tee "$1/nshell.log"
     # The private bus ends with this script: keep it, so the shell can be restarted on it

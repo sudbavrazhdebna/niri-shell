@@ -24,6 +24,19 @@ impl Clock {
         clock
     }
 
+    /// Ticks now and starts counting again: glib timers stop during suspend, so after
+    /// waking up the clock lagged up to a minute.
+    pub fn resync(self: &Rc<Self>) {
+        if let Some(source) = self.next.take() {
+            source.remove();
+        }
+        self.tick.update(|t| {
+            *t += 1;
+            true
+        });
+        schedule(Rc::downgrade(self), self.per_second.get());
+    }
+
     /// Ticks every second from now on if `on` (a format with seconds), else every minute.
     pub fn set_per_second(self: &Rc<Self>, on: bool) {
         if self.per_second.replace(on) == on {
@@ -47,8 +60,6 @@ fn schedule(clock: Weak<Clock>, per_second: bool) {
     } else {
         (60 - u64::from(now.second().unsigned_abs())) * 1000 - ms_into_second
     };
-    // TODO: glib timers stop during suspend, so after waking up the time can lag up to
-    // a minute. Tick on logind PrepareForSleep(false) once logind is wired (idle step).
     let source = glib::timeout_add_local_once(Duration::from_millis(ms_left + 20), move || {
         let Some(this) = clock.upgrade() else { return };
         this.next.set(None);

@@ -26,6 +26,12 @@ window.bar {
     background: transparent;
 }
 
+/* The idle inhibitor's pixel: drawn, so niri counts it as shown (a fully transparent
+   window never maps), but not to be seen. */
+window.idle-inhibitor {
+    background: rgba(0, 0, 0, 0.004);
+}
+
 /* Black around an image that doesn't load yet. */
 window.nshell-wallpaper {
     background: black;

@@ -74,6 +74,7 @@ fn main() -> glib::ExitCode {
         let (config, problem) = settings::Settings::initial_config();
         let services = services::Services::new(niri::Niri::connect());
         menu::close_on_focus_change(&services.niri);
+        services.idle().configure(&config.idle);
         displays::configure(config.laptop_screen_auto);
         wallpaper::configure(config.wallpaper.clone());
         osd::set_layout_rename(&config.layout_rename);

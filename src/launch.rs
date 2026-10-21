@@ -115,14 +115,23 @@ pub fn action(info: &DesktopAppInfo, name: &str) {
 
 /// Runs a command line (no shell), e.g. a settings app or the lock command.
 pub fn command(command: &str) {
+    command_then(command, || {});
+}
+
+/// Like [`command`], and runs `done` when it exits (or at once if it can't start).
+pub fn command_then(command: &str, done: impl FnOnce() + 'static) {
     let argv = match glib::shell_parse_argv(command) {
         Ok(argv) => argv,
         Err(err) => {
             tracing::warn!("bad command {command:?}: {err}");
+            done();
             return;
         }
     };
-    let Some((program, args)) = argv.split_first() else { return };
+    let Some((program, args)) = argv.split_first() else {
+        done();
+        return;
+    };
     let mut child = std::process::Command::new(program);
     child.args(args);
     SHELL_ONLY_ENV.with_borrow(|names| {
@@ -134,10 +143,18 @@ pub fn command(command: &str) {
         Ok(child) => {
             let pid = i32::try_from(child.id()).unwrap_or(0);
             // Reap it when it exits, or it lingers as a zombie.
-            glib::child_watch_add_local(glib::Pid(pid), |_, _| {});
+            let done = std::cell::Cell::new(Some(done));
+            glib::child_watch_add_local(glib::Pid(pid), move |_, _| {
+                if let Some(done) = done.take() {
+                    done();
+                }
+            });
             own_scope(&program.to_string_lossy(), pid);
         }
-        Err(err) => tracing::warn!("can't start {command:?}: {err}"),
+        Err(err) => {
+            tracing::warn!("can't start {command:?}: {err}");
+            done();
+        }
     }
 }
 

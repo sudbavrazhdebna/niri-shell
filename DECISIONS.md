@@ -92,6 +92,30 @@ each section. Read before changing any of these.
   the launcher opens and the index is older than 60 s (no watching, no timer); hidden
   folders and build caches skipped, 100 000 entries at most.
 
+## Idle
+
+- Replaces stasis (measured idle: 39 wakeups/s, 0.30% CPU, 21 threads, a process of its
+  own). niri counts idle time: one `ext-idle-notify` notification per stage, its time
+  counted from the start of idle (not from the previous stage, as in stasis). No timers.
+  The notifications live on a Wayland connection of the shell's own: on GDK's, only GDK's
+  queue is dispatched and ours would sit unread.
+- niri itself counts browsers playing video and other Wayland inhibitors. The shell adds
+  its own reasons (local sound that isn't a system sound, speech or a game; windows like
+  mpv, `steam_app_.*`) by holding one idle inhibitor while any reason lasts, released
+  4 s after the last one ends (between tracks).
+- The inhibitor's surface is a 1×1, almost transparent pixel on the **overlay** layer.
+  niri counts an inhibitor only if its surface was presented in a frame; niri 26.04 draws
+  the background layer through an offscreen, so a background surface never counts (the
+  first version sat there: neither Stay awake nor any reason ever worked), and below the
+  overlay layer a maximized or fullscreen window would cover it.
+- Dim is built in (brightness to 5%, keyboard light off, both back on input, the OSD
+  hushed); lock runs the lock command; dpms through niri; suspend through logind.
+- Before any sleep (the lid too) the lock command runs and logind waits: a "delay"
+  inhibitor is let go when the command exits, so it should wait for the lock
+  (`veila lock --wait-ready`). After waking the clock catches up at once.
+- In the sandbox (`NSHELL_SANDBOX`) stages are only logged: its niri gets no input, and
+  brightness, the session lock and suspend are the real machine's.
+
 ## Images
 
 - Wallpaper and cover art are decoded with the `image` crate on a blocking-pool thread,
@@ -227,6 +251,9 @@ each section. Read before changing any of these.
 
 - The sandbox's private bus outlives the shell (it used to end with it, taking test apps
   and the tray watcher along), so `scripts/dev-restart.sh` can restart just the shell.
+- `dev-nested.sh` passes the session as one single-quoted `sh -c` string: an apostrophe
+  in a comment there ("machine's") ended the string, and the sandbox niri came up empty
+  with no error. That looked like "the window gets no frames" for two days.
 - One nested niri at a time: GNOME stops drawing a covered nested window, and that niri then
   hangs waiting for a frame (and ignores SIGTERM). `dev-nested.sh` stops the previous one.
 - The sandbox replaces `XDG_DATA_HOME`; user icon themes and app entries are linked in, or

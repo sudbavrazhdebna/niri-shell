@@ -47,6 +47,7 @@ impl Bars {
 
     /// Rebuilds every bar with new settings.
     pub fn set_config(self: &Rc<Self>, config: Rc<Config>, problems: Vec<String>) {
+        self.services.idle().configure(&config.idle);
         crate::displays::configure(config.laptop_screen_auto);
         crate::wallpaper::configure(config.wallpaper.clone());
         crate::osd::set_layout_rename(&config.layout_rename);

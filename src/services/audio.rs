@@ -44,6 +44,9 @@ pub struct AppStream {
     pub icon: String,
     pub percent: u32,
     pub muted: bool,
+    /// Real playback that keeps the session from going idle: not a system sound, speech
+    /// synthesis, a game (their windows do that) or something played elsewhere.
+    pub keeps_awake: bool,
 }
 
 /// The default input (microphone).
@@ -336,12 +339,25 @@ impl Audio {
                         .or_else(|| info.name.as_deref().map(String::from))
                         .unwrap_or_default();
                     volumes.borrow_mut().insert(info.index, info.volume);
+                    let identity: String = [
+                        "application.name",
+                        "application.process.binary",
+                        "application.id",
+                        "application.icon_name",
+                        "media.name",
+                        "node.name",
+                    ]
+                    .iter()
+                    .map(|key| prop(key).to_lowercase())
+                    .collect::<Vec<_>>()
+                    .join(" ");
                     found.borrow_mut().push(AppStream {
                         index: info.index,
                         name,
                         icon: prop("application.icon_name"),
                         percent: percent_of(&info.volume),
                         muted: info.mute,
+                        keeps_awake: !info.mute && keeps_awake(&identity),
                     });
                 }
                 ListResult::End => {
@@ -422,6 +438,25 @@ impl Audio {
                 });
             });
     }
+}
+
+/// Whether a playing stream counts as someone listening, by its app's names (the
+/// rules of the stasis setup this replaces).
+fn keeps_awake(identity: &str) -> bool {
+    const NOT: &[&str] = &[
+        // System sounds.
+        "event sound", "notification", "system sound", "alert", "bell", "beep",
+        "xdg-desktop-portal", "wireplumber",
+        // Speech synthesis and screen readers.
+        "speech-dispatcher", "speech dispatcher", "speechd", "espeak", "festival", "flite",
+        "piper", "rhvoice", "orca", "screen reader",
+        // Games: their windows (steam_app_*) keep the session awake.
+        "steam", "gamescope", "lutris", "heroic", "wine", "proton", "retroarch",
+        // Played on another device.
+        "spotify connect", "chromecast", "airplay", "raop", "dlna", "upnp", "snapcast",
+        "shairport",
+    ];
+    !NOT.iter().any(|needle| identity.contains(needle))
 }
 
 /// 100 = the device's normal level.

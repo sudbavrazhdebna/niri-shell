@@ -24,6 +24,8 @@ const CARD_RADIUS: i32 = 18;
 thread_local! {
     /// Renames of keyboard layouts for the OSD (`keyboard { rename … }` in the config).
     static LAYOUT_RENAME: RefCell<Vec<(regex::Regex, String)>> = const { RefCell::new(Vec::new()) };
+    /// Changes before this moment are the shell's own (the idle dim), not the user's.
+    static HUSHED_UNTIL: std::cell::Cell<Option<std::time::Instant>> = const { std::cell::Cell::new(None) };
 }
 
 /// Takes the layout renames (at start and on config reload).
@@ -36,6 +38,11 @@ fn layout_name(name: &str) -> String {
     LAYOUT_RENAME.with_borrow(|rules| {
         rules.iter().fold(name.to_string(), |name, (re, to)| re.replace_all(&name, to.as_str()).into_owned())
     })
+}
+
+/// Keeps the OSD quiet for a moment: for brightness the shell changes itself.
+pub fn hush() {
+    HUSHED_UNTIL.set(Some(std::time::Instant::now() + Duration::from_millis(1500)));
 }
 
 /// What one OSD shows.
@@ -147,7 +154,7 @@ impl Osd {
 
     pub fn show(self: &Rc<Self>, content: Content) {
         // A slider in a menu shows its value itself; keys always get the OSD.
-        if crate::ui::slider_moved_recently() {
+        if crate::ui::slider_moved_recently() || HUSHED_UNTIL.get().is_some_and(|t| std::time::Instant::now() < t) {
             return;
         }
         if self.shown.borrow().is_none() {

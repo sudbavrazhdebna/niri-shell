@@ -21,6 +21,6 @@ done
 sleep 0.5
 
 export XDG_CONFIG_HOME="$DEV/config" XDG_DATA_HOME="$DEV/data" XDG_STATE_HOME="$DEV/state"
-export GTK_A11Y=none
+export GTK_A11Y=none NSHELL_SANDBOX=1
 setsid "$ROOT/scripts/dev-run.sh" "$BIN" >> "$DEV/nshell.log" 2>&1 < /dev/null &
 echo "restarted $BIN"

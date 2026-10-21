@@ -60,9 +60,42 @@ pub struct DockConfig {
     pub pinned: Vec<String>,
 }
 
+#[derive(Clone)]
 pub struct IdleConfig {
-    /// Runs to lock the screen (from the control center, and later before sleep).
+    /// Runs to lock the screen: from the control center, the lock stage, and before
+    /// sleep (where the shell waits for it to exit, so it should wait for the lock).
     pub lock_command: String,
+    /// Windows (app id, whole-name regex) that keep the session awake while open.
+    pub inhibit_apps: Vec<Regex>,
+    /// What happens when, on AC and on battery.
+    pub on_ac: Vec<Stage>,
+    pub on_battery: Vec<Stage>,
+}
+
+/// One step of going idle.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum IdleAction {
+    /// Screen to 5%, keyboard light off; back on activity.
+    Dim,
+    Lock,
+    /// Monitors off; on again on activity.
+    Dpms,
+    Suspend,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Stage {
+    pub action: IdleAction,
+    /// Counted from the start of idle, not from the previous stage.
+    pub after: std::time::Duration,
+}
+
+impl IdleConfig {
+    fn stages(list: &[(IdleAction, u64)]) -> Vec<Stage> {
+        list.iter()
+            .map(|&(action, secs)| Stage { action, after: std::time::Duration::from_secs(secs) })
+            .collect()
+    }
 }
 
 pub struct VolumeConfig {
@@ -97,6 +130,20 @@ impl Default for Config {
             volume: VolumeConfig { scroll_step: 1 },
             idle: IdleConfig {
                 lock_command: "loginctl lock-session".into(),
+                inhibit_apps: ["vlc", "mpv", "steam_app_.*"].iter().filter_map(|p| whole(p).ok()).collect(),
+                // The stasis setup's times, counted from the start of idle and rounded.
+                on_ac: IdleConfig::stages(&[
+                    (IdleAction::Dim, 120),
+                    (IdleAction::Lock, 300),
+                    (IdleAction::Dpms, 900),
+                    (IdleAction::Suspend, 1800),
+                ]),
+                on_battery: IdleConfig::stages(&[
+                    (IdleAction::Dim, 60),
+                    (IdleAction::Dpms, 180),
+                    (IdleAction::Lock, 360),
+                    (IdleAction::Suspend, 600),
+                ]),
             },
             laptop_screen_auto: true,
             layout_rename: Vec::new(),
@@ -280,14 +327,7 @@ impl Config {
                         }
                     }
                 }
-                "idle" => {
-                    // Stages and profiles come with the idle manager (step 9).
-                    for child in children(node) {
-                        if child.name().value() == "lock-command" {
-                            config.idle.lock_command = string_arg(child).map_err(|e| at(child, e))?;
-                        }
-                    }
-                }
+                "idle" => parse_idle(&mut config.idle, node, &at)?,
                 name if LATER.contains(&name) => {}
                 other => return Err(at(node, unknown(other))),
             }
@@ -356,6 +396,79 @@ fn parse_bar(
         *zone = names;
     }
     Ok(())
+}
+
+fn parse_idle(
+    idle: &mut IdleConfig,
+    node: &KdlNode,
+    at: &impl Fn(&KdlNode, String) -> String,
+) -> Result<(), String> {
+    for child in children(node) {
+        match child.name().value() {
+            "lock-command" => idle.lock_command = string_arg(child).map_err(|e| at(child, e))?,
+            "inhibit-apps" => {
+                idle.inhibit_apps = strings(child)
+                    .map_err(|e| at(child, e))?
+                    .iter()
+                    .map(|p| whole(p).map_err(|e| at(child, format!("bad pattern: {e}"))))
+                    .collect::<Result<_, _>>()?;
+            }
+            profile @ ("on-ac" | "on-battery") => {
+                let mut stages = Vec::new();
+                for stage in children(child) {
+                    let action = match stage.name().value() {
+                        "dim" => IdleAction::Dim,
+                        "lock" => IdleAction::Lock,
+                        "dpms" => IdleAction::Dpms,
+                        "suspend" => IdleAction::Suspend,
+                        other => return Err(at(stage, format!("no stage \"{other}\", there are dim, lock, dpms, suspend"))),
+                    };
+                    if stages.iter().any(|s: &Stage| s.action == action) {
+                        return Err(at(stage, "this stage is already set".into()));
+                    }
+                    let after = duration_arg(stage).map_err(|e| at(stage, e))?;
+                    stages.push(Stage { action, after });
+                }
+                stages.sort_by_key(|s| s.after);
+                if profile == "on-ac" {
+                    idle.on_ac = stages;
+                } else {
+                    idle.on_battery = stages;
+                }
+            }
+            other => return Err(at(child, unknown(other))),
+        }
+    }
+    Ok(())
+}
+
+/// A regex that must match the whole text.
+fn whole(pattern: &str) -> Result<Regex, regex::Error> {
+    Regex::new(&format!("^(?:{pattern})$"))
+}
+
+/// "90s", "2m", "1h", or a number of seconds; more than zero.
+fn duration_arg(node: &KdlNode) -> Result<std::time::Duration, String> {
+    let bad = || "needs a time like \"30s\", \"2m\" or \"1h\"".to_string();
+    let secs = match node.entries() {
+        [entry] if entry.name().is_none() => match entry.value() {
+            KdlValue::Integer(n) => u64::try_from(*n).ok(),
+            KdlValue::String(text) => {
+                let text = text.trim();
+                let (number, unit) = text.split_at(text.find(|c: char| !c.is_ascii_digit()).unwrap_or(text.len()));
+                let n: u64 = number.parse().map_err(|_| bad())?;
+                match unit.trim() {
+                    "" | "s" => Some(n),
+                    "m" => n.checked_mul(60),
+                    "h" => n.checked_mul(3600),
+                    _ => None,
+                }
+            }
+            _ => None,
+        },
+        _ => None,
+    };
+    secs.filter(|s| *s > 0).map(std::time::Duration::from_secs).ok_or_else(bad)
 }
 
 fn children(node: &KdlNode) -> &[KdlNode] {
@@ -457,6 +570,22 @@ mod tests {
         assert_eq!(config.bar.height, 30);
         let added = with_pinned("bar { height 30; }\n", &["x".into()]).unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(Config::parse(&added).map(|c| c.dock.pinned).unwrap_or_default(), ["x"]);
+    }
+
+    #[test]
+    fn idle_stages() {
+        let text = "idle {\n  inhibit-apps \"mpv\" \"steam_app_.*\"\n  on-ac { lock \"5m\"; dim \"90s\"; suspend 1800; }\n}";
+        let config = Config::parse(text).unwrap_or_else(|e| panic!("{e}"));
+        let ac: Vec<_> = config.idle.on_ac.iter().map(|s| (s.action, s.after.as_secs())).collect();
+        assert_eq!(ac, [(IdleAction::Dim, 90), (IdleAction::Lock, 300), (IdleAction::Suspend, 1800)]);
+        // The battery profile stays as built in.
+        assert_eq!(config.idle.on_battery.len(), 4);
+        assert!(config.idle.inhibit_apps.iter().any(|r| r.is_match("steam_app_123")));
+        assert!(!config.idle.inhibit_apps.iter().any(|r| r.is_match("mpvpaper")));
+        let err = Config::parse("idle {\n  on-ac { nap \"5m\"; }\n}").err().unwrap_or_default();
+        assert!(err.starts_with("line 2:") && err.contains("nap"), "{err}");
+        let err = Config::parse("idle {\n  on-ac {\n    dim \"soon\"\n  }\n}").err().unwrap_or_default();
+        assert!(err.starts_with("line 3:"), "{err}");
     }
 
     #[test]

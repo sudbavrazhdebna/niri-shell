@@ -42,8 +42,30 @@ volume {
 }
 
 idle {
-    // Locks the screen: from the control center, and before sleep.
-    lock-command "veila lock"
+    // Locks the screen: from the control center, the lock stage, and before every sleep
+    // (the lid too). Before sleep the shell waits for it to exit, so it should wait until
+    // the screen is locked (veila: --wait-ready).
+    lock-command "veila lock --wait-ready"
+
+    // Windows (app ids, regexes) that keep the screen on while open. Local sound and
+    // the Stay awake tile do too; niri itself counts video in browsers and players.
+    inhibit-apps "vlc" "mpv" "steam_app_.*"
+
+    // What happens after how long without input, counted from the start (not from the
+    // previous step): dim (screen 5%, keyboard light off), lock, dpms (monitors off),
+    // suspend. Leave one out to skip it. Times: "30s", "2m", "1h".
+    on-ac {
+        dim "2m"
+        lock "5m"
+        dpms "15m"
+        suspend "30m"
+    }
+    on-battery {
+        dim "1m"
+        dpms "3m"
+        lock "6m"
+        suspend "10m"
+    }
 }
 
 launcher {

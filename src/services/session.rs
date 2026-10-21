@@ -2,7 +2,7 @@
 
 use gtk4::prelude::*;
 use gtk4::{gio, glib};
-use gtk4_layer_shell::{KeyboardMode, Layer, LayerShell};
+use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use wayland_protocols::wp::idle_inhibit::zv1::client::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 
 use crate::watch::Watch;
@@ -80,19 +80,26 @@ fn manager_call(method: &'static str) {
     });
 }
 
-/// Keeps the session from going idle. The compositor honours an inhibitor only for a
-/// visible surface, so it gets its own invisible one-pixel layer surface.
-struct Inhibitor {
+/// Keeps the session from going idle while it lives. The compositor honours an inhibitor
+/// only for a surface it actually presents, so it gets a one-pixel, all but transparent
+/// surface of its own on the overlay layer, where nothing covers it (see DECISIONS.md).
+pub struct Inhibitor {
     window: gtk4::Window,
 }
 
 impl Inhibitor {
-    fn new() -> Option<Inhibitor> {
+    pub fn new() -> Option<Inhibitor> {
         let window = gtk4::Window::new();
         window.add_css_class("idle-inhibitor");
         window.init_layer_shell();
         window.set_namespace(Some("nshell-idle-inhibitor"));
-        window.set_layer(Layer::Background);
+        // Not the background layer: niri 26.04 draws it through an offscreen, so its
+        // surfaces never count as presented. Not below windows either: a maximized one
+        // would cover it. The overlay layer is above even fullscreen windows.
+        window.set_layer(Layer::Overlay);
+        window.set_anchor(Edge::Top, true);
+        window.set_anchor(Edge::Left, true);
+        window.set_exclusive_zone(0);
         window.set_keyboard_mode(KeyboardMode::None);
         window.set_default_size(1, 1);
         window.set_can_target(false);
@@ -101,6 +108,10 @@ impl Inhibitor {
             std::rc::Rc::default();
         let slot = inhibitor.clone();
         window.connect_map(move |window| {
+            // Clicks pass through the pixel.
+            if let Some(surface) = window.surface() {
+                surface.set_input_region(Some(&gtk4::cairo::Region::create()));
+            }
             let Some(surface) = window.surface().and_then(|s| wayland::wl_surface(&s)) else {
                 return;
             };
