@@ -4,14 +4,8 @@ Agreed, not started (or not finished). Newest wishes at the bottom of each part.
 
 ## Next
 
-- **Idle manager** — written on the branch `idle-wip`, not checked yet:
-  1. sandbox run with short times (stages only log there: `NSHELL_SANDBOX`);
-  2. real session with short times: brightness, keyboard light and monitors come back on
-     input; lock before sleep (lid) with `lock-command "veila lock --wait-ready"`;
-  3. merge, then stasis stays off for good.
-  The user's needs: video and YouTube music in the browser keep the screen on; Steam
-  games later (`steam_app_.*`). `lock-before-sleep.service` (hyprlock, unused) is still
-  enabled: disable it with the user's OK.
+- **Idle manager** — merged (sandbox-checked); left: the real-session check of resume
+  (brightness, keyboard light, monitors back on input) and the lid (locked before sleep).
 - **Switch over** — nshell alone: wayle, ironbar, stasis, swaybg out of autostart, final
   measurement against the numbers in DESIGN.md.
 
