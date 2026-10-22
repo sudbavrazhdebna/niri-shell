@@ -28,12 +28,16 @@ pub struct BatteryState {
 
 pub struct Battery {
     pub state: Watch<BatteryState>,
+    /// Kept here: a proxy nobody holds is dropped, and its change handler with it (the
+    /// battery froze at its first state: "charging" all day on battery).
+    _proxy: std::rc::Rc<std::cell::RefCell<Option<gio::DBusProxy>>>,
 }
 
 impl Battery {
     pub fn start() -> Battery {
         let state = Watch::new(BatteryState::default());
-        let watch = state.clone();
+        let slot: std::rc::Rc<std::cell::RefCell<Option<gio::DBusProxy>>> = std::rc::Rc::default();
+        let (watch, keep) = (state.clone(), slot.clone());
         gtk4::glib::spawn_future_local(async move {
             let Some(proxy) = system_proxy(
                 "org.freedesktop.UPower",
@@ -45,10 +49,10 @@ impl Battery {
                 return;
             };
             watch.set(read(&proxy));
-            // The handler keeps the proxy alive for the life of the process.
             on_properties_changed(&proxy, move |proxy| watch.set(read(proxy)));
+            keep.replace(Some(proxy));
         });
-        Battery { state }
+        Battery { state, _proxy: slot }
     }
 }
 
