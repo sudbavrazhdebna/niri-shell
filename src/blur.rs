@@ -80,6 +80,18 @@ pub fn behind(
     radius: i32,
     on_resize: impl Fn() + 'static,
 ) -> gtk4::Overlay {
+    behind_with_refresh(window, content, cards, radius, on_resize).0
+}
+
+/// Like [`behind`], and also returns a function that sets the blur again: for cards that
+/// come and go without a size change (the bar's glass under a maximized window).
+pub fn behind_with_refresh(
+    window: &gtk4::Window,
+    content: &impl IsA<gtk4::Widget>,
+    cards: impl Fn() -> Vec<gtk4::Widget> + 'static,
+    radius: i32,
+    on_resize: impl Fn() + 'static,
+) -> (gtk4::Overlay, Rc<dyn Fn()>) {
     let overlay = gtk4::Overlay::new();
     overlay.set_child(Some(content));
     // An invisible layer over the content: its size is the content's size, and GTK
@@ -132,7 +144,7 @@ pub fn behind(
     window.connect_unmap(move |_| {
         blur.take();
     });
-    overlay
+    (overlay, update)
 }
 
 /// The union of strips that approximates a rounded rectangle: one strip per pixel row

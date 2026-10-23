@@ -93,7 +93,7 @@ different `border-radius` the blur corners won't match exactly.
 
 | Part | Classes |
 |---|---|
-| bar | `window.bar`, `.bar-content`; every module is `.module` plus its name: `.clock`, `.window-title`, `.keyboard`, `.network`, `.bluetooth`, `.volume`, `.battery`, `.control`, `.tray-item`; icon modules also `.icon` |
+| bar | `window.bar` (+ `.solid`: glass under a window that spans the screen below it), `.bar-content`; every module is `.module` plus its name: `.clock`, `.window-title`, `.keyboard`, `.network`, `.bluetooth`, `.volume`, `.battery`, `.control`, `.tray-item`; icon modules also `.icon` |
 | clock extras | `.clock-dot` (unseen notifications), `.clock-dnd` |
 | menus | `.menu-card` (the glass card), `.menu-title`, `.menu-note`, `.menu-separator`, `button.menu-item`, `.menu-check`, `.menu-header` (title with a switch), `.menu-slider-row`, `.menu-value`, `.menu-trailing` |
 | network menu | `.connected-card`, `.connected-name`, `.connected-details`, `.menu-password` |

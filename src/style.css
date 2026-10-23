@@ -39,6 +39,13 @@ window.nshell-wallpaper {
 
 .bar-content {
     padding: 0 6px;
+    transition: background-color 200ms ease-out;
+}
+
+/* Under a window that spans the screen right below it, the bar is glass (blurred). */
+window.bar.solid .bar-content {
+    background-color: var(--glass);
+    box-shadow: inset 0 -1px 0 var(--glass-edge);
 }
 
 /* ---- Modules: white text and icons with a soft shadow, a plate on hover ---- */

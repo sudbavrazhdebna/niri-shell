@@ -26,6 +26,15 @@ each section. Read before changing any of these.
   restarted a second after a crash. Run by hand from a terminal, the shell died with the
   terminal and stayed down after a crash. Apps it started live on (own scopes).
 
+## Bar
+
+- The bar turns to blurred glass (`window.bar.solid`) while the output's active window
+  spans the screen's width as the top tile of its column: maximized as a column (Mod+F)
+  or to edges, or a full-width column. Not by position: niri 26.04 leaves
+  `tile_pos_in_workspace_view` empty even for a plainly visible window. niri's
+  `WindowLayoutsChanged` comes on every resize and animation frame; it wakes listeners
+  only when a top tile's width (in 16 px steps) changes, and never bumps `layout_serial`.
+
 ## Dock
 
 - **A fully transparent GTK window never reaches the compositor**: with nothing to draw, GTK

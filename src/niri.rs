@@ -22,6 +22,16 @@ pub struct State {
 }
 
 impl State {
+    /// Whether the output's shown window spans its whole `width` right under the bar:
+    /// maximized (to edges or as a column) or a full-width column. The active window of
+    /// the active workspace is always in view; columns fill the height, so the top tile
+    /// of a full-width one touches the bar.
+    pub fn covers_top(&self, output: &str, width: f64) -> bool {
+        self.active_window_on(output).is_some_and(|w| {
+            top_band(&w.layout).is_some() && w.layout.tile_size.0 >= width - 2.0 * EDGE_SLACK
+        })
+    }
+
     /// The window shown on an output: the active window of its active workspace.
     pub fn active_window_on(&self, output: &str) -> Option<&Window> {
         let workspace = self
@@ -34,7 +44,10 @@ impl State {
     /// Applies one event. Returns false for events the shell doesn't care about,
     /// so listeners aren't woken for them.
     fn apply(&mut self, event: Event) -> bool {
-        let title_only = matches!(&event, Event::WindowOpenedOrChanged { window }
+        // Window positions change nothing that `layout_serial` stands for (who is open
+        // where, focus); listeners that care look at `top_band` themselves.
+        let positions_only = matches!(&event, Event::WindowLayoutsChanged { .. });
+        let title_only = positions_only || matches!(&event, Event::WindowOpenedOrChanged { window }
             if self.windows.get(&window.id).is_some_and(|old| {
                 old.app_id == window.app_id
                     && old.workspace_id == window.workspace_id
@@ -92,6 +105,20 @@ impl State {
                 }
                 self.windows.insert(window.id, window);
             }
+            // These come with every resize and animation frame: only a window reaching or
+            // leaving the top band (or changing width while in it) wakes anyone.
+            Event::WindowLayoutsChanged { changes } => {
+                let mut noticed = false;
+                for (id, layout) in changes {
+                    let Some(window) = self.windows.get_mut(&id) else { continue };
+                    let before = top_band(&window.layout);
+                    window.layout = layout;
+                    noticed |= top_band(&window.layout) != before;
+                }
+                if !noticed {
+                    return false;
+                }
+            }
             Event::WindowClosed { id } => {
                 self.windows.remove(&id);
             }
@@ -111,8 +138,6 @@ impl State {
                 };
                 layouts.current_idx = idx;
             }
-            // Layout changes fire on every resize and animation frame; nothing in the
-            // shell shows them.
             _ => return false,
         }
         true
@@ -123,6 +148,17 @@ impl State {
             window.is_focused = Some(window.id) == id;
         }
     }
+}
+
+/// Slack for gaps and struts when telling whether a tile spans the screen's width, in
+/// logical pixels.
+pub const EDGE_SLACK: f64 = 24.0;
+
+/// For the top tile of a column, its width in steps of 16 px: what the bar's look depends
+/// on. (niri 26.04 leaves `tile_pos_in_workspace_view` empty, so position can't be used.)
+fn top_band(layout: &niri_ipc::WindowLayout) -> Option<i64> {
+    let (_, tile) = layout.pos_in_scrolling_layout?;
+    (tile == 1).then(|| (layout.tile_size.0 / 16.0).round() as i64)
 }
 
 /// Handle to the niri connection. Cheap to clone.
