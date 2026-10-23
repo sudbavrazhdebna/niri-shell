@@ -21,8 +21,14 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("control");
     image.set_icon_name(Some("nshell-control"));
     ctx.services.session().set_lock_command(&ctx.config.idle.lock_command);
-    // Start following players now, so the menu knows what plays when it opens.
+    // Start what the menu shows now, so it is known when the menu opens: started on the
+    // first opening, the power profiles row came a few frames late and the menu grew and
+    // jumped sideways. (Network and Bluetooth usually start with their bar modules.)
     ctx.services.media();
+    ctx.services.power();
+    ctx.services.network();
+    ctx.services.bluetooth();
+    ctx.services.keyboard_light();
     // Sandbox testing: NSHELL_DEV_AWAKE=1 turns "stay awake" on at start.
     #[cfg(debug_assertions)]
     if std::env::var_os("NSHELL_DEV_AWAKE").is_some() {
