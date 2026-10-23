@@ -1,5 +1,5 @@
 //! What plays (MPRIS): a play/pause button and the title, hidden when nothing plays.
-//! A click on the title opens the player's menu: cover, track, a seekable position and
+//! A click on the title (or a right click) opens the player's menu: cover, track, a seekable position and
 //! previous/next. The position is counted on by a one-second timer, only while the menu
 //! is open and something plays.
 
@@ -31,6 +31,8 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     title.set_max_width_chars(24);
     root.append(&play);
     root.append(&title);
+    // `media { title "off" }`: only the play button.
+    title.set_visible(ctx.config.media_title);
 
     let services = ctx.services.clone();
     let s = services.clone();
@@ -41,8 +43,10 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         play.set_icon_name(play_icon(track));
         title.set_label(&display_title(track));
     });
-    // The button takes its own clicks; the rest of the module opens the menu.
+    // The button takes its own clicks; the rest of the module opens the menu, and a
+    // right click anywhere does (the only way when the title is hidden).
     menu::attach(&root, move |anchor| menu::show(anchor, &menu_content(&services)));
+    menu::on_button(&root, gtk4::gdk::BUTTON_SECONDARY);
     root.upcast()
 }
 

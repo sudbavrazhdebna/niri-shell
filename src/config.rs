@@ -35,6 +35,8 @@ pub struct Config {
     pub layout_rename: Vec<(Regex, String)>,
     /// Folders whose files the launcher finds.
     pub launcher_paths: Vec<PathBuf>,
+    /// The media module shows the track's title next to its play button.
+    pub media_title: bool,
 }
 
 pub struct BarConfig {
@@ -148,6 +150,7 @@ impl Default for Config {
             laptop_screen_auto: true,
             layout_rename: Vec::new(),
             launcher_paths: Vec::new(),
+            media_title: true,
             wallpaper: Some(gtk4::glib::home_dir().join(".config/wallpapers/m.jpg")),
             dock: DockConfig {
                 enabled: true,
@@ -247,6 +250,20 @@ impl Config {
                             "scroll-step" => {
                                 config.volume.scroll_step =
                                     int_arg(child, 1..=50).map_err(|e| at(child, e))?
+                            }
+                            other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
+                "media" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "title" => {
+                                config.media_title = match string_arg(child).map_err(|e| at(child, e))?.as_str() {
+                                    "on" => true,
+                                    "off" => false,
+                                    _ => return Err(at(child, "needs \"on\" or \"off\"".into())),
+                                }
                             }
                             other => return Err(at(child, unknown(other))),
                         }

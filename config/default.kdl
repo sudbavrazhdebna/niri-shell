@@ -68,6 +68,11 @@ idle {
     }
 }
 
+media {
+    // The track's title next to the play button in the bar: "on" or "off".
+    title "on"
+}
+
 launcher {
     // `nshell-msg launcher` opens it; bind it in niri, e.g.
     //   Mod+D { spawn "nshell-msg" "launcher"; }
