@@ -28,9 +28,10 @@ each section. Read before changing any of these.
 
 ## Bar
 
-- The bar turns to blurred glass (`window.bar.solid`) while the output's active window
-  spans the screen's width as the top tile of its column: maximized as a column (Mod+F)
-  or to edges, or a full-width column. Not by position: niri 26.04 leaves
+- The bar turns to blurred glass (`window.bar.solid`) while the output's active window is
+  maximized to the edges: the screen's whole width (no gaps, unlike Mod+F's column) as
+  the top tile of its column. No line along its edge (seen as a stray border). Not by
+  position: niri 26.04 leaves
   `tile_pos_in_workspace_view` empty even for a plainly visible window. niri's
   `WindowLayoutsChanged` comes on every resize and animation frame; it wakes listeners
   only when a top tile's width (in 16 px steps) changes, and never bumps `layout_serial`.

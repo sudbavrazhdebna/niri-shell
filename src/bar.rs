@@ -161,8 +161,8 @@ impl Bars {
         window.set_default_size(-1, height);
 
         let content = self.build_content(ctx);
-        // Glass with blur while a window spans the screen right under the bar (maximized,
-        // or alone at full width); transparent over the wallpaper otherwise.
+        // Glass with blur while a window is maximized to the edges right under the bar;
+        // transparent over the wallpaper otherwise.
         let solid = Rc::new(std::cell::Cell::new(false));
         let (glass, s) = (content.downgrade(), solid.clone());
         let (wrapped, refresh) = crate::blur::behind_with_refresh(

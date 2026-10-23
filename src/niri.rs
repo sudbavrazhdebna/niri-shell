@@ -22,10 +22,9 @@ pub struct State {
 }
 
 impl State {
-    /// Whether the output's shown window spans its whole `width` right under the bar:
-    /// maximized (to edges or as a column) or a full-width column. The active window of
-    /// the active workspace is always in view; columns fill the height, so the top tile
-    /// of a full-width one touches the bar.
+    /// Whether the output's shown window is maximized to the edges: its whole `width`,
+    /// no gaps, right under the bar. The active window of the active workspace is always
+    /// in view; columns fill the height, so the top tile of such a one touches the bar.
     pub fn covers_top(&self, output: &str, width: f64) -> bool {
         self.active_window_on(output).is_some_and(|w| {
             top_band(&w.layout).is_some() && w.layout.tile_size.0 >= width - 2.0 * EDGE_SLACK
@@ -150,9 +149,9 @@ impl State {
     }
 }
 
-/// Slack for gaps and struts when telling whether a tile spans the screen's width, in
-/// logical pixels.
-pub const EDGE_SLACK: f64 = 24.0;
+/// Slack when telling whether a tile spans the screen's whole width, in logical pixels:
+/// none for gaps, only for rounding (a column maximized with Mod+F keeps the gaps).
+pub const EDGE_SLACK: f64 = 1.0;
 
 /// For the top tile of a column, its width in steps of 16 px: what the bar's look depends
 /// on. (niri 26.04 leaves `tile_pos_in_workspace_view` empty, so position can't be used.)
