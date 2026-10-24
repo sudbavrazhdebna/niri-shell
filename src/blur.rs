@@ -114,14 +114,17 @@ pub fn behind_with_refresh(
                 // Not laid out yet (right after mapping): wait for the resize.
                 .filter(|b| b.width() > 0.0 && b.height() > 0.0)
                 .flat_map(|b| {
-                    // A pixel inside the card's edge: the blur's corners are pixel steps,
-                    // and level with the card's smooth edge they showed as jagged corners.
+                    // A pixel inside a rounded card's edge: the blur's corners are pixel
+                    // steps, and level with the card's smooth edge they showed as jagged
+                    // corners. A square one (the bar) is blurred to its edge, or its
+                    // outer pixels show what's behind sharp, like an outline.
+                    let inset = if radius > 0 { INSET } else { 0 };
                     rounded_rect(
-                        b.x().round() as i32 + INSET,
-                        b.y().round() as i32 + INSET,
-                        b.width().round() as i32 - 2 * INSET,
-                        b.height().round() as i32 - 2 * INSET,
-                        radius - INSET,
+                        b.x().round() as i32 + inset,
+                        b.y().round() as i32 + inset,
+                        b.width().round() as i32 - 2 * inset,
+                        b.height().round() as i32 - 2 * inset,
+                        radius - inset,
                     )
                 })
                 .collect();

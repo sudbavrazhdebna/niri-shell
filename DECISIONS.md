@@ -211,6 +211,9 @@ each section. Read before changing any of these.
   and the popup window holds several cards. Windows leave room for them (22 px below,
   16 px at the sides); the OSD had 10 px and its shadow was cut off.
 - Blur needs `xray false` in a niri layer-rule for `^nshell-`, or it only blurs the wallpaper.
+- The blur stops 1 px inside a rounded card (its pixel-step corners looked jagged level
+  with the smooth edge), but reaches the edge of the square bar: with the inset, the bar's
+  outer pixels showed the window behind sharp, like a 1 px outline.
 
 ## Events without polling
 
