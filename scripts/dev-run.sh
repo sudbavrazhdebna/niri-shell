@@ -12,4 +12,6 @@ DEV="$ROOT/.dev"
 export NIRI_SOCKET=$(cat "$DEV/niri-socket")
 export DBUS_SESSION_BUS_ADDRESS=$(cat "$DEV/bus")
 export WAYLAND_DISPLAY=$(cat "$DEV/wayland-display")
+# No X11: an app that can't reach the sandbox would open on the real screen through it.
+unset DISPLAY
 exec "$@"
