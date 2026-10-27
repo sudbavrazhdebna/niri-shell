@@ -4,8 +4,6 @@ Agreed, not started (or not finished). Newest wishes at the bottom of each part.
 
 ## Next
 
-- **Idle manager** — merged (sandbox-checked); left: the real-session check of resume
-  (brightness, keyboard light, monitors back on input) and the lid (locked before sleep).
 - **Switch over** — nshell alone: wayle, ironbar, stasis, swaybg out of autostart, final
   measurement against the numbers in DESIGN.md.
 
