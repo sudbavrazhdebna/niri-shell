@@ -62,7 +62,9 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     column.append(&ui::title(today.trim()));
     let calendar = gtk4::Calendar::new();
     calendar.add_css_class("menu-calendar");
-    round_days(&calendar);
+    center_days(&calendar);
+    // A click picks nothing, so it doesn't take the focus (and its frame) either.
+    calendar.set_focus_on_click(false);
     column.append(&calendar);
     column.append(&ui::separator());
     column.append(&center(services));
@@ -70,8 +72,8 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
 }
 
 /// GTK's day cells fill their column (wide rectangles); each sits in the middle of it
-/// instead, so the round marks of style.css stay round.
-fn round_days(calendar: &gtk4::Calendar) {
+/// instead, so the marks of style.css stay square.
+fn center_days(calendar: &gtk4::Calendar) {
     let mut stack: Vec<gtk4::Widget> = vec![calendar.clone().upcast()];
     while let Some(widget) = stack.pop() {
         if widget.has_css_class("day-number") {
