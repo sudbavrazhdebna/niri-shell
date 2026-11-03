@@ -53,7 +53,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
 
 fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     let column = ui::column();
-    column.set_width_request(420);
+    column.set_width_request(380);
     let today = glib::DateTime::now_local()
         .ok()
         .and_then(|now| now.format("%A, %-e %B").ok())
@@ -62,11 +62,27 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     column.append(&ui::title(today.trim()));
     let calendar = gtk4::Calendar::new();
     calendar.add_css_class("menu-calendar");
-    calendar.set_halign(gtk4::Align::Center);
+    round_days(&calendar);
     column.append(&calendar);
     column.append(&ui::separator());
     column.append(&center(services));
     column
+}
+
+/// GTK's day cells fill their column (wide rectangles); each sits in the middle of it
+/// instead, so the round marks of style.css stay round.
+fn round_days(calendar: &gtk4::Calendar) {
+    let mut stack: Vec<gtk4::Widget> = vec![calendar.clone().upcast()];
+    while let Some(widget) = stack.pop() {
+        if widget.has_css_class("day-number") {
+            widget.set_halign(gtk4::Align::Center);
+        }
+        let mut child = widget.first_child();
+        while let Some(c) = child {
+            child = c.next_sibling();
+            stack.push(c);
+        }
+    }
 }
 
 /// The notification center: header with Do not disturb, the list in per-app stacks.

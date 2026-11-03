@@ -180,11 +180,11 @@ button.menu-icon-button {
     box-shadow: none;
 }
 
-/* Round days, close together; the calendar sits in the middle of the menu. */
+/* Round days, each in the middle of its column. */
 .menu-calendar > grid > label.day-number {
     min-width: 34px;
     min-height: 34px;
-    margin: 1px 3px;
+    margin: 1px 0;
     padding: 0;
     border-radius: 17px;
 }
