@@ -56,12 +56,13 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     column.set_width_request(420);
     let today = glib::DateTime::now_local()
         .ok()
-        .and_then(|now| now.format("%A, %e %B").ok())
+        .and_then(|now| now.format("%A, %-e %B").ok())
         .map(String::from)
         .unwrap_or_default();
     column.append(&ui::title(today.trim()));
     let calendar = gtk4::Calendar::new();
     calendar.add_css_class("menu-calendar");
+    calendar.set_halign(gtk4::Align::Center);
     column.append(&calendar);
     column.append(&ui::separator());
     column.append(&center(services));

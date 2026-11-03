@@ -173,6 +173,41 @@ button.menu-icon-button {
     border: none;
 }
 
+/* The theme draws a dark line under the month and year switchers. */
+.menu-calendar > header {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+/* Round days, close together; the calendar sits in the middle of the menu. */
+.menu-calendar > grid > label.day-number {
+    min-width: 34px;
+    min-height: 34px;
+    margin: 1px 3px;
+    padding: 0;
+    border-radius: 17px;
+}
+
+.menu-calendar > grid > label.day-number:hover {
+    background: var(--inner-hover);
+}
+
+/* Days are not picked for anything: a click leaves no mark, only today is marked
+   (the theme's underline under today stayed when another day was clicked). */
+.menu-calendar > grid > label.day-number:selected {
+    background: transparent;
+    color: inherit;
+}
+
+.menu-calendar > grid > label.day-number.today,
+.menu-calendar > grid > label.day-number.today:selected {
+    background: var(--accent);
+    color: white;
+    font-weight: bold;
+    box-shadow: none;
+}
+
 .menu-header {
     padding: 2px 4px 4px 0;
 }
