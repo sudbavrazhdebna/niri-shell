@@ -6,7 +6,8 @@
 Like Qt apps, it registers once and never again. With --qt it also owns the name
 org.kde.StatusNotifierItem-<pid>-1 and registers by that name, as Qt does.
 
-Prints every menu click and activation. Send SIGUSR1 to switch its icon.
+Prints every menu click and activation. Send SIGUSR1 to switch its icon. --plain: a
+menu without a checkbox.
 """
 import os
 import signal
@@ -51,6 +52,7 @@ MENU_XML = """
 ICONS = ["mail-unread", "weather-clear", "face-smile"]
 state = {"icon": 0, "checked": True}
 pixmap = "--pixmap" in sys.argv
+plain = "--plain" in sys.argv
 status = "Passive" if "--passive" in sys.argv else "Active"
 
 
@@ -69,8 +71,10 @@ def layout():
     return node(0, {}, [
         node(1, {"label": s("_Hello")}),
         node(2, {"type": s("separator")}),
-        node(3, {"label": s("Checkbox"), "toggle-type": s("checkmark"),
-                 "toggle-state": GLib.Variant("i", 1 if state["checked"] else 0)}),
+        # --plain: no checkbox, like most apps' menus.
+        node(3, {"label": s("Show window")} if plain else
+             {"label": s("Checkbox"), "toggle-type": s("checkmark"),
+              "toggle-state": GLib.Variant("i", 1 if state["checked"] else 0)}),
         node(4, {"label": s("Disabled"), "enabled": GLib.Variant("b", False)}),
         node(5, {"label": s("Hidden"), "visible": GLib.Variant("b", False)}),
         node(20, {"label": s("More"), "children-display": s("submenu")}, [deep]),
