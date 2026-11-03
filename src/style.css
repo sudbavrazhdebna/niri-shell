@@ -20,6 +20,9 @@
     /* Switched-on tiles, the connected network, the focused app's dot. */
     --accent: rgb(10, 132, 255);
     --danger: rgb(255, 69, 58);
+    /* The bar's own fill over a window maximized to the edges: the same as the cards'
+       for a start, but the bar is not a card. */
+    --bar: rgba(30, 31, 34, 0.72);
 }
 
 window.bar {
@@ -44,7 +47,7 @@ window.nshell-wallpaper {
 
 /* Over a window maximized to the edges, the bar is glass (blurred). */
 window.bar.solid .bar-content {
-    background-color: var(--glass);
+    background-color: var(--bar);
 }
 
 /* ---- Modules: white text and icons with a soft shadow, a plate on hover ---- */
@@ -121,7 +124,7 @@ window.nshell-menu {
 }
 
 .menu-body {
-    min-width: 200px;
+    min-width: 160px;
 }
 
 .menu-title {

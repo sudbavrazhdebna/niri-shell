@@ -20,7 +20,8 @@ either: the shell looks the same whatever apps use.
 
 ## One look for everything: the shared colours
 
-Menus, the OSD, notification popups and the dock are the same glass card: one fill, one thin
+Menus, the OSD, notification popups and the dock are the same glass card (the bar has its
+own `--bar`): one fill, one thin
 light line along the edge, one shadow. Those, and the text and accent colours, are variables at
 the top of the built-in style. Redefine any of them in your `style.css` and every part follows:
 
@@ -37,6 +38,7 @@ the top of the built-in style. Redefine any of them in your `style.css` and ever
     --text-faint: rgba(255, 255, 255, 0.5);
     --accent: rgb(10, 132, 255);              /* tiles that are on, sliders, switches, dots */
     --danger: rgb(255, 69, 58);               /* critical notifications, armed power buttons */
+    --bar: rgba(30, 31, 34, 0.72);            /* the bar over a window maximized to the edges */
 }
 ```
 
