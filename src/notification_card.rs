@@ -72,7 +72,27 @@ pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn
             });
             row.append(&button);
         }
-        text.append(&row);
+        // Out of the way until the pointer is on the card: most of the time a
+        // notification is only read.
+        let actions = gtk4::Revealer::new();
+        actions.set_transition_type(gtk4::RevealerTransitionType::SlideDown);
+        actions.set_transition_duration(150);
+        actions.set_child(Some(&row));
+        // Hidden again: give the room back (a popup window doesn't shrink by itself).
+        actions.connect_child_revealed_notify(|actions| {
+            if !actions.is_child_revealed()
+                && let Some(window) = actions.root().and_downcast::<gtk4::Window>()
+            {
+                crate::ui::shrink_to_fit(&window);
+            }
+        });
+        let motion = gtk4::EventControllerMotion::new();
+        let a = actions.clone();
+        motion.connect_enter(move |_, _, _| a.set_reveal_child(true));
+        let a = actions.clone();
+        motion.connect_leave(move |_| a.set_reveal_child(false));
+        card.add_controller(motion);
+        text.append(&actions);
     }
     card.append(&text);
 
