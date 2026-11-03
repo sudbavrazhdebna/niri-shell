@@ -88,10 +88,13 @@ impl Bluetooth {
         bluetooth
     }
 
+    /// Off is an rfkill block, as in GNOME: the adapter's own power switch doesn't last.
+    /// A USB adapter is reset on resume, and BlueZ powers every adapter it finds on
+    /// (AutoEnable); a block holds for new adapters too, and systemd keeps it over a reboot.
     pub fn set_powered(&self, on: bool) {
+        rfkill::block_bluetooth(!on);
         for adapter in self.proxies("org.bluez.Adapter1") {
-            let args = ("org.bluez.Adapter1", "Powered", on.to_variant()).to_variant();
-            spawn_call(adapter, "org.freedesktop.DBus.Properties", "Set", Some(args));
+            power(adapter, on, 10);
         }
     }
 
@@ -200,6 +203,60 @@ fn spawn_call(proxy: gio::DBusProxy, iface: &'static str, method: &'static str, 
             tracing::warn!("BlueZ {method}: {err}");
         }
     });
+}
+
+/// Sets the adapter's power. Right after an unblock BlueZ may not have heard of it yet
+/// and refuses ("Blocked"): tried again a moment later, `tries` times at most.
+fn power(adapter: gio::DBusProxy, on: bool, tries: u32) {
+    glib::spawn_future_local(async move {
+        let args = ("org.bluez.Adapter1", "Powered", on.to_variant()).to_variant();
+        let result = adapter
+            .connection()
+            .call_future(
+                adapter.name().as_deref(),
+                &adapter.object_path(),
+                "org.freedesktop.DBus.Properties",
+                "Set",
+                Some(&args),
+                None,
+                gio::DBusCallFlags::NONE,
+                10_000,
+            )
+            .await;
+        match result {
+            Ok(_) => {}
+            Err(err) if tries > 1 && on && err.to_string().contains("Blocked") => {
+                glib::timeout_add_local_once(std::time::Duration::from_millis(200), move || {
+                    power(adapter, on, tries - 1);
+                });
+            }
+            Err(err) => tracing::warn!("BlueZ Powered: {err}"),
+        }
+    });
+}
+
+/// The kernel's radio switches (/dev/rfkill), writable by the user of the active session.
+mod rfkill {
+    use std::io::Write;
+
+    const TYPE_BLUETOOTH: u8 = 2;
+    const OP_CHANGE_ALL: u8 = 3;
+
+    /// Soft-blocks (or unblocks) every Bluetooth radio, present and future.
+    pub fn block_bluetooth(block: bool) {
+        // struct rfkill_event: idx (u32), type, op, soft, hard.
+        let mut event = [0u8; 8];
+        event[4] = TYPE_BLUETOOTH;
+        event[5] = OP_CHANGE_ALL;
+        event[6] = u8::from(block);
+        let result = std::fs::OpenOptions::new()
+            .write(true)
+            .open("/dev/rfkill")
+            .and_then(|mut file| file.write_all(&event));
+        if let Err(err) = result {
+            tracing::warn!("rfkill: {err}");
+        }
+    }
 }
 
 fn read(manager: &impl IsA<gio::DBusObjectManager>) -> BluetoothState {

@@ -176,6 +176,10 @@ each section. Read before changing any of these.
   appearing in an open menu was cut off.
 - Hover switching waits 250 ms when the pointer heads diagonally into the open menu (the fork's
   "safe triangle"), switches at once along the bar.
+- Bluetooth off is an rfkill soft block of all Bluetooth radios (as GNOME does), not the
+  adapter's `Powered`: the laptop's USB adapter is reset on every resume, and BlueZ
+  (AutoEnable) powered the new one on. A block also covers adapters that appear later and
+  systemd-rfkill keeps it over a reboot. On is an unblock (BlueZ powers it) plus `Powered`.
 
 ## Notifications
 
