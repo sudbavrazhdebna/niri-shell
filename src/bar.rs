@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use gtk4::prelude::*;
-use gtk4::{gdk, gio};
+use gtk4::{gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use crate::config::Config;
@@ -194,11 +194,12 @@ impl Bars {
 
     /// Three zones like a menu bar: left, center, right. The center stays centered
     /// on the screen no matter how wide the sides get.
-    fn build_content(&self, ctx: &modules::Context) -> gtk4::CenterBox {
+    fn build_content(&self, ctx: &modules::Context) -> gtk4::Box {
         let bar = &ctx.config.bar;
-        let content = gtk4::CenterBox::new();
+        let content = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
         content.add_css_class("bar-content");
         content.set_height_request(bar.height);
+        content.set_layout_manager(Some(zones_layout()));
 
         let zone = |class: &str, names: &[String]| {
             let zone = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
@@ -216,9 +217,9 @@ impl Bars {
         if let Some(warning) = self.problem_indicator() {
             left.prepend(&warning);
         }
-        content.set_start_widget(Some(&left));
-        content.set_center_widget(Some(&zone("center", &bar.center)));
-        content.set_end_widget(Some(&zone("right", &bar.right)));
+        content.append(&left);
+        content.append(&zone("center", &bar.center));
+        content.append(&zone("right", &bar.right));
         content
     }
 
@@ -232,5 +233,89 @@ impl Bars {
         label.add_css_class("problem");
         label.set_tooltip_text(Some(&problems.join("\n")));
         Some(label)
+    }
+}
+
+/// Lays out the left, center and right zones. The center sits in the middle of the bar
+/// and the sides get at most the room beside it: a long window title is cut short (its
+/// label shrinks to "…") instead of pushing the clock aside, as GTK's CenterBox did.
+/// A side that can't shrink that far (many tray icons) still gets its minimum.
+fn zones_layout() -> gtk4::LayoutManager {
+    glib::Object::new::<zones::ZonesLayout>().upcast()
+}
+
+mod zones {
+    use gtk4::prelude::*;
+    use gtk4::subclass::prelude::*;
+    use gtk4::glib;
+
+    glib::wrapper! {
+        pub struct ZonesLayout(ObjectSubclass<imp::ZonesLayout>)
+            @extends gtk4::LayoutManager;
+    }
+
+    mod imp {
+        use super::*;
+
+        #[derive(Default)]
+        pub struct ZonesLayout;
+
+        #[glib::object_subclass]
+        impl ObjectSubclass for ZonesLayout {
+            const NAME: &'static str = "NshellZonesLayout";
+            type Type = super::ZonesLayout;
+            type ParentType = gtk4::LayoutManager;
+        }
+
+        impl ObjectImpl for ZonesLayout {}
+
+        impl LayoutManagerImpl for ZonesLayout {
+            fn request_mode(&self, _: &gtk4::Widget) -> gtk4::SizeRequestMode {
+                gtk4::SizeRequestMode::ConstantSize
+            }
+
+            fn measure(
+                &self,
+                widget: &gtk4::Widget,
+                orientation: gtk4::Orientation,
+                _for_size: i32,
+            ) -> (i32, i32, i32, i32) {
+                let (mut min, mut nat) = (0, 0);
+                let mut child = widget.first_child();
+                while let Some(c) = child {
+                    let (m, n, _, _) = c.measure(orientation, -1);
+                    if orientation == gtk4::Orientation::Horizontal {
+                        min += m;
+                        nat += n;
+                    } else {
+                        min = min.max(m);
+                        nat = nat.max(n);
+                    }
+                    child = c.next_sibling();
+                }
+                (min, nat, -1, -1)
+            }
+
+            fn allocate(&self, widget: &gtk4::Widget, width: i32, height: i32, _baseline: i32) {
+                let Some(left) = widget.first_child() else { return };
+                let Some(center) = left.next_sibling() else { return };
+                let Some(right) = center.next_sibling() else { return };
+                let size = |w: &gtk4::Widget| w.measure(gtk4::Orientation::Horizontal, -1);
+                let (_, center_nat, _, _) = size(&center);
+                let center_width = center_nat.min(width);
+                let center_x = (width - center_width) / 2;
+                let side = |w: &gtk4::Widget| {
+                    let (min, nat, _, _) = size(w);
+                    nat.min(center_x).max(min)
+                };
+                let (left_width, right_width) = (side(&left), side(&right));
+                let place = |w: &gtk4::Widget, x: i32, width: i32| {
+                    w.size_allocate(&gtk4::Allocation::new(x, 0, width, height), -1);
+                };
+                place(&left, 0, left_width);
+                place(&center, center_x, center_width);
+                place(&right, width - right_width, right_width);
+            }
+        }
     }
 }

@@ -35,6 +35,10 @@ each section. Read before changing any of these.
   `tile_pos_in_workspace_view` empty even for a plainly visible window. niri's
   `WindowLayoutsChanged` comes on every resize and animation frame; it wakes listeners
   only when a top tile's width (in 16 px steps) changes, and never bumps `layout_serial`.
+- The bar's zones are laid out by our own layout manager, not GTK's CenterBox: the
+  CenterBox moved the clock aside when a side asked for more than half the bar (a long
+  window title). Now the center stays in the middle and a side gets the room beside it;
+  the title label shrinks to "…" there. `max-length` stays as a cap.
 
 ## Dock
 
