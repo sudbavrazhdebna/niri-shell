@@ -26,7 +26,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         ui::set_icon(image, icon);
     });
     menu::attach(&image, |anchor| {
-        // Shown once the networks are known (~0.1 s), so it doesn't build up in pieces.
+        // Shown once the known networks are read (~0.05 s), so it doesn't build up in pieces.
         let (anchor, ticket) = (anchor.clone(), menu::ticket());
         glib::spawn_future_local(async move {
             if let Some(wifi) = Wifi::open().await {
@@ -60,7 +60,7 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
     let list = ui::column();
     column.append(&list);
     column.append(&ui::separator());
-    column.append(&ui::item("Network Settings…", false, || {
+    column.append(&ui::plain_item("Network Settings…", || {
         menu::close();
         ui::launch("nm-connection-editor");
     }));

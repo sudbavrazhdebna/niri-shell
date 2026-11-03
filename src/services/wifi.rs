@@ -62,6 +62,8 @@ impl Wifi {
     /// Finds the Wi-Fi device, asks it to scan, and keeps the list up to date.
     pub async fn open() -> Option<Rc<Wifi>> {
         let started = std::time::Instant::now();
+        // The saved profiles are read alongside the device lookup, not after it.
+        let profiles = glib::spawn_future_local(saved_profiles());
         let nm = system_proxy(NM, NM_PATH, NM).await?;
         let mut device = None;
         let mut device_info = None;
@@ -84,7 +86,7 @@ impl Wifi {
             nm: nm.clone(),
             device,
             device_info,
-            profiles: RefCell::new(saved_profiles().await),
+            profiles: RefCell::new(profiles.await.unwrap_or_default()),
             access_points: RefCell::default(),
             refreshing: Cell::new(false),
             again: Cell::new(false),
@@ -103,9 +105,14 @@ impl Wifi {
                     glib::spawn_future_local(async move { wifi.refresh().await });
                 }
             });
-            let options = glib::VariantDict::new(None).end();
-            // tuple_from_iter: a Variant inside a Rust tuple would be boxed as "v".
-            let _ = call(device, "RequestScan", Some(glib::Variant::tuple_from_iter([options]))).await;
+            // Not waited for (a third of the menu's opening time): the networks NetworkManager
+            // knows already are shown, and the scan's results come in as changes.
+            let device = device.clone();
+            glib::spawn_future_local(async move {
+                let options = glib::VariantDict::new(None).end();
+                // tuple_from_iter: a Variant inside a Rust tuple would be boxed as "v".
+                let _ = call(&device, "RequestScan", Some(glib::Variant::tuple_from_iter([options]))).await;
+            });
         }
         wifi.refresh().await;
         tracing::debug!(took = ?started.elapsed(), found = wifi.state.get().networks.len(), "wifi menu ready");
