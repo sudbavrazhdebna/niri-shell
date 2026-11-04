@@ -219,6 +219,10 @@ each section. Read before changing any of these.
   can be checked, then the check at the row's end (as GNOME Shell's quick settings);
   the user chose one rule everywhere, and text that lines up from menu to menu.
 
+- No arrow on menus pointing at their module or dock icon (asked about 2026-11-04, the
+  user declined): GTK's Popover would bring its own surface without our blur and menu
+  switching, and a drawn arrow needs its own blur shape.
+
 ## Notifications
 
 - A notification's action buttons ("Mark as read", "Reply") slide out only while the
