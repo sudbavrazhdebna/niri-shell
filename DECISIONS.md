@@ -239,6 +239,10 @@ each section. Read before changing any of these.
   theme apps use; font family is left to the system.
 - CSS for buttons uses `background`, not `background-color`: the theme's background image wins
   otherwise (tiles stayed grey).
+- One rule takes the theme's frame (border, shadow) off every button, instead of one per
+  button: the per-button way kept missing some (Mark as read, Clear all, the control
+  center's tiles and power profiles, 2026-11-04). The power profiles are a segmented
+  control of our own, not the theme's linked buttons.
 - Bar icons are the user's waybar SVGs, kept in their colours (not recoloured as symbolic, the
   volume icon is two-tone); opacity and shadow come from CSS.
 - Menus, OSD, popups and dock share one card look through CSS variables (`--glass`,

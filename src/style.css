@@ -25,6 +25,14 @@
     --bar: rgba(30, 31, 34, 0.72);
 }
 
+/* No theme frame on any of the shell's buttons: GTK's built-in Adwaita draws a dark
+   border and shadow that looked like another program on the glass. Each button's own
+   rule below (more specific) adds what it needs. */
+button {
+    border: none;
+    box-shadow: none;
+}
+
 window.bar {
     background: transparent;
 }
@@ -359,9 +367,29 @@ button.player-button {
     border-radius: 8px;
 }
 
+/* Power profiles as one segmented control (not the theme's linked buttons): a panel,
+   the chosen profile a lighter plate in it. */
+.power-profiles {
+    padding: 3px;
+    border-radius: 11px;
+    background: var(--inner);
+}
+
 .power-profiles button {
-    padding: 6px;
+    padding: 5px 6px;
     font-size: 0.9em;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-dim);
+}
+
+.power-profiles button:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.power-profiles button:checked {
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--text);
 }
 
 button.session-button {

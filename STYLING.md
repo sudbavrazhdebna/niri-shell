@@ -84,6 +84,9 @@ different `border-radius` the blur corners won't match exactly.
 
 - **Buttons** need `background`, not `background-color`, to change their fill: the theme paints
   buttons with a background image that would cover the colour.
+- **Button frames** are off for every button (`button { border: none; box-shadow: none; }` at
+  the top of the built-in style): the GTK theme's dark frame looked foreign on the glass. A
+  rule of yours with a `box-shadow` or `border` brings one back for that button.
 - **Icon size** is `-gtk-icon-size`, not `width`/`height`.
 - **Shadows**: `box-shadow` for boxes, `text-shadow` for text, `-gtk-icon-shadow` for icons.
 - **Sizes**: `min-width` / `min-height`, there is no `width`/`height`.
