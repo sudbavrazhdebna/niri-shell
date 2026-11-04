@@ -10,17 +10,25 @@ use crate::services::notifications::{Image, Notification, Notifications, Reason}
 /// Builds the card. `on_done` runs after a click or an action, e.g. to close a menu.
 /// `show_time`: the center says how old each one is; a popup is always "now".
 pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn()>, show_time: bool) -> gtk4::Box {
-    let card = gtk4::Box::new(gtk4::Orientation::Horizontal, 14);
+    let card = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
     card.add_css_class("notification");
     if n.critical {
         card.add_css_class("critical");
     }
+    // The action buttons float over the content's bottom-right corner, so showing them
+    // never changes the card's height.
+    let overlay = gtk4::Overlay::new();
+    overlay.set_hexpand(true);
+    let content = gtk4::Box::new(gtk4::Orientation::Horizontal, 14);
+    content.add_css_class("notification-content");
+    overlay.set_child(Some(&content));
+    card.append(&overlay);
 
     let image = gtk4::Image::new();
     image.add_css_class("notification-image");
     image.set_valign(gtk4::Align::Start);
     set_image(&image, n);
-    card.append(&image);
+    content.append(&image);
 
     let text = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
     text.set_hexpand(true);
@@ -59,9 +67,12 @@ pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn
 
     let buttons: Vec<_> = n.actions.iter().filter(|(key, _)| key != "default").collect();
     if !buttons.is_empty() {
+        if n.body.is_empty() {
+            // Only a summary: room for the buttons below the close button.
+            card.add_css_class("tall");
+        }
         let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
         row.add_css_class("actions");
-        row.set_homogeneous(true);
         for (key, label) in buttons {
             let button = gtk4::Button::with_label(label);
             button.add_css_class("action");
@@ -73,28 +84,22 @@ pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn
             row.append(&button);
         }
         // Out of the way until the pointer is on the card: most of the time a
-        // notification is only read.
+        // notification is only read. Hidden, the buttons don't take clicks.
         let actions = gtk4::Revealer::new();
-        actions.set_transition_type(gtk4::RevealerTransitionType::SlideDown);
+        actions.set_transition_type(gtk4::RevealerTransitionType::Crossfade);
         actions.set_transition_duration(150);
+        actions.set_halign(gtk4::Align::End);
+        actions.set_valign(gtk4::Align::End);
         actions.set_child(Some(&row));
-        // Hidden again: give the room back (a popup window doesn't shrink by itself).
-        actions.connect_child_revealed_notify(|actions| {
-            if !actions.is_child_revealed()
-                && let Some(window) = actions.root().and_downcast::<gtk4::Window>()
-            {
-                crate::ui::shrink_to_fit(&window);
-            }
-        });
         let motion = gtk4::EventControllerMotion::new();
         let a = actions.clone();
         motion.connect_enter(move |_, _, _| a.set_reveal_child(true));
         let a = actions.clone();
         motion.connect_leave(move |_| a.set_reveal_child(false));
         card.add_controller(motion);
-        text.append(&actions);
+        overlay.add_overlay(&actions);
     }
-    card.append(&text);
+    content.append(&text);
 
     // A click on the card: its default action, or just dismiss it.
     let click = gtk4::GestureClick::new();

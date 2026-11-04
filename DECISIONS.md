@@ -188,7 +188,9 @@ each section. Read before changing any of these.
 ## Notifications
 
 - A notification's action buttons ("Mark as read", "Reply") slide out only while the
-  pointer is on its card, in popups and in the center alike: most are only read.
+  pointer is on its card, in popups and in the center alike: most are only read. They
+  float over the card's bottom-right corner (an overlay, covering some text), so hovering
+  never changes the card's height; a summary-only card with buttons is a little taller.
 - The center keeps the newest 100 notifications; older ones close (reason "expired").
   Without a limit an app sending one a second, each with an image, grew memory forever.
 - Bodies keep only the spec's markup (b, i, u; links as text). Pango's full markup let
