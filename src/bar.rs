@@ -49,7 +49,7 @@ impl Bars {
     pub fn set_config(self: &Rc<Self>, config: Rc<Config>, problems: Vec<String>) {
         self.services.idle().configure(&config.idle);
         crate::displays::configure(config.laptop_screen_auto);
-        crate::wallpaper::configure(config.wallpaper.clone());
+        crate::wallpaper::configure(config.wallpaper.clone(), config.overview_blur);
         crate::osd::set_layout_rename(&config.layout_rename);
         crate::launcher::configure(&config.launcher_paths);
         crate::popups::set_bar_at_bottom(config.bar.bottom);

@@ -99,6 +99,9 @@ wallpaper {
     // One image on every monitor, filling it (cropped, not stretched). Without this
     // section: ~/.config/wallpapers/m.jpg. `off` instead: no wallpaper from the shell.
     image "~/.config/wallpapers/m.jpg"
+
+    // In niri's overview a blurred copy fades in; how strong, in pixels. 0: no blur.
+    overview-blur 24
 }
 
 blur {

@@ -90,11 +90,12 @@ each section. Read before changing any of these.
   JPEG would be ~96 MB as is, and decoding it on the main loop froze the shell. Decoded
   images are shared by monitors of the same size; config reloads keep them unless the
   image changed (style.css saves rebuild the bars, not the wallpaper).
-- In the overview the wallpaper blurs (asked for 2026-11-04) by CSS (`.overview` on its
-  window, `filter: blur()`), not a second, pre-blurred image: GTK blurs on the GPU, the
-  strength is a line in style.css, and it fades in with a transition. It grew 6% to keep
-  the blur's darkened edge off screen, but that read as a zoom; the edge stays, a soft
-  vignette.
+- In the overview a blurred copy of the wallpaper fades in over it (asked for
+  2026-11-04; niri's wiki suggests the same: niri can't blur its backdrop). The copy is
+  made once with the decoded image, on the same thread, at 1/4 size (it's blurred, GTK
+  scales it up smoothly; ~2 MB for 4K), three box blurs with the edge pixels repeated.
+  First it was CSS `filter: blur()`: computed again on every opening, and its edges
+  darkened (nothing beyond them to blur in); growing it 6% hid that but read as a zoom.
 
 ## Launcher
 

@@ -14,9 +14,12 @@ use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 #[derive(Default)]
 struct State {
     image: Option<PathBuf>,
+    /// The overview's blur, in pixels; 0: none.
+    blur: u32,
     windows: Vec<(gdk::Monitor, gtk4::Window)>,
-    /// Decoded images by shown size, for monitors of the same size.
-    textures: HashMap<(i32, i32), gdk::Texture>,
+    /// Decoded images (and their blurred copies) by shown size, for monitors of the same
+    /// size.
+    textures: HashMap<(i32, i32), (gdk::Texture, Option<gdk::Texture>)>,
     following: bool,
     /// Monitors whose size isn't known yet (just plugged in or turned on).
     waiting: Vec<gdk::Monitor>,
@@ -30,11 +33,13 @@ thread_local! {
 }
 
 /// Shows `image` on every monitor (at start and on config reload); None removes it.
-pub fn configure(image: Option<PathBuf>) {
+/// `blur`: how strong the overview's blurred copy is, in pixels (0: none).
+pub fn configure(image: Option<PathBuf>, blur: u32) {
     let (changed, first) = STATE.with_borrow_mut(|state| {
-        let changed = state.image != image;
+        let changed = state.image != image || state.blur != blur;
         if changed {
             state.image = image;
+            state.blur = blur;
             state.textures.clear();
         }
         (changed, !std::mem::replace(&mut state.following, true))
@@ -53,7 +58,8 @@ pub fn configure(image: Option<PathBuf>) {
     }
 }
 
-/// Marks the wallpaper with `overview` while niri's overview is open.
+/// Marks the wallpaper with `overview` while niri's overview is open: its blurred copy
+/// fades in.
 pub fn follow_overview(niri: &crate::niri::Niri) {
     niri.state.subscribe(|state| {
         let open = state.overview_open;
@@ -129,25 +135,32 @@ async fn show(monitor: gdk::Monitor, image: PathBuf) {
         }
         return;
     }
-    let cached = STATE.with_borrow(|state| state.textures.get(&size).cloned());
-    let texture = match cached {
-        Some(texture) => texture,
+    let (cached, blur) = STATE.with_borrow(|state| (state.textures.get(&size).cloned(), state.blur));
+    let (texture, blurred) = match cached {
+        Some(textures) => textures,
         None => {
             let path = image.clone();
             let (w, h) = (u32::try_from(size.0).unwrap_or(0), u32::try_from(size.1).unwrap_or(0));
-            let decoded =
-                gio::spawn_blocking(move || crate::images::decode(&path, w, h, crate::images::Fit::Cover)).await;
-            let Some(texture) = decoded.ok().flatten().and_then(|pixels| pixels.texture()) else {
+            // The blurred copy is made here too, once: the overview only fades it in.
+            let decoded = gio::spawn_blocking(move || {
+                let pixels = crate::images::decode(&path, w, h, crate::images::Fit::Cover)?;
+                let blurred = (blur > 0).then(|| pixels.blurred(blur)).flatten();
+                Some((pixels, blurred))
+            })
+            .await;
+            let Some((pixels, blurred)) = decoded.ok().flatten() else {
                 tracing::warn!("wallpaper: can't load {}", image.display());
                 return;
             };
-            STATE.with_borrow_mut(|state| state.textures.insert(size, texture.clone()));
-            texture
+            let Some(texture) = pixels.texture() else { return };
+            let blurred = blurred.and_then(|b| b.texture());
+            STATE.with_borrow_mut(|state| state.textures.insert(size, (texture.clone(), blurred.clone())));
+            (texture, blurred)
         }
     };
     // Still wanted: the image unchanged, the monitor still there and without one.
     let wanted = STATE.with_borrow(|state| {
-        state.image.as_ref() == Some(&image) && !state.windows.iter().any(|(m, _)| *m == monitor)
+        state.image.as_ref() == Some(&image) && state.blur == blur && !state.windows.iter().any(|(m, _)| *m == monitor)
     });
     let present = gdk::Display::default().is_some_and(|d| {
         let list = d.monitors();
@@ -156,11 +169,11 @@ async fn show(monitor: gdk::Monitor, image: PathBuf) {
     if !wanted || !present {
         return;
     }
-    let window = window(&monitor, &texture);
+    let window = window(&monitor, &texture, blurred.as_ref());
     STATE.with_borrow_mut(|state| state.windows.push((monitor, window)));
 }
 
-fn window(monitor: &gdk::Monitor, texture: &gdk::Texture) -> gtk4::Window {
+fn window(monitor: &gdk::Monitor, texture: &gdk::Texture, blurred: Option<&gdk::Texture>) -> gtk4::Window {
     let window = gtk4::Window::new();
     window.add_css_class("nshell-wallpaper");
     window.init_layer_shell();
@@ -173,10 +186,21 @@ fn window(monitor: &gdk::Monitor, texture: &gdk::Texture) -> gtk4::Window {
     }
     // The whole screen, under the bar too.
     window.set_exclusive_zone(-1);
-    let picture = gtk4::Picture::for_paintable(texture);
-    picture.set_content_fit(gtk4::ContentFit::Cover);
-    picture.set_can_shrink(true);
-    window.set_child(Some(&picture));
+    let picture = |texture: &gdk::Texture| {
+        let picture = gtk4::Picture::for_paintable(texture);
+        picture.set_content_fit(gtk4::ContentFit::Cover);
+        picture.set_can_shrink(true);
+        picture
+    };
+    // The blurred copy over the image, see-through until the overview (style.css).
+    let stack = gtk4::Overlay::new();
+    stack.set_child(Some(&picture(texture)));
+    if let Some(blurred) = blurred {
+        let over = picture(blurred);
+        over.add_css_class("wallpaper-blurred");
+        stack.add_overlay(&over);
+    }
+    window.set_child(Some(&stack));
     mark(&window, STATE.with_borrow(|s| s.overview));
     window.set_visible(true);
     window

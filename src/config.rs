@@ -31,6 +31,8 @@ pub struct Config {
     pub laptop_screen_auto: bool,
     /// The image on every monitor, filling it; None: no wallpaper from the shell.
     pub wallpaper: Option<PathBuf>,
+    /// How strongly the wallpaper blurs in niri's overview, in pixels; 0: not at all.
+    pub overview_blur: u32,
     /// How the OSD names keyboard layouts: (pattern, replacement), all applied in order.
     pub layout_rename: Vec<(Regex, String)>,
     /// Folders whose files the launcher finds.
@@ -158,6 +160,7 @@ impl Default for Config {
             media_title: true,
             blur_off: Vec::new(),
             wallpaper: Some(gtk4::glib::home_dir().join(".config/wallpapers/m.jpg")),
+            overview_blur: 24,
             dock: DockConfig {
                 enabled: true,
                 autohide: false,
@@ -320,6 +323,10 @@ impl Config {
                                 });
                             }
                             "off" => config.wallpaper = None,
+                            "overview-blur" => {
+                                config.overview_blur =
+                                    int_arg(child, 0..=200).map_err(|e| at(child, e))?.unsigned_abs();
+                            }
                             other => return Err(at(child, unknown(other))),
                         }
                     }

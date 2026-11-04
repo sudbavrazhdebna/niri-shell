@@ -56,15 +56,15 @@ window.nshell-wallpaper {
     background: black;
 }
 
-/* In niri's overview the wallpaper blurs; its edges darken a little, like a vignette
-   (it used to grow 6% to hide that, and was seen to zoom). `filter: none` in your
-   style.css keeps it sharp. */
-window.nshell-wallpaper picture {
-    transition: filter 250ms ease-out;
+/* In niri's overview a blurred copy of the wallpaper (made once, `overview-blur` in
+   config.kdl) fades in over it. */
+window.nshell-wallpaper .wallpaper-blurred {
+    opacity: 0;
+    transition: opacity 250ms ease-out;
 }
 
-window.nshell-wallpaper.overview picture {
-    filter: blur(24px);
+window.nshell-wallpaper.overview .wallpaper-blurred {
+    opacity: 1;
 }
 
 .bar-content {
