@@ -28,6 +28,8 @@ const CARD_RADIUS: i32 = 12;
 pub struct Popups {
     services: Rc<Services>,
     window: RefCell<Option<(gtk4::Window, gtk4::Box)>>,
+    /// Sets the blur behind the cards again (while one slides).
+    refresh_blur: RefCell<Option<Rc<dyn Fn()>>>,
     /// Cards on screen by notification id.
     cards: RefCell<HashMap<u32, Card>>,
 }
@@ -37,6 +39,7 @@ impl Popups {
         let popups = Rc::new(Popups {
             services: services.clone(),
             window: RefCell::new(None),
+            refresh_blur: RefCell::new(None),
             cards: RefCell::new(HashMap::new()),
         });
         let weak = Rc::downgrade(&popups);
@@ -72,17 +75,11 @@ impl Popups {
             if let Some(timer) = card.hide.take() {
                 timer.remove();
             }
-            if let Some(parent) = card.widget.parent().and_downcast::<gtk4::Box>() {
-                parent.remove(&card.widget);
-            }
-        }
-        if let Some((window, _)) = &*self.window.borrow() {
-            crate::ui::shrink_to_fit(window);
+            self.leave(&card.widget);
         }
         if ids.is_empty() {
-            if let Some((window, _)) = self.window.take() {
-                window.destroy();
-            }
+            // The window goes once the last card has slid out (`leave`).
+            self.close_if_empty();
             return;
         }
         let Some(column) = self.column() else { return };
@@ -94,7 +91,9 @@ impl Popups {
             let widget = match existing {
                 Some(widget) => widget,
                 None => {
+                    // Slides in from the screen edge (style.css); the blur follows it.
                     let widget = card(n, &server, Rc::new(|| {}), false);
+                    self.follow(&widget);
                     self.watch_hover(&widget, id, n.timeout_ms);
                     let hide = Some(self.hide_later(id, n.timeout_ms));
                     self.cards
@@ -108,6 +107,41 @@ impl Popups {
             } else {
                 column.prepend(&widget);
             }
+        }
+    }
+
+    /// Slides a card out to the screen edge, then takes it away.
+    fn leave(self: &Rc<Self>, widget: &gtk4::Box) {
+        widget.add_css_class("leaving");
+        widget.set_can_target(false);
+        self.follow(widget);
+        let (weak, widget) = (Rc::downgrade(self), widget.clone());
+        let ms = u64::try_from(crate::ui::ANIMATION_MS).unwrap_or(150);
+        glib::timeout_add_local_once(Duration::from_millis(ms), move || {
+            if let Some(parent) = widget.parent().and_downcast::<gtk4::Box>() {
+                parent.remove(&widget);
+            }
+            let Some(popups) = weak.upgrade() else { return };
+            if let Some((window, _)) = &*popups.window.borrow() {
+                crate::ui::shrink_to_fit(window);
+            }
+            popups.close_if_empty();
+        });
+    }
+
+    /// No cards left (none showing, none sliding out): the window goes.
+    fn close_if_empty(&self) {
+        let empty = self.cards.borrow().is_empty()
+            && self.window.borrow().as_ref().is_none_or(|(_, column)| column.first_child().is_none());
+        if empty && let Some((window, _)) = self.window.take() {
+            self.refresh_blur.take();
+            window.destroy();
+        }
+    }
+
+    fn follow(&self, widget: &gtk4::Box) {
+        if let Some(refresh) = &*self.refresh_blur.borrow() {
+            crate::blur::follow(widget, refresh.clone(), crate::ui::ANIMATION_MS + 50);
         }
     }
 
@@ -167,7 +201,7 @@ impl Popups {
         column.add_css_class("popup-column");
         // Blur behind each card, following cards as they come and go.
         let column_weak = column.downgrade();
-        let wrapped = blur::behind(
+        let (wrapped, refresh_blur) = blur::behind_with_refresh(
             &window,
             &column,
             move || {
@@ -184,6 +218,7 @@ impl Popups {
         );
         window.set_child(Some(&wrapped));
         window.set_visible(true);
+        self.refresh_blur.replace(Some(refresh_blur));
         self.window.replace(Some((window, column.clone())));
         Some(column)
     }

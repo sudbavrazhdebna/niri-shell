@@ -268,7 +268,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     // Re-centered under its module and re-blurred whenever the card changes size.
     let placed_under = Rc::new(RefCell::new(anchor.downgrade()));
     let (window_weak, under, card_weak) = (window.downgrade(), placed_under.clone(), card.downgrade());
-    let wrapped = blur::behind(
+    let (wrapped, refresh_blur) = blur::behind_with_refresh(
         &window,
         &card,
         move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
@@ -295,7 +295,14 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     // Placed at its real width before it shows, so it doesn't jump sideways.
     let (_, natural, _, _) = wrapped.measure(gtk4::Orientation::Horizontal, -1);
     place(&window, anchor, natural);
+    // It fades in sliding a little away from the bar (style.css); the blur follows it.
+    if upward {
+        window.add_css_class("upward");
+    }
     window.set_visible(true);
+    // GTK only animates a widget that is on screen: the class goes on after showing.
+    card.add_css_class("opening");
+    blur::follow(&card, refresh_blur, ui::ANIMATION_MS + 50);
     anchor.add_css_class("menu-open");
     OPEN.replace(Some(Open {
         anchor: anchor.downgrade(),

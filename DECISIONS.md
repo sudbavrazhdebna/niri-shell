@@ -201,6 +201,13 @@ each section. Read before changing any of these.
   which says there's more.
 - Every stack of two or more has a header (app icon, name, an open/fold arrow), closed or
   open, as in GNOME: opening one doesn't move what's above it.
+- Animations are CSS (150 ms, `ANIMATION_MS` in ui.rs): a menu fades in sliding 8 px away
+  from the bar; popups slide in from the screen edge and back out (asked for 2026-11-04).
+  niri blurs behind a region the shell gives it and can't fade that blur, so popups only
+  slide (the blur follows them each frame, `blur::follow`); the menu's blur is there from
+  its first frame, under a card still fading in. GTK only animates widgets on screen: the
+  menu's animation class goes on after the window shows.
+- Up to 5 popups at once (was 3, changed 2026-11-04).
 - The center keeps the newest 100 notifications; older ones close (reason "expired").
   Without a limit an app sending one a second, each with an image, grew memory forever.
 - Bodies keep only the spec's markup (b, i, u; links as text). Pango's full markup let

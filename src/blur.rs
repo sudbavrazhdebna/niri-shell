@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk4::gdk;
+use gtk4::{gdk, glib};
 use gtk4::prelude::*;
 use wayland_protocols::ext::background_effect::v1::client::ext_background_effect_surface_v1::ExtBackgroundEffectSurfaceV1;
 
@@ -148,6 +148,21 @@ pub fn behind_with_refresh(
         blur.take();
     });
     (overlay, update)
+}
+
+/// Sets the blur again on every frame for `ms`: while a card slides (a CSS animation
+/// moves it without any size change, so the blur wouldn't follow by itself).
+pub fn follow(widget: &impl IsA<gtk4::Widget>, refresh: Rc<dyn Fn()>, ms: i64) {
+    let start = std::cell::Cell::new(None);
+    widget.add_tick_callback(move |_, clock| {
+        let now = clock.frame_time();
+        let start = start.get().unwrap_or_else(|| {
+            start.set(Some(now));
+            now
+        });
+        refresh();
+        if now - start > ms * 1000 { glib::ControlFlow::Break } else { glib::ControlFlow::Continue }
+    });
 }
 
 /// The union of strips that approximates a rounded rectangle: one strip per pixel row

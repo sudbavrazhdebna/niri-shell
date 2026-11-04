@@ -304,6 +304,9 @@ pub fn clear(column: &gtk4::Box) {
     }
 }
 
+/// How long the menus' and popups' CSS animations run (style.css: 150ms), in ms.
+pub const ANIMATION_MS: i64 = 150;
+
 /// GTK windows grow with their content but never shrink back by themselves; a layer
 /// window that got smaller content would keep an empty (and click-eating) area. Call
 /// after content got smaller.

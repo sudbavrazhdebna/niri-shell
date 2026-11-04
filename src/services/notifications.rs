@@ -14,7 +14,7 @@ use crate::watch::Watch;
 const NAME: &str = "org.freedesktop.Notifications";
 const PATH: &str = "/org/freedesktop/Notifications";
 /// Popups shown at once; newer ones push older ones into the center.
-pub const MAX_POPUPS: usize = 3;
+pub const MAX_POPUPS: usize = 5;
 /// Notifications kept in the center; older ones close. An app sending one a second,
 /// with an image each, grew the shell's memory without end.
 const MAX_HISTORY: usize = 100;

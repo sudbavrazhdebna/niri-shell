@@ -92,7 +92,7 @@ highlight along the top that the fork's cards have.
   the notification's image on the left; bold summary, body, relative time ("now", "5m"); a close
   button; action buttons under the text. Clicking the card runs its default action, if any.
 - **Popups:** top-right under the bar on the focused monitor, 5 s (or the app's own timeout),
-  paused while hovered. **Stacked:** newest on top, at most 3 at once; more go straight to the
+  paused while hovered. **Stacked:** newest on top, at most 5 at once; more go straight to the
   center.
 - **Center:** in the clock menu, under the calendar: "Clear all", a Do not disturb switch.
   Notifications of one app form a **stack** (like iOS): the newest shows with up to two

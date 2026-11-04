@@ -123,6 +123,26 @@ window.nshell-menu {
     box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
 }
 
+/* A menu fades in, sliding a little away from the bar (up from the dock). The length
+   is ANIMATION_MS in ui.rs: the blur follows the card that long. */
+.nshell-menu .menu-card.opening {
+    animation: menu-in 150ms ease-out;
+}
+
+.nshell-menu.upward .menu-card.opening {
+    animation-name: menu-in-up;
+}
+
+@keyframes menu-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes menu-in-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
+
 .menu-body {
     min-width: 160px;
 }
@@ -395,6 +415,25 @@ window.nshell-popups {
 .popup-column {
     /* Room for the cards' shadows inside the window. */
     padding: 0 6px 22px 16px;
+}
+
+/* Popups slide in from the screen edge and back out (150ms, ANIMATION_MS in ui.rs). */
+.popup-column > .notification {
+    animation: popup-in 150ms ease-out;
+}
+
+.popup-column > .notification.leaving {
+    animation: popup-out 150ms ease-in forwards;
+}
+
+@keyframes popup-in {
+    from { transform: translateX(440px); }
+    to { transform: none; }
+}
+
+@keyframes popup-out {
+    from { transform: none; opacity: 1; }
+    to { transform: translateX(440px); opacity: 0; }
 }
 
 .notification {
