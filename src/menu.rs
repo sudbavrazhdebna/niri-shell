@@ -256,11 +256,8 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     window.set_anchor(Edge::Left, true);
     // Zero exclusive zone: placed below the bar, not over it.
     window.set_exclusive_zone(0);
+    let clear = clearance(&bar);
     if upward {
-        // A bar at the bottom reserves its room, so the menu already sits above it; the
-        // dock reserves none, so the menu clears it by its height.
-        let reserved = bar.auto_exclusive_zone_is_enabled() || bar.exclusive_zone() > 0;
-        let clear = if reserved { 0 } else { bar.margin(Edge::Bottom) + bar.height() };
         window.set_margin(Edge::Bottom, clear + GAP);
     } else {
         window.set_margin(Edge::Top, GAP);
@@ -272,6 +269,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     // Re-centered under its module and re-blurred whenever the card changes size.
     let placed_under = Rc::new(RefCell::new(anchor.downgrade()));
     let (window_weak, under, card_weak) = (window.downgrade(), placed_under.clone(), card.downgrade());
+    let card_below = card.downgrade();
     let (wrapped, refresh_blur) = blur::behind_with_refresh(
         &window,
         "menus",
@@ -281,6 +279,19 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         move || {
             if let (Some(window), Some(anchor)) = (window_weak.upgrade(), under.borrow().upgrade()) {
                 place(&window, &anchor, window.width());
+                if upward && let Some(card) = card_below.upgrade() {
+                    // The room left under the card for its shadow (style.css: at the
+                    // bottom and sides, none above) would add to the gap above the dock
+                    // or bar: the window reaches into it. From the heights, not the
+                    // card's position, which the opening animation shifts.
+                    let room = card.compute_bounds(&window).map_or(0, |b| {
+                        (window.height() - b.height().round() as i32).max(0)
+                    });
+                    let margin = clear + GAP - room;
+                    if window.margin(Edge::Bottom) != margin {
+                        window.set_margin(Edge::Bottom, margin);
+                    }
+                }
             }
         },
     );
@@ -408,10 +419,22 @@ fn open_anchor() -> Option<gtk4::Widget> {
     OPEN.with_borrow(|open| open.as_ref().and_then(|o| o.anchor.upgrade()))
 }
 
+/// How far above the screen's bottom edge an upward menu starts: a bar at the bottom
+/// reserves its room, so the menu already sits above it; the dock reserves none, so the
+/// menu clears it by its height.
+fn clearance(bar: &gtk4::Window) -> i32 {
+    let reserved = bar.auto_exclusive_zone_is_enabled() || bar.exclusive_zone() > 0;
+    if reserved { 0 } else { bar.margin(Edge::Bottom) + bar.height() }
+}
+
 /// Where the menu's top edge is, in its bar's coordinates: below the bar, or above it
-/// (a bar at the bottom, the dock).
+/// (a bar at the bottom, the dock), by the margin it really has.
 fn menu_top(bar: &gtk4::Window, menu: &gtk4::Window, upward: bool) -> i32 {
-    if upward { -(GAP + menu.height()) } else { bar.height() + GAP }
+    if upward {
+        -(menu.margin(Edge::Bottom) - clearance(bar) + menu.height())
+    } else {
+        bar.height() + GAP
+    }
 }
 
 /// The open menu's area in bar coordinates (bar and menu share the monitor's origin).
