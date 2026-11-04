@@ -779,18 +779,23 @@ button.dock-button:hover {
     font-feature-settings: "tnum";
 }
 
-.stat-bar trough {
+/* The theme gives the bar's blocks a frame and their own, taller minimum: the white
+   part stood out of the grey one. Trough and blocks are one height, no frames. */
+.stat-bar trough,
+.stat-bar trough block {
     min-height: 5px;
+    padding: 0;
     border-radius: 3px;
-    background: rgba(255, 255, 255, 0.12);
     border: none;
     box-shadow: none;
+    outline: none;
+}
+
+.stat-bar trough {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .stat-bar trough block.filled {
-    border-radius: 3px;
-    border: none;
-    box-shadow: none;
     background: white;
 }
 
