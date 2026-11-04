@@ -168,7 +168,7 @@ fn window_menu(window: &niri_ipc::Window, niri: &Niri) -> gtk4::Box {
         for action in entry.list_actions() {
             let label = entry.action_name(&action);
             let (entry, action) = (entry.clone(), action.to_string());
-            column.append(&ui::plain_item(&label, move || {
+            column.append(&ui::item(&label, false, move || {
                 crate::launch::action(&entry, &action);
                 menu::close();
             }));
@@ -178,19 +178,13 @@ fn window_menu(window: &niri_ipc::Window, niri: &Niri) -> gtk4::Box {
         }
     }
 
-    // No check mark column: only Floating can be on, and a column for it left a gap
-    // before every row (the app's actions too). Its check sits at the end instead.
     let id = window.id;
     let action = |label: &str, checked: bool, make: fn(u64) -> Action| {
         let niri = niri.clone();
-        let item = ui::plain_item(label, move || {
+        ui::item(label, checked, move || {
             niri.action(make(id));
             menu::close();
-        });
-        if checked {
-            ui::trailing_icon(&item, "object-select-symbolic");
-        }
-        item
+        })
     };
     column.append(&action("Floating", window.is_floating, |id| Action::ToggleWindowFloating { id: Some(id) }));
     column.append(&action("Maximize", false, |id| Action::MaximizeWindowToEdges { id: Some(id) }));
