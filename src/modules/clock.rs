@@ -107,6 +107,11 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::External);
     scroll.set_propagate_natural_height(true);
     scroll.set_child(Some(&list));
+    // A clicked button (a stack's arrow) goes with the old list; the focus then moves
+    // to the top, and following it scrolled the list to the top.
+    if let Some(viewport) = scroll.child().and_downcast::<gtk4::Viewport>() {
+        viewport.set_scroll_to_focus(false);
+    }
     center.append(&scroll);
 
     let clear = gtk4::Button::with_label("Clear all");
@@ -124,6 +129,7 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
         clear: clear.downgrade(),
         expanded,
         server: server.clone(),
+        restoring: Rc::default(),
     });
     let r = render.clone();
     // A change of the list (one closed, one came) keeps the list's height: see `run`.
@@ -142,6 +148,8 @@ struct Render {
     clear: glib::WeakRef<gtk4::Button>,
     expanded: Rc<RefCell<HashSet<String>>>,
     server: Rc<crate::services::notifications::Notifications>,
+    /// The waiting scroll restore, if the layout hasn't come yet.
+    restoring: Rc<RefCell<Option<glib::SignalHandlerId>>>,
 }
 
 impl Render {
@@ -155,6 +163,9 @@ impl Render {
             Some(scroll) if hold && !notifications.is_empty() => scroll.vadjustment().page_size() as i32,
             _ => 0,
         };
+        // Rebuilt, the list keeps where it was scrolled to (opening a stack at the bottom
+        // jumped to the top).
+        let scrolled = self.scroll.upgrade().map(|s| s.vadjustment().value()).unwrap_or(0.0);
         ui::clear(&list);
         if let Some(clear) = self.clear.upgrade() {
             clear.set_visible(!notifications.is_empty());
@@ -181,6 +192,29 @@ impl Render {
             }
         }
         self.fit(&list, held);
+        self.restore_scroll(scrolled);
+    }
+
+    /// Scrolls back to `value` once GTK has laid out the new list (until then the old
+    /// height limits it).
+    fn restore_scroll(&self, value: f64) {
+        let Some(scroll) = self.scroll.upgrade() else { return };
+        let adjustment = scroll.vadjustment();
+        if let Some(id) = self.restoring.take() {
+            adjustment.disconnect(id);
+        }
+        if value <= 0.0 {
+            return;
+        }
+        adjustment.set_value(value);
+        let h = self.restoring.clone();
+        let id = adjustment.connect_changed(move |adjustment| {
+            adjustment.set_value(value);
+            if let Some(id) = h.take() {
+                adjustment.disconnect(id);
+            }
+        });
+        self.restoring.replace(Some(id));
     }
 
     /// A closed stack, like iOS: the newest card in front, up to two older ones behind
