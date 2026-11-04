@@ -195,13 +195,24 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
     let (w, n, h) = (wifi.clone(), network.clone(), holder.downgrade());
     let row = ui::icon_item(wifi_icon(network.strength), &network.ssid, "", move || {
-        if n.active {
+        let Some(holder) = h.upgrade() else { return };
+        // One password field at a time: a click on its network again closes it, a click
+        // on any other network closes it too.
+        let was_open = close_password(&holder);
+        if let Some(list) = holder.parent() {
+            let mut child = list.first_child();
+            while let Some(other) = child {
+                child = other.next_sibling();
+                if let Ok(other) = other.downcast::<gtk4::Box>() {
+                    close_password(&other);
+                }
+            }
+        }
+        if n.active || was_open {
             return;
         }
         if n.secured && !n.known {
-            if let Some(holder) = h.upgrade() {
-                show_password(&holder, &w, &n);
-            }
+            show_password(&holder, &w, &n);
             return;
         }
         w.connect(&n, None);
@@ -217,10 +228,18 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     holder
 }
 
-fn show_password(holder: &gtk4::Box, wifi: &Rc<Wifi>, network: &Network) {
-    if holder.last_child().is_some_and(|c| c.has_css_class("menu-password")) {
-        return;
+/// Removes the password field under a network, if it has one; says whether it had.
+fn close_password(holder: &gtk4::Box) -> bool {
+    match holder.last_child().filter(|c| c.has_css_class("menu-password")) {
+        Some(entry) => {
+            holder.remove(&entry);
+            true
+        }
+        None => false,
     }
+}
+
+fn show_password(holder: &gtk4::Box, wifi: &Rc<Wifi>, network: &Network) {
     let entry = gtk4::PasswordEntry::new();
     entry.add_css_class("menu-password");
     entry.set_show_peek_icon(true);
