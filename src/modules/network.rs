@@ -219,7 +219,9 @@ fn speed(bytes: u64) -> String {
 
 /// One network; a secured unknown one opens a password field under it.
 fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
-    let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
+    // No spacing: a closed field's spacing stayed in the height (the field's own margin
+    // spaces it instead).
+    let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     // Which network the row is, for a password field kept over a rebuild.
     holder.set_widget_name(&network.ssid);
     let (w, n, h) = (wifi.clone(), network.clone(), holder.downgrade());
@@ -228,12 +230,14 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
         // One password field at a time: a click on its network again closes it, a click
         // on any other network closes it too.
         let was_open = close_password(&holder);
-        if let Some(list) = holder.parent() {
+        let mut other_open = false;
+        let list = holder.parent().and_downcast::<gtk4::Box>();
+        if let Some(list) = &list {
             let mut child = list.first_child();
             while let Some(other) = child {
                 child = other.next_sibling();
                 if let Ok(other) = other.downcast::<gtk4::Box>() {
-                    close_password(&other);
+                    other_open |= close_password(&other);
                 }
             }
         }
@@ -241,6 +245,12 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
             return;
         }
         if n.secured && !n.known {
+            // From one field to another: one closes while the other opens, and the list
+            // keeps its height meanwhile (each field's height rounds up, so the two
+            // together came out a pixel taller and the menu twitched).
+            if other_open && let Some(list) = &list {
+                hold_height(list);
+            }
             show_password(&holder, &w, &n);
             return;
         }
@@ -276,11 +286,26 @@ fn password_revealer(holder: &gtk4::Box) -> Option<gtk4::Revealer> {
     holder.last_child().and_downcast::<gtk4::Revealer>().filter(|r| r.has_css_class("password-revealer"))
 }
 
+/// Keeps the list at its present height for as long as the fields slide.
+fn hold_height(list: &gtk4::Box) {
+    list.set_size_request(-1, list.height());
+    let list = list.downgrade();
+    let ms = u64::try_from(ui::ANIMATION_MS).unwrap_or(150) + 50;
+    glib::timeout_add_local_once(std::time::Duration::from_millis(ms), move || {
+        if let Some(list) = list.upgrade() {
+            list.set_size_request(-1, -1);
+        }
+    });
+}
+
 /// Slides the password field under a network closed (then removes it); says whether
-/// one was open.
+/// one was open. Twice as fast as opening: when one closes as another opens, the two
+/// together never get taller than one (at 3/4 the closing one's last pixel still met
+/// the opened one).
 fn close_password(holder: &gtk4::Box) -> bool {
     match password_revealer(holder).filter(|r| r.reveals_child()) {
         Some(revealer) => {
+            revealer.set_transition_duration(u32::try_from(ui::ANIMATION_MS / 2).unwrap_or(75));
             revealer.set_reveal_child(false);
             true
         }
@@ -292,6 +317,7 @@ fn close_password(holder: &gtk4::Box) -> bool {
 fn show_password(holder: &gtk4::Box, wifi: &Rc<Wifi>, network: &Network) {
     // Still sliding closed: open that one again.
     if let Some(revealer) = password_revealer(holder) {
+        revealer.set_transition_duration(u32::try_from(ui::ANIMATION_MS).unwrap_or(150));
         revealer.set_reveal_child(true);
         if let Some(entry) = revealer.child() {
             entry.grab_focus();

@@ -189,7 +189,10 @@ each section. Read before changing any of these.
 - The Wi-Fi list is rebuilt on every scan (every few seconds). An open password field, with
   what's typed and the focus (cursor at the end, nothing selected), moves to its network's
   new row; before, a scan threw it away mid-typing. One field at a time; it slides open
-  and closed (150 ms).
+  (150 ms) and closed (75 ms). Moving from one field to another keeps the menu's height
+  (measured flat per frame): the rows have no spacing (a closed field's spacing stayed),
+  the closing field is twice as fast (each revealer rounds up, two together were 1 px
+  taller), and the list holds its height while they slide.
 - No hand cursor over buttons and rows: on the desktop (macOS, GNOME, KDE) that's for
   links only; the arrow stays.
 
