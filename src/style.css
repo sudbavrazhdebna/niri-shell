@@ -56,15 +56,15 @@ window.nshell-wallpaper {
     background: black;
 }
 
-/* In niri's overview the wallpaper blurs, and grows a little so the blur's soft edge
-   stays off screen. `filter: none` in your style.css keeps it sharp. */
+/* In niri's overview the wallpaper blurs; its edges darken a little, like a vignette
+   (it used to grow 6% to hide that, and was seen to zoom). `filter: none` in your
+   style.css keeps it sharp. */
 window.nshell-wallpaper picture {
-    transition: filter 250ms ease-out, transform 250ms ease-out;
+    transition: filter 250ms ease-out;
 }
 
 window.nshell-wallpaper.overview picture {
     filter: blur(24px);
-    transform: scale(1.06);
 }
 
 .bar-content {

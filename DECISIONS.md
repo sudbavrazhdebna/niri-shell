@@ -92,8 +92,9 @@ each section. Read before changing any of these.
   image changed (style.css saves rebuild the bars, not the wallpaper).
 - In the overview the wallpaper blurs (asked for 2026-11-04) by CSS (`.overview` on its
   window, `filter: blur()`), not a second, pre-blurred image: GTK blurs on the GPU, the
-  strength is a line in style.css, and it fades in with a transition. It grows 6% so the
-  blur's darkened edge stays off screen.
+  strength is a line in style.css, and it fades in with a transition. It grew 6% to keep
+  the blur's darkened edge off screen, but that read as a zoom; the edge stays, a soft
+  vignette.
 
 ## Launcher
 
