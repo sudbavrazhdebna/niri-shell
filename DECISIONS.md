@@ -171,9 +171,10 @@ each section. Read before changing any of these.
 - The OSD stays quiet only for changes made with a slider in a menu (the slider shows them);
   keys always get it, menu open or not.
 - Menus scroll as a whole once taller than the screen. The one inner scrolled list is the
-  notification center's (asked for 2026-10-19): it shows the first 4 notifications and
-  scrolls the rest. Its cap is the measured height of those 4 (cards differ), and no cap
-  at all when everything fits. A first attempt with a fixed cap made the menu shrink to
+  notification center's (asked for 2026-10-19): past 340 px (about 4 cards) it scrolls, no
+  cap when everything fits. First the cap was the measured height of the first 4 cards,
+  but cards, closed stacks and stack headers differ, so opening a stack resized the menu
+  (2026-11-04); a fixed height doesn't move. A first attempt with a fixed cap made the menu shrink to
   half a notification when a stack was expanded; the window refit below fixed that.
   The scrolled window's minimum doesn't follow its content, so the menu window is refit
   whenever the content's height changes (`notify::upper`); without it a player or device
@@ -196,8 +197,8 @@ each section. Read before changing any of these.
   next card now moves up under the pointer, as closing tabs in Chrome. The next opening is
   measured afresh. Folding a stack or "Clear all" do shrink it: those are asked for.
 - The notification list scrolls without a scrollbar (policy External): GTK's floating one
-  covered the cards' close buttons and edge. Instead the next card peeks out 28 px below
-  the first 4, which says there's more.
+  covered the cards' close buttons and edge. The fixed list height cuts through a card,
+  which says there's more.
 - Every stack of two or more has a header (app icon, name, an open/fold arrow), closed or
   open, as in GNOME: opening one doesn't move what's above it.
 - The center keeps the newest 100 notifications; older ones close (reason "expired").

@@ -99,7 +99,7 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     center.append(&header);
 
     let list = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    // Scrolls by itself past the first VISIBLE notifications, so the menu stays short.
+    // Scrolls by itself past LIST_HEIGHT, so the menu stays short.
     let scroll = gtk4::ScrolledWindow::new();
     scroll.add_css_class("notification-list");
     // Scrolls without a scrollbar: GTK's floating one covered the cards' right edge, and
@@ -131,10 +131,9 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     center
 }
 
-/// Notifications the center shows before its list scrolls.
-const VISIBLE: usize = 4;
-/// How much of the next notification shows below them, in px.
-const PEEK: i32 = 28;
+/// The notification list's height once it scrolls, in px: about four cards and the top
+/// of a fifth, which peeks out to say there's more (there is no scrollbar).
+const LIST_HEIGHT: i32 = 340;
 
 /// Redraws the notification list (on changes, and when a stack is opened or folded).
 struct Render {
@@ -268,9 +267,10 @@ impl Render {
         self.run(false);
     }
 
-    /// Caps the list at its first VISIBLE notifications (with a "more" row after the
-    /// last of them); the rest scrolls inside it. Measured at the list's own width,
-    /// since wrapped bodies make cards of different heights.
+    /// Caps the list at LIST_HEIGHT; the rest scrolls inside it. A fixed height, not
+    /// "the first few cards": cards, closed stacks and stack headers differ in height, so
+    /// opening a stack changed the menu's size. Measured at the list's own width, since
+    /// wrapped bodies make cards of different heights.
     /// `held`: the height to keep at least (see `run`), 0 for none.
     fn fit(&self, list: &gtk4::Box, held: i32) {
         let Some(scroll) = self.scroll.upgrade() else { return };
@@ -279,23 +279,10 @@ impl Render {
         } else {
             list.measure(gtk4::Orientation::Horizontal, -1).1
         };
-        let (mut height, mut cards) = (0, 0);
-        let mut child = list.first_child();
-        while let Some(widget) = &child {
-            if widget.has_css_class("notification") || widget.has_css_class("notification-stack") {
-                if cards == VISIBLE {
-                    break;
-                }
-                cards += 1;
-            }
-            height += widget.measure(gtk4::Orientation::Vertical, width).1;
-            child = widget.next_sibling();
-        }
+        let height = list.measure(gtk4::Orientation::Vertical, width).1;
         // No cap when everything fits: a cap equal to the content can still round into
-        // a scrollbar.
-        // With more below, the next one peeks out: without a scrollbar, that's what says
-        // the list scrolls.
-        let cap = if child.is_some() { height + PEEK } else { -1 };
+        // a scroll.
+        let cap = if height > LIST_HEIGHT { LIST_HEIGHT } else { -1 };
         // The minimum must never exceed the maximum: drop it before changing either.
         scroll.set_min_content_height(-1);
         scroll.set_max_content_height(if cap >= 0 { cap.max(held) } else { -1 });
