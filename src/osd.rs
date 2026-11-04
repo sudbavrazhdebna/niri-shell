@@ -239,6 +239,7 @@ impl Osd {
         let card_weak = card.downgrade();
         let wrapped = blur::behind(
             &window,
+            "osd",
             &card,
             move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
             CARD_RADIUS,

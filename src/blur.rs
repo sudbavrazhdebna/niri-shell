@@ -5,7 +5,7 @@
 //! dropped before its surface goes away: create it on map, drop it on unmap.
 
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use gtk4::{gdk, glib};
 use gtk4::prelude::*;
@@ -15,6 +15,57 @@ use crate::wayland;
 
 /// How far inside a card's edge the blur stops.
 const INSET: i32 = 1;
+
+/// The parts of the shell that blur what is behind them; config's `blur { off … }` names
+/// the ones that shouldn't.
+pub const PARTS: &[&str] = &["bar", "menus", "notifications", "dock", "osd", "launcher"];
+
+thread_local! {
+    static OFF: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+    /// Every live blur, to apply a new `OFF` to windows that stay open.
+    static LIVE: RefCell<Vec<Live>> = const { RefCell::new(Vec::new()) };
+}
+
+#[derive(Clone)]
+struct Live {
+    window: glib::WeakRef<gtk4::Window>,
+    part: &'static str,
+    update: Weak<dyn Fn()>,
+}
+
+/// Sets which parts don't blur; windows already open follow at once.
+pub fn configure(off: &[String]) {
+    if OFF.with(|o| o.borrow().as_slice() == off) {
+        return;
+    }
+    OFF.with(|o| o.replace(off.to_vec()));
+    // Copied out first: an update may start another blur, which registers itself.
+    let live = LIVE.with(|l| {
+        let mut l = l.borrow_mut();
+        l.retain(|live| live.update.strong_count() > 0 && live.window.upgrade().is_some());
+        l.clone()
+    });
+    for live in live {
+        if let (Some(window), Some(update)) = (live.window.upgrade(), live.update.upgrade()) {
+            mark(&window, live.part);
+            update();
+        }
+    }
+}
+
+/// The `no-blur` class for a part that is off. Never from `update`: that runs while GTK
+/// lays the window out, and a style change there left the menu undrawn (invisible).
+fn mark(window: &gtk4::Window, part: &str) {
+    if enabled(part) {
+        window.remove_css_class("no-blur");
+    } else {
+        window.add_css_class("no-blur");
+    }
+}
+
+fn enabled(part: &str) -> bool {
+    OFF.with(|o| !o.borrow().iter().any(|p| p == part))
+}
 
 /// A rectangle in surface coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,21 +123,26 @@ impl Drop for Blur {
 /// following every change in their size or number. Set the returned widget as the
 /// window's child. `on_resize` runs on each size change too (e.g. to reposition).
 ///
+/// `part` is one of [`PARTS`]; when config turns its blur off, nothing is blurred and
+/// the window gets the `no-blur` class (for a denser background in style.css).
+///
 /// The blur lives from map to unmap, never longer than the surface.
 pub fn behind(
     window: &gtk4::Window,
+    part: &'static str,
     content: &impl IsA<gtk4::Widget>,
     cards: impl Fn() -> Vec<gtk4::Widget> + 'static,
     radius: i32,
     on_resize: impl Fn() + 'static,
 ) -> gtk4::Overlay {
-    behind_with_refresh(window, content, cards, radius, on_resize).0
+    behind_with_refresh(window, part, content, cards, radius, on_resize).0
 }
 
 /// Like [`behind`], and also returns a function that sets the blur again: for cards that
 /// come and go without a size change (the bar's glass under a maximized window).
 pub fn behind_with_refresh(
     window: &gtk4::Window,
+    part: &'static str,
     content: &impl IsA<gtk4::Widget>,
     cards: impl Fn() -> Vec<gtk4::Widget> + 'static,
     radius: i32,
@@ -106,8 +162,9 @@ pub fn behind_with_refresh(
         let (window, blur, cards) = (window.downgrade(), blur.clone(), cards.clone());
         move || {
             let Some(window) = window.upgrade() else { return };
+            let on = enabled(part);
             let (Some(blur), Some(surface)) = (&*blur.borrow(), window.surface()) else { return };
-            let rects: Vec<Rect> = cards()
+            let rects: Vec<Rect> = if !on { Vec::new() } else { cards() }
                 .iter()
                 .filter(|card| card.is_visible())
                 .filter_map(|card| card.compute_bounds(&window))
@@ -131,7 +188,11 @@ pub fn behind_with_refresh(
             blur.set_region(&surface, &rects);
         }
     };
-    let update = Rc::new(update);
+    let update: Rc<dyn Fn()> = Rc::new(update);
+    mark(window, part);
+    LIVE.with(|l| {
+        l.borrow_mut().push(Live { window: window.downgrade(), part, update: Rc::downgrade(&update) })
+    });
     let u = update.clone();
     sizer.connect_resize(move |_, _, _| {
         on_resize();

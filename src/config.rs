@@ -37,6 +37,8 @@ pub struct Config {
     pub launcher_paths: Vec<PathBuf>,
     /// The media module shows the track's title next to its play button.
     pub media_title: bool,
+    /// Parts of the shell that don't blur what's behind them (`blur::PARTS`).
+    pub blur_off: Vec<String>,
 }
 
 pub struct BarConfig {
@@ -154,6 +156,7 @@ impl Default for Config {
             layout_rename: Vec::new(),
             launcher_paths: Vec::new(),
             media_title: true,
+            blur_off: Vec::new(),
             wallpaper: Some(gtk4::glib::home_dir().join(".config/wallpapers/m.jpg")),
             dock: DockConfig {
                 enabled: true,
@@ -342,6 +345,21 @@ impl Config {
                             "autohide" => config.dock.autohide = true,
                             "pinned" => {
                                 config.dock.pinned = strings(child).map_err(|e| at(child, e))?
+                            }
+                            other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
+                "blur" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "off" => {
+                                let parts = strings(child).map_err(|e| at(child, e))?;
+                                if let Some(bad) = parts.iter().find(|p| !crate::blur::PARTS.contains(&p.as_str())) {
+                                    let all = crate::blur::PARTS.join(", ");
+                                    return Err(at(child, format!("no part \"{bad}\", available: {all}")));
+                                }
+                                config.blur_off.extend(parts);
                             }
                             other => return Err(at(child, unknown(other))),
                         }

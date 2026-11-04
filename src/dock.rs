@@ -206,6 +206,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     let dock_weak = dock.downgrade();
     let wrapped = blur::behind(
         window.upcast_ref(),
+        "dock",
         &dock,
         move || dock_weak.upgrade().map(|d| d.upcast()).into_iter().collect(),
         CARD_RADIUS,

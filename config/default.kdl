@@ -101,6 +101,13 @@ wallpaper {
     image "~/.config/wallpapers/m.jpg"
 }
 
+blur {
+    // niri blurs what is behind the shell's glass. Parts listed here don't blur (their
+    // glass is nearly opaque instead): bar, menus (with the control center and the
+    // notification center), notifications (the popups), dock, osd, launcher.
+    // off "menus" "dock"
+}
+
 displays {
     // "auto": the laptop's own screen is off while an external monitor is on, and comes
     // back when the last one goes. "on": leave it alone.

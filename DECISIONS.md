@@ -269,6 +269,11 @@ each section. Read before changing any of these.
 - The blur stops 1 px inside a rounded card (its pixel-step corners looked jagged level
   with the smooth edge), but reaches the edge of the square bar: with the inset, the bar's
   outer pixels showed the window behind sharp, like a 1 px outline.
+- Blur can be turned off per part (`blur { off "menus" … }`, asked for 2026-11-04), not
+  only all at once: the user wanted plain menus with blurred notifications. Off, the part
+  asks niri for an empty region (the blur object stays, so turning it back on needs no
+  remap) and its window gets `.no-blur`, which makes the glass nearly opaque. Open
+  windows follow a config change at once.
 
 ## Events without polling
 

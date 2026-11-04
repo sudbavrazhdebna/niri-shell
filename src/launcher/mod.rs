@@ -111,6 +111,7 @@ fn open(services: &Rc<Services>) {
     let card_weak = card.downgrade();
     let wrapped = crate::blur::behind(
         &window,
+        "launcher",
         &card,
         move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
         CARD_RADIUS,

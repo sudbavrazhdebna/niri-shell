@@ -229,6 +229,7 @@ impl Popups {
         let column_weak = column.downgrade();
         let (wrapped, refresh_blur) = blur::behind_with_refresh(
             &window,
+            "notifications",
             &column,
             move || {
                 let mut cards = Vec::new();

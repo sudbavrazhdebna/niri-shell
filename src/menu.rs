@@ -274,6 +274,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     let (window_weak, under, card_weak) = (window.downgrade(), placed_under.clone(), card.downgrade());
     let (wrapped, refresh_blur) = blur::behind_with_refresh(
         &window,
+        "menus",
         &card,
         move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
         CARD_RADIUS,

@@ -25,6 +25,14 @@
     --bar: rgba(30, 31, 34, 0.72);
 }
 
+/* A part whose blur is off in config (`blur { off … }`): nothing blurs behind the glass,
+   so it is nearly opaque, or the text over a busy window gets hard to read. */
+window.no-blur {
+    --glass: rgba(30, 31, 34, 0.95);
+    --glass-hover: rgba(42, 43, 46, 0.97);
+    --bar: rgba(30, 31, 34, 0.95);
+}
+
 /* No theme frame on any of the shell's buttons: GTK's built-in Adwaita draws a dark
    border and shadow that looked like another program on the glass. Each button's own
    rule below (more specific) adds what it needs. */

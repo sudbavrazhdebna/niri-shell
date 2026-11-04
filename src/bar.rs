@@ -53,6 +53,7 @@ impl Bars {
         crate::osd::set_layout_rename(&config.layout_rename);
         crate::launcher::configure(&config.launcher_paths);
         crate::popups::set_bar_at_bottom(config.bar.bottom);
+        crate::blur::configure(&config.blur_off);
         self.config.replace(config);
         self.problems.replace(problems);
         self.rebuild();
@@ -172,6 +173,7 @@ impl Bars {
         let (glass, s) = (content.downgrade(), solid.clone());
         let (wrapped, refresh) = crate::blur::behind_with_refresh(
             window.upcast_ref(),
+            "bar",
             &content,
             move || if s.get() { glass.upgrade().map(|c| c.upcast()).into_iter().collect() } else { Vec::new() },
             0,
