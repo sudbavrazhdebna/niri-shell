@@ -79,10 +79,9 @@ pub fn card_with_click(
 
     let buttons: Vec<_> = n.actions.iter().filter(|(key, _)| key != "default").collect();
     if !buttons.is_empty() {
-        if n.body.is_empty() {
-            // Only a summary: room for the buttons below the close button.
-            card.add_css_class("tall");
-        }
+        // Room for the buttons below the close button: with a summary only, or one line
+        // of body, they covered its lower half (a click there ran the action).
+        card.add_css_class("tall");
         let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
         row.add_css_class("actions");
         for (key, label) in buttons {
@@ -99,7 +98,7 @@ pub fn card_with_click(
         // notification is only read. Hidden, the buttons don't take clicks.
         let actions = gtk4::Revealer::new();
         actions.set_transition_type(gtk4::RevealerTransitionType::Crossfade);
-        actions.set_transition_duration(150);
+        actions.set_transition_duration(crate::ui::ANIMATION_MS);
         actions.set_halign(gtk4::Align::End);
         actions.set_valign(gtk4::Align::End);
         actions.set_child(Some(&row));
@@ -110,6 +109,9 @@ pub fn card_with_click(
         motion.connect_leave(move |_| a.set_reveal_child(false));
         card.add_controller(motion);
         overlay.add_overlay(&actions);
+        // Counted in the card's width: long labels widen the card instead of spilling
+        // over the image and past its edge.
+        overlay.set_measure_overlay(&actions, true);
     }
     content.append(&text);
 

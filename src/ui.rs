@@ -313,7 +313,12 @@ pub fn clear(column: &gtk4::Box) {
 }
 
 /// How long the menus' and popups' CSS animations run (style.css: 150ms), in ms.
-pub const ANIMATION_MS: i64 = 150;
+pub const ANIMATION_MS: u32 = 150;
+
+/// [`ANIMATION_MS`] plus `extra_ms`, as a duration.
+pub fn animation(extra_ms: u32) -> std::time::Duration {
+    std::time::Duration::from_millis(u64::from(ANIMATION_MS + extra_ms))
+}
 
 /// GTK windows grow with their content but never shrink back by themselves; a layer
 /// window that got smaller content would keep an empty (and click-eating) area. Call

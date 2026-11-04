@@ -313,7 +313,16 @@ impl Render {
         } else {
             list.measure(gtk4::Orientation::Horizontal, -1).1
         };
-        let height = list.measure(gtk4::Orientation::Vertical, width).1;
+        // Only as far as needed: with up to 100 in history, measuring all of them (wrapped
+        // bodies) on every change was wasted.
+        let mut height = 0;
+        let mut child = list.first_child();
+        while let Some(widget) = child
+            && height <= LIST_HEIGHT
+        {
+            height += widget.measure(gtk4::Orientation::Vertical, width).1;
+            child = widget.next_sibling();
+        }
         // No cap when everything fits: a cap equal to the content can still round into
         // a scroll.
         let cap = if height > LIST_HEIGHT { LIST_HEIGHT } else { -1 };

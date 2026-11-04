@@ -152,7 +152,7 @@ pub fn behind_with_refresh(
 
 /// Sets the blur again on every frame for `ms`: while a card slides (a CSS animation
 /// moves it without any size change, so the blur wouldn't follow by itself).
-pub fn follow(widget: &impl IsA<gtk4::Widget>, refresh: Rc<dyn Fn()>, ms: i64) {
+pub fn follow(widget: &impl IsA<gtk4::Widget>, refresh: Rc<dyn Fn()>, ms: u32) {
     let start = std::cell::Cell::new(None);
     widget.add_tick_callback(move |_, clock| {
         let now = clock.frame_time();
@@ -161,7 +161,7 @@ pub fn follow(widget: &impl IsA<gtk4::Widget>, refresh: Rc<dyn Fn()>, ms: i64) {
             now
         });
         refresh();
-        if now - start > ms * 1000 { glib::ControlFlow::Break } else { glib::ControlFlow::Continue }
+        if now - start > i64::from(ms) * 1000 { glib::ControlFlow::Break } else { glib::ControlFlow::Continue }
     });
 }
 

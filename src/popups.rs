@@ -116,8 +116,7 @@ impl Popups {
         widget.set_can_target(false);
         self.follow(widget);
         let (weak, widget) = (Rc::downgrade(self), widget.clone());
-        let ms = u64::try_from(crate::ui::ANIMATION_MS).unwrap_or(150);
-        glib::timeout_add_local_once(Duration::from_millis(ms), move || {
+        glib::timeout_add_local_once(crate::ui::animation(0), move || {
             if let Some(parent) = widget.parent().and_downcast::<gtk4::Box>() {
                 parent.remove(&widget);
             }
@@ -157,21 +156,34 @@ impl Popups {
         })
     }
 
-    /// The pointer on a card stops its timer; leaving restarts it.
+    /// The pointer on a card stops its timer; leaving restarts it. Only while the card
+    /// is still the one shown for `id`: a card sliding out after its notification was
+    /// replaced (same id) must not touch the new card's timer.
     fn watch_hover(self: &Rc<Self>, card: &gtk4::Box, id: u32, ms: u32) {
         let motion = gtk4::EventControllerMotion::new();
         let weak = Rc::downgrade(self);
+        let me = card.downgrade();
         motion.connect_enter(move |_, _, _| {
             if let Some(popups) = weak.upgrade()
                 && let Some(card) = popups.cards.borrow_mut().get_mut(&id)
+                && me.upgrade().is_some_and(|me| me == card.widget)
                 && let Some(timer) = card.hide.take()
             {
                 timer.remove();
             }
         });
         let weak = Rc::downgrade(self);
+        let me = card.downgrade();
         motion.connect_leave(move |_| {
             let Some(popups) = weak.upgrade() else { return };
+            let mut cards = popups.cards.borrow_mut();
+            let Some(card) = cards.get_mut(&id).filter(|c| me.upgrade().is_some_and(|me| me == c.widget)) else {
+                return;
+            };
+            if let Some(old) = card.hide.take() {
+                old.remove();
+            }
+            drop(cards);
             let timer = popups.hide_later(id, ms.min(3000));
             match popups.cards.borrow_mut().get_mut(&id) {
                 Some(card) => card.hide = Some(timer),

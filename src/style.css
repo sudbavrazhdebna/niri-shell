@@ -529,7 +529,8 @@ button.close-button {
     background: rgba(255, 255, 255, 0.35);
 }
 
-/* A summary-only card with buttons: tall enough that they don't cover the close button. */
+/* A card with buttons: tall enough that they don't cover the close button (one with
+   two or more lines of body is taller anyway). */
 .notification.tall .notification-content {
     min-height: 56px;
 }

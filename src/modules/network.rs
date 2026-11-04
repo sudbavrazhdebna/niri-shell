@@ -90,8 +90,8 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
         }
         for network in others {
             let row = network_row(&w, network);
-            if let Some((ssid, revealer)) = &kept
-                && *ssid == network.ssid
+            if let Some((name, revealer)) = &kept
+                && *name == row_name(&network.ssid)
             {
                 row.append(revealer);
             }
@@ -223,7 +223,7 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     // spaces it instead).
     let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     // Which network the row is, for a password field kept over a rebuild.
-    holder.set_widget_name(&network.ssid);
+    holder.set_widget_name(&row_name(&network.ssid));
     let (w, n, h) = (wifi.clone(), network.clone(), holder.downgrade());
     let row = ui::icon_item(wifi_icon(network.strength), &network.ssid, "", move || {
         let Some(holder) = h.upgrade() else { return };
@@ -267,7 +267,12 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     holder
 }
 
-/// Takes the open password field out of the list, with its network's name.
+/// The widget name of a network's row: prefixed, so an SSID can't match a CSS `#id`.
+fn row_name(ssid: &str) -> String {
+    format!("wifi-row:{ssid}")
+}
+
+/// Takes the open password field out of the list, with its row's widget name.
 fn take_open_password(list: &gtk4::Box) -> Option<(String, gtk4::Revealer)> {
     let mut child = list.first_child();
     while let Some(row) = child {
@@ -290,8 +295,7 @@ fn password_revealer(holder: &gtk4::Box) -> Option<gtk4::Revealer> {
 fn hold_height(list: &gtk4::Box) {
     list.set_size_request(-1, list.height());
     let list = list.downgrade();
-    let ms = u64::try_from(ui::ANIMATION_MS).unwrap_or(150) + 50;
-    glib::timeout_add_local_once(std::time::Duration::from_millis(ms), move || {
+    glib::timeout_add_local_once(ui::animation(50), move || {
         if let Some(list) = list.upgrade() {
             list.set_size_request(-1, -1);
         }
@@ -305,7 +309,7 @@ fn hold_height(list: &gtk4::Box) {
 fn close_password(holder: &gtk4::Box) -> bool {
     match password_revealer(holder).filter(|r| r.reveals_child()) {
         Some(revealer) => {
-            revealer.set_transition_duration(u32::try_from(ui::ANIMATION_MS / 2).unwrap_or(75));
+            revealer.set_transition_duration(ui::ANIMATION_MS / 2);
             revealer.set_reveal_child(false);
             true
         }
@@ -317,7 +321,7 @@ fn close_password(holder: &gtk4::Box) -> bool {
 fn show_password(holder: &gtk4::Box, wifi: &Rc<Wifi>, network: &Network) {
     // Still sliding closed: open that one again.
     if let Some(revealer) = password_revealer(holder) {
-        revealer.set_transition_duration(u32::try_from(ui::ANIMATION_MS).unwrap_or(150));
+        revealer.set_transition_duration(ui::ANIMATION_MS);
         revealer.set_reveal_child(true);
         if let Some(entry) = revealer.child() {
             entry.grab_focus();
@@ -331,14 +335,18 @@ fn show_password(holder: &gtk4::Box, wifi: &Rc<Wifi>, network: &Network) {
     let (w, n) = (wifi.clone(), network.clone());
     entry.connect_activate(move |entry| {
         let password = entry.text();
-        if !password.is_empty() {
-            w.connect(&n, Some(&password));
+        if password.is_empty() {
+            return;
         }
+        // The field outlives the scans that made it (it moves to the rebuilt row): the
+        // network as last scanned, whose access point may have changed since.
+        let current = w.state.get().networks.iter().find(|x| x.ssid == n.ssid).cloned();
+        w.connect(current.as_ref().unwrap_or(&n), Some(&password));
     });
     let revealer = gtk4::Revealer::new();
     revealer.add_css_class("password-revealer");
     revealer.set_transition_type(gtk4::RevealerTransitionType::SlideDown);
-    revealer.set_transition_duration(u32::try_from(ui::ANIMATION_MS).unwrap_or(150));
+    revealer.set_transition_duration(ui::ANIMATION_MS);
     revealer.set_child(Some(&entry));
     // Closed: gone from the list (the menu's height follows by itself). Its parent, not
     // the holder it was made in: a rebuild moves it to the network's new row.
