@@ -10,6 +10,18 @@ use crate::services::notifications::{Image, Notification, Notifications, Reason}
 /// Builds the card. `on_done` runs after a click or an action, e.g. to close a menu.
 /// `show_time`: the center says how old each one is; a popup is always "now".
 pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn()>, show_time: bool) -> gtk4::Box {
+    card_with_click(n, server, on_done, show_time, None)
+}
+
+/// A card whose click (outside its buttons) runs `on_click` instead of the
+/// notification's default action, e.g. to open a closed stack.
+pub fn card_with_click(
+    n: &Rc<Notification>,
+    server: &Rc<Notifications>,
+    on_done: Rc<dyn Fn()>,
+    show_time: bool,
+    on_click: Option<Rc<dyn Fn()>>,
+) -> gtk4::Box {
     let card = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
     card.add_css_class("notification");
     if n.critical {
@@ -106,6 +118,10 @@ pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn
     let (s, id, default, done) = (server.clone(), n.id, n.default_action().map(String::from), on_done);
     // Buttons inside the card claim their clicks, so this sees only clicks elsewhere.
     click.connect_released(move |_, _, _, _| {
+        if let Some(on_click) = &on_click {
+            on_click();
+            return;
+        }
         match &default {
             Some(action) => s.invoke(id, action),
             None => s.close(id, Reason::Dismissed),

@@ -488,44 +488,51 @@ button.action:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* A closed stack: the newest card on top, the older ones peek out below it, each
-   narrower and darker; a click on them opens the stack. */
+/* A closed stack, like iOS: the newest card in front, the older ones behind it, each
+   lower, narrower and darker, all with a shadow. Solid fills: a see-through card would
+   show the sheets behind it. */
 .notification-center .notification.stacked {
-    margin-bottom: 0;
+    background-color: rgb(50, 51, 55);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
 }
 
-button.stack-sheets {
-    margin: 0 0 6px;
-    padding: 0;
-    border: none;
-    outline: none;
-    box-shadow: none;
-    background: transparent;
-    min-height: 0;
+.notification-center .notification.stacked:hover {
+    background-color: rgb(60, 61, 65);
+}
+
+/* Room below the card for the sheets that peek out. */
+.notification-center .notification.stacked.depth-1 {
+    margin-bottom: 7px;
+}
+
+.notification-center .notification.stacked.depth-2 {
+    margin-bottom: 14px;
 }
 
 .stack-sheet {
-    min-height: 8px;
-    border-radius: 0 0 10px 10px;
+    min-height: 40px;
+    border-radius: 12px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
 }
 
 .stack-sheet.depth-1 {
-    margin: 0 12px;
-    background: rgba(255, 255, 255, 0.075);
+    margin: 0 10px;
+    background: rgb(40, 41, 45);
+}
+
+/* Behind it, the second sheet: the first one moves up. */
+.notification-stack.deep .stack-sheet.depth-1 {
+    margin-bottom: 7px;
 }
 
 .stack-sheet.depth-2 {
-    margin: 0 26px;
-    min-height: 7px;
-    background: rgba(255, 255, 255, 0.04);
+    margin: 0 20px;
+    background: rgb(32, 33, 36);
 }
 
-button.stack-sheets:hover .stack-sheet.depth-1 {
-    background: rgba(255, 255, 255, 0.12);
-}
-
-button.stack-sheets:hover .stack-sheet.depth-2 {
-    background: rgba(255, 255, 255, 0.07);
+/* The stack's last sheet sits on the bottom edge: keep the usual gap to the next card. */
+.notification-stack {
+    margin-bottom: 6px;
 }
 
 button.stack-more {

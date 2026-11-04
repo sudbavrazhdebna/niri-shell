@@ -10,7 +10,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use super::Context;
-use crate::notification_card::card;
+use crate::notification_card::{card, card_with_click};
 use crate::services::Services;
 use crate::services::notifications::Notification;
 use crate::{menu, ui};
@@ -174,27 +174,45 @@ impl Render {
         self.fit(&list);
     }
 
-    /// A closed stack: the newest card with the older ones peeking out below it as
-    /// sheets, each narrower and darker (two at most). A click on them opens the stack.
-    fn stack(self: &Rc<Self>, group: &[Rc<Notification>], app: &str) -> gtk4::Box {
-        let stack = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        stack.add_css_class("notification-stack");
-        let top = card(&group[0], &self.server, Rc::new(menu::close), true);
-        top.add_css_class("stacked");
-        stack.append(&top);
-        let sheets = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        for depth in 1..group.len().min(3) {
+    /// A closed stack, like iOS: the newest card in front, up to two older ones behind
+    /// it, each lower, narrower and darker. A click anywhere on it opens the stack.
+    fn stack(self: &Rc<Self>, group: &[Rc<Notification>], app: &str) -> gtk4::Overlay {
+        let depth = group.len().min(3) - 1;
+        let open: Rc<dyn Fn()> = {
+            let (this, app) = (Rc::downgrade(self), app.to_string());
+            Rc::new(move || {
+                if let Some(this) = this.upgrade() {
+                    this.expanded.borrow_mut().insert(app.clone());
+                    this.run();
+                }
+            })
+        };
+        // Drawn in order: the farthest sheet first, the card last, on top.
+        let sheet = |d: usize| {
             let sheet = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
             sheet.add_css_class("stack-sheet");
-            sheet.add_css_class(&format!("depth-{depth}"));
-            sheets.append(&sheet);
+            sheet.add_css_class(&format!("depth-{d}"));
+            sheet.set_valign(gtk4::Align::End);
+            let click = gtk4::GestureClick::new();
+            let open = open.clone();
+            click.connect_released(move |_, _, _, _| open());
+            sheet.add_controller(click);
+            sheet
+        };
+        let stack = gtk4::Overlay::new();
+        stack.add_css_class("notification-stack");
+        stack.set_child(Some(&sheet(depth)));
+        if depth == 2 {
+            stack.add_css_class("deep");
+            stack.add_overlay(&sheet(1));
         }
-        let more = gtk4::Button::new();
-        more.add_css_class("stack-sheets");
-        more.set_child(Some(&sheets));
-        more.set_tooltip_text(Some(&format!("{} more from {}", group.len() - 1, app_label(&group[0]))));
-        more.connect_clicked(self.toggle(app, true));
-        stack.append(&more);
+        let top = card_with_click(&group[0], &self.server, Rc::new(menu::close), true, Some(open));
+        top.add_css_class("stacked");
+        top.add_css_class(&format!("depth-{depth}"));
+        top.set_valign(gtk4::Align::Start);
+        top.set_tooltip_text(Some(&format!("{} more from {}", group.len() - 1, app_label(&group[0]))));
+        stack.add_overlay(&top);
+        stack.set_measure_overlay(&top, true);
         stack
     }
 
