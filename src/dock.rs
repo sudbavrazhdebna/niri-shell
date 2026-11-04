@@ -191,9 +191,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
 
     let dock = gtk4::Box::new(gtk4::Orientation::Horizontal, 2);
     dock.add_css_class("dock");
-    // No spacing: the gap between icons is their padding in style.css alone.
-    let apps = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-    dock.append(&apps);
+    dock.append(&apps(config, niri));
     dock.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
     let overview = gtk4::Button::from_icon_name("nshell-overview-symbolic");
     overview.add_css_class("dock-button");
@@ -282,6 +280,17 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
         }
     });
 
+    // With autohide the dock starts hidden: no window until it is called.
+    window.set_visible(!autohide);
+    window
+}
+
+/// The apps, pinned then running, kept up to date: the dock's row, and the bar's
+/// `taskbar` module (the same items, clicks and menus).
+pub fn apps(config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
+    // No spacing: the gap between icons is their padding in style.css alone.
+    let apps = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+    apps.add_css_class("dock-apps");
     let (config, niri2) = (config.clone(), niri.clone());
     let last = RefCell::new(None::<Vec<Item>>);
     let serial = Cell::new(None::<u64>);
@@ -304,9 +313,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
         }
         last.replace(Some(items));
     });
-    // With autohide the dock starts hidden: no window until it is called.
-    window.set_visible(!autohide);
-    window
+    apps
 }
 
 /// With autohide: the dock comes up on an empty workspace (as if hovered) and goes once

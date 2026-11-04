@@ -730,7 +730,8 @@ window.nshell-dock {
     min-height: 4px;
 }
 
-.dock .dot {
+.dock .dot,
+.taskbar .dot {
     min-width: 4px;
     min-height: 4px;
     border-radius: 2px;
@@ -743,6 +744,35 @@ window.nshell-dock {
 
 .dock-item.urgent .dot {
     background-color: #ff4444;
+}
+
+/* The dock's apps in the bar (the `taskbar` module): smaller, to fit its height. */
+.taskbar .dock-item {
+    padding: 1px 4px 1px;
+    border-radius: 8px;
+}
+
+.taskbar .dock-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.taskbar .dock-icon {
+    -gtk-icon-size: 24px;
+}
+
+.taskbar .dots {
+    min-height: 3px;
+}
+
+.taskbar .dot {
+    min-width: 3px;
+    min-height: 3px;
+    border-radius: 2px;
+}
+
+.taskbar separator {
+    margin: 6px 4px;
+    background-color: rgba(255, 255, 255, 0.19);
 }
 
 /* The invisible strip along the screen edge that brings a hidden dock back. */

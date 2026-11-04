@@ -12,7 +12,7 @@ pub const DEFAULT_KDL: &str = include_str!("../config/default.kdl");
 /// so a config written today keeps working as modules land.
 pub const MODULES: &[&str] = &[
     "clock", "window-title", "keyboard", "volume", "battery", "network", "bluetooth", "tray",
-    "control", "media", "display",
+    "control", "media", "display", "taskbar",
 ];
 pub const PLANNED: &[&str] = &["docker"];
 

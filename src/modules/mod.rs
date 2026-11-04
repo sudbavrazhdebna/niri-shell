@@ -40,6 +40,11 @@ pub fn build(name: &str, ctx: &Context) -> Option<gtk4::Widget> {
         "bluetooth" => Some(bluetooth::build(ctx)),
         "tray" => Some(tray::build(ctx)),
         "control" => Some(control::build(ctx)),
+        "taskbar" => {
+            let apps = crate::dock::apps(&ctx.config, &ctx.services.niri);
+            apps.add_css_class("taskbar");
+            Some(apps.upcast())
+        }
         // Accepted by the config, not written yet.
         _ => None,
     }
