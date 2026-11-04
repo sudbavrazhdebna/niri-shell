@@ -499,6 +499,12 @@ window.nshell-popups {
     padding: 0 6px 22px 16px;
 }
 
+/* Above a bar at the bottom: no room below, so the lowest card sits 6 px (its margin)
+   above the bar; its shadow ends at the bar's edge. */
+window.nshell-popups.bottom .popup-column {
+    padding-bottom: 0;
+}
+
 /* Popups slide in from the screen edge and back out (150ms, ANIMATION_MS in ui.rs). */
 .popup-column > .notification {
     animation: popup-in 150ms ease-out;

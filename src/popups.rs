@@ -220,8 +220,13 @@ impl Popups {
         // Under a bar at the top; above one at the bottom (as Windows does).
         let bottom = AT_BOTTOM.get();
         window.set_anchor(if bottom { Edge::Bottom } else { Edge::Top }, true);
+        if bottom {
+            // style.css drops the shadow's room under the column, or it would add to
+            // the gap above the bar.
+            window.add_css_class("bottom");
+        }
         window.set_anchor(Edge::Right, true);
-        // Below the bar.
+        // Zero exclusive zone: clear of the bar, not over it.
         window.set_exclusive_zone(0);
         let column = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         column.add_css_class("popup-column");

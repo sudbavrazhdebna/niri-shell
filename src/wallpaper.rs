@@ -23,8 +23,8 @@ struct State {
     following: bool,
     /// Monitors whose size isn't known yet (just plugged in or turned on).
     waiting: Vec<gdk::Monitor>,
-    /// niri's overview is open: the wallpaper windows have the `overview` class (blurred
-    /// in style.css).
+    /// niri's overview is open: the wallpaper windows have the `overview` class, and
+    /// their blurred copy fades in (style.css).
     overview: bool,
 }
 

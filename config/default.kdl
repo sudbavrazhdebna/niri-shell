@@ -1,6 +1,10 @@
 // nshell config. Saved changes apply right away, no restart needed.
 // If something here is wrong, the bar shows ⚠ (hover it for the reason)
-// and keeps the previous settings.
+// and keeps the previous settings. A commented-out line (//) shows an option
+// with an example value; remove the // to use it.
+//
+// The look (colors, sizes, spacing) is in ~/.config/nshell/style.css: rules there go
+// on top of the built-in ones. STYLING.md in the source lists every class.
 
 // Icon theme for app icons. Without it, the GTK theme is used.
 // icon-theme "MoreWaita-Yaru"

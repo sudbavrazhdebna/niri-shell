@@ -191,7 +191,10 @@ pub fn behind_with_refresh(
     let update: Rc<dyn Fn()> = Rc::new(update);
     mark(window, part);
     LIVE.with(|l| {
-        l.borrow_mut().push(Live { window: window.downgrade(), part, update: Rc::downgrade(&update) })
+        let mut l = l.borrow_mut();
+        // Menus come and go: without this the list would grow with every one opened.
+        l.retain(|live| live.update.strong_count() > 0);
+        l.push(Live { window: window.downgrade(), part, update: Rc::downgrade(&update) });
     });
     let u = update.clone();
     sizer.connect_resize(move |_, _, _| {
