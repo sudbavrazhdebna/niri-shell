@@ -102,7 +102,9 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     // Scrolls by itself past the first VISIBLE notifications, so the menu stays short.
     let scroll = gtk4::ScrolledWindow::new();
     scroll.add_css_class("notification-list");
-    scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+    // Scrolls without a scrollbar: GTK's floating one covered the cards' right edge, and
+    // the cut-off card at the bottom already says there is more.
+    scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::External);
     scroll.set_propagate_natural_height(true);
     scroll.set_child(Some(&list));
     center.append(&scroll);
@@ -131,6 +133,8 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
 
 /// Notifications the center shows before its list scrolls.
 const VISIBLE: usize = 4;
+/// How much of the next notification shows below them, in px.
+const PEEK: i32 = 28;
 
 /// Redraws the notification list (on changes, and when a stack is opened or folded).
 struct Render {
@@ -289,7 +293,9 @@ impl Render {
         }
         // No cap when everything fits: a cap equal to the content can still round into
         // a scrollbar.
-        let cap = if child.is_some() { height } else { -1 };
+        // With more below, the next one peeks out: without a scrollbar, that's what says
+        // the list scrolls.
+        let cap = if child.is_some() { height + PEEK } else { -1 };
         // The minimum must never exceed the maximum: drop it before changing either.
         scroll.set_min_content_height(-1);
         scroll.set_max_content_height(if cap >= 0 { cap.max(held) } else { -1 });

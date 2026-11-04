@@ -195,6 +195,9 @@ each section. Read before changing any of these.
   keeps its height) instead of the menu shrinking: it jumped with every one closed, and the
   next card now moves up under the pointer, as closing tabs in Chrome. The next opening is
   measured afresh. Folding a stack or "Clear all" do shrink it: those are asked for.
+- The notification list scrolls without a scrollbar (policy External): GTK's floating one
+  covered the cards' close buttons and edge. Instead the next card peeks out 28 px below
+  the first 4, which says there's more.
 - Every stack of two or more has a header (app icon, name, an open/fold arrow), closed or
   open, as in GNOME: opening one doesn't move what's above it.
 - The center keeps the newest 100 notifications; older ones close (reason "expired").
