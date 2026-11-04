@@ -20,6 +20,9 @@ struct State {
     following: bool,
     /// Monitors whose size isn't known yet (just plugged in or turned on).
     waiting: Vec<gdk::Monitor>,
+    /// niri's overview is open: the wallpaper windows have the `overview` class (blurred
+    /// in style.css).
+    overview: bool,
 }
 
 thread_local! {
@@ -47,6 +50,31 @@ pub fn configure(image: Option<PathBuf>) {
             window.destroy();
         }
         sync(&display.monitors());
+    }
+}
+
+/// Marks the wallpaper with `overview` while niri's overview is open.
+pub fn follow_overview(niri: &crate::niri::Niri) {
+    niri.state.subscribe(|state| {
+        let open = state.overview_open;
+        let windows = STATE.with_borrow_mut(|s| {
+            if std::mem::replace(&mut s.overview, open) == open {
+                return Vec::new();
+            }
+            s.windows.iter().map(|(_, w)| w.clone()).collect()
+        });
+        for window in windows {
+            mark(&window, open);
+        }
+        true
+    });
+}
+
+fn mark(window: &gtk4::Window, overview: bool) {
+    if overview {
+        window.add_css_class("overview");
+    } else {
+        window.remove_css_class("overview");
     }
 }
 
@@ -149,6 +177,7 @@ fn window(monitor: &gdk::Monitor, texture: &gdk::Texture) -> gtk4::Window {
     picture.set_content_fit(gtk4::ContentFit::Cover);
     picture.set_can_shrink(true);
     window.set_child(Some(&picture));
+    mark(&window, STATE.with_borrow(|s| s.overview));
     window.set_visible(true);
     window
 }

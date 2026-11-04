@@ -90,6 +90,10 @@ each section. Read before changing any of these.
   JPEG would be ~96 MB as is, and decoding it on the main loop froze the shell. Decoded
   images are shared by monitors of the same size; config reloads keep them unless the
   image changed (style.css saves rebuild the bars, not the wallpaper).
+- In the overview the wallpaper blurs (asked for 2026-11-04) by CSS (`.overview` on its
+  window, `filter: blur()`), not a second, pre-blurred image: GTK blurs on the GPU, the
+  strength is a line in style.css, and it fades in with a transition. It grows 6% so the
+  blur's darkened edge stays off screen.
 
 ## Launcher
 

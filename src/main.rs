@@ -77,6 +77,7 @@ fn main() -> glib::ExitCode {
         services.idle().configure(&config.idle);
         displays::configure(config.laptop_screen_auto);
         wallpaper::configure(config.wallpaper.clone());
+        wallpaper::follow_overview(&services.niri);
         osd::set_layout_rename(&config.layout_rename);
         launcher::configure(&config.launcher_paths);
         popups::set_bar_at_bottom(config.bar.bottom);
