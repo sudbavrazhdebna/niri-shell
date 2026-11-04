@@ -45,7 +45,7 @@ binds {
 }
 ```
 
-Blur needs niri 26.04 or newer. Take out other bars, notification daemons, idle daemons and
+Blur needs niri 26.04 or newer and GTK 4.24 or newer. Take out other bars, notification daemons, idle daemons and
 wallpaper tools from niri's autostart: nshell does their jobs.
 
 ## Commands

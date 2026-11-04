@@ -167,19 +167,11 @@ impl Bars {
         window.set_default_size(-1, height);
 
         let content = self.build_content(ctx);
-        // Glass with blur while a window is maximized to the edges right under the bar;
-        // transparent over the wallpaper otherwise.
+        // Glass with blur while a window is maximized to the edges right under the bar
+        // (the `solid` class, style.css); transparent over the wallpaper otherwise.
         let solid = Rc::new(std::cell::Cell::new(false));
-        let (glass, s) = (content.downgrade(), solid.clone());
-        let (wrapped, refresh) = crate::blur::behind_with_refresh(
-            window.upcast_ref(),
-            "bar",
-            &content,
-            move || if s.get() { glass.upgrade().map(|c| c.upcast()).into_iter().collect() } else { Vec::new() },
-            0,
-            || {},
-        );
-        window.set_child(Some(&wrapped));
+        crate::blur::part(&window, "bar");
+        window.set_child(Some(&content));
         let (output, monitor) = (ctx.output.clone(), monitor.clone());
         self.services.niri.state.bind(&window, move |window, state| {
             let width = f64::from(monitor.geometry().width());
@@ -195,7 +187,6 @@ impl Bars {
                 } else {
                     window.remove_css_class("solid");
                 }
-                refresh();
             }
         });
         crate::menu::watch_bar(window.upcast_ref());

@@ -39,6 +39,7 @@ the top of the built-in style. Redefine any of them in your `style.css` and ever
     --accent: rgb(10, 132, 255);              /* tiles that are on, sliders, switches, dots */
     --danger: rgb(255, 69, 58);               /* critical notifications, armed power buttons */
     --bar: rgba(30, 31, 34, 0.72);            /* the bar over a window maximized to the edges */
+    --blur: blur(20px);                       /* asks niri to blur behind cards; none: no blur */
 }
 ```
 
@@ -76,9 +77,10 @@ much room for it, a bigger one gets cut off at the window's edge.
 .osd-level trough block.filled { background: #4ea1ff; }
 ```
 
-Note: blur follows the rounded shape of menus, popups, the OSD and the dock, and the code
-knows their corner radius (14 px menus, 12 px notifications, 18 px OSD, 16 px dock). With a
-different `border-radius` the blur corners won't match exactly.
+Note: blur is asked for in CSS. Every card has `backdrop-filter: var(--blur)`, and GTK
+(4.24+) gives niri the area of each `backdrop-filter: blur()` of 20px or more, with its
+`border-radius`, so any shape works. How strongly it blurs is niri's setting; `--blur: none`
+(or a radius under 20px) means no blur behind that card.
 
 ## GTK specifics worth knowing
 
@@ -115,7 +117,7 @@ different `border-radius` the blur corners won't match exactly.
 | dock | `window.nshell-dock`, `.dock` (the card), `.dock-item` (+ `.focused`, `.urgent`), `.dock-icon`, `.dot`, `button.dock-button` (overview), `.dock-hot-edge`; the apps row is `.dock-apps` |
 | taskbar | the dock's apps in the bar: `.dock-apps.taskbar`, with the same `.dock-item`, `.dock-icon`, `.dot` inside (smaller: `.taskbar .dock-icon` is 24 px) |
 | wallpaper | `window.nshell-wallpaper` (black around an image that isn't loaded yet); over the image `picture.wallpaper-blurred`, a blurred copy, transparent until the window gets `.overview` (niri's overview open), then it fades in. The strength is `overview-blur` in config.kdl, not CSS |
-| no blur | `window.no-blur`: a part named in config's `blur { off … }`; it redefines `--glass`, `--glass-hover` and `--bar` as nearly opaque |
+| no blur | `window.no-blur`: a part named in config's `blur { off … }`; it redefines `--glass`, `--glass-hover` and `--bar` as nearly opaque and `--blur` as `none` |
 | invisible windows | `window.menu-catcher` (catches a click outside an open menu), `window.idle-inhibitor` (keeps the screen on): nearly transparent on purpose, leave them be |
 | GTK's own | `flat`, `linked` come from GTK (a button without a frame, buttons joined in a row); nshell sets them on a few buttons and doesn't style them |
 | animations | a menu fades in with `.menu-card.opening` (`@keyframes menu-in`; `window.nshell-menu.upward` uses `menu-in-up`), popups slide with `popup-in` and, as `.popup-column > .notification.leaving`, `popup-out`. The code waits 150 ms for them (`ANIMATION_MS` in ui.rs): a longer animation in your style.css gets cut off |

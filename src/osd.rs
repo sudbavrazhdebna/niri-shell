@@ -18,8 +18,6 @@ use crate::services::audio::AudioState;
 const SHOW_TIME: Duration = Duration::from_millis(1500);
 /// Vertical position of the card's center, as a share of the monitor height.
 const POSITION: f64 = 0.84;
-/// Corner radius of `.osd-card` in style.css, for the blur shape.
-const CARD_RADIUS: i32 = 18;
 
 thread_local! {
     /// Renames of keyboard layouts for the OSD (`keyboard { rename … }` in the config).
@@ -236,16 +234,8 @@ impl Osd {
         card.append(&icon);
         card.append(&level);
         card.append(&text);
-        let card_weak = card.downgrade();
-        let wrapped = blur::behind(
-            &window,
-            "osd",
-            &card,
-            move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
-            CARD_RADIUS,
-            || {},
-        );
-        window.set_child(Some(&wrapped));
+        blur::part(&window, "osd");
+        window.set_child(Some(&card));
         // Click-through: an empty input region.
         window.connect_map(|window| {
             if let Some(surface) = window.surface() {

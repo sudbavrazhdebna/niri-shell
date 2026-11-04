@@ -17,8 +17,6 @@ use crate::config::{self, Config};
 use crate::niri::{Niri, State};
 use crate::{blur, menu, ui};
 
-/// Corner radius of `.dock` in style.css, for the blur shape.
-const CARD_RADIUS: i32 = 16;
 const MAX_DOTS: usize = 3;
 
 /// One app in the dock, as drawn. Compared to skip redraws when nothing visible changed
@@ -203,16 +201,8 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     // With autohide the dock slides below the screen edge and its window goes away
     // entirely; a separate two-pixel strip along the bottom edge brings it back.
     let autohide = config.dock.autohide;
-    let dock_weak = dock.downgrade();
-    let wrapped = blur::behind(
-        window.upcast_ref(),
-        "dock",
-        &dock,
-        move || dock_weak.upgrade().map(|d| d.upcast()).into_iter().collect(),
-        CARD_RADIUS,
-        || {},
-    );
-    window.set_child(Some(&wrapped));
+    blur::part(&window, "dock");
+    window.set_child(Some(&dock));
 
     let state = Rc::new(Autohide {
         enabled: autohide,

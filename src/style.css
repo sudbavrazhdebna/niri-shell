@@ -23,6 +23,10 @@
     /* The bar's own fill over a window maximized to the edges: the same as the cards'
        for a start, but the bar is not a card. */
     --bar: rgba(30, 31, 34, 0.72);
+    /* Asks niri to blur what is behind a card. GTK (4.24+) hands niri the area of
+       every `backdrop-filter: blur()` of 20px or more, rounded corners included; how
+       strongly niri blurs is niri's setting, not this number. */
+    --blur: blur(20px);
 }
 
 /* A part whose blur is off in config (`blur { off … }`): nothing blurs behind the glass,
@@ -31,6 +35,7 @@ window.no-blur {
     --glass: rgba(30, 31, 34, 0.95);
     --glass-hover: rgba(42, 43, 46, 0.97);
     --bar: rgba(30, 31, 34, 0.95);
+    --blur: none;
 }
 
 /* No theme frame on any of the shell's buttons: GTK's built-in Adwaita draws a dark
@@ -76,6 +81,7 @@ window.nshell-wallpaper.overview .wallpaper-blurred {
 
 /* Over a window maximized to the edges, the bar is glass (blurred). */
 window.bar.solid .bar-content {
+    backdrop-filter: var(--blur);
     background-color: var(--bar);
 }
 
@@ -144,6 +150,7 @@ window.nshell-menu {
 }
 
 .menu-card {
+    backdrop-filter: var(--blur);
     background-color: var(--glass);
     border-radius: 14px;
     padding: 8px;
@@ -153,7 +160,7 @@ window.nshell-menu {
 }
 
 /* A menu fades in, sliding a little away from the bar (up from the dock). The length
-   is ANIMATION_MS in ui.rs: the blur follows the card that long. */
+   should match ANIMATION_MS in ui.rs. */
 .nshell-menu .menu-card.opening {
     animation: menu-in 150ms ease-out;
 }
@@ -441,6 +448,7 @@ window.nshell-osd {
 }
 
 .osd-card {
+    backdrop-filter: var(--blur);
     min-width: 178px;
     padding: 14px 18px;
     /* Room for the shadow inside the window (it reaches 22 px down). */
@@ -507,6 +515,7 @@ window.nshell-popups.bottom .popup-column {
 
 /* Popups slide in from the screen edge and back out (150ms, ANIMATION_MS in ui.rs). */
 .popup-column > .notification {
+    backdrop-filter: var(--blur);
     animation: popup-in 150ms ease-out;
 }
 
@@ -725,6 +734,7 @@ window.nshell-dock {
 }
 
 .dock {
+    backdrop-filter: var(--blur);
     padding: 8px 8px 6px;
     /* Room for the shadow at the sides, and the gap to the screen edge. */
     margin: 0 16px 6px;
@@ -1051,6 +1061,7 @@ window.nshell-launcher {
 }
 
 .launcher-card {
+    backdrop-filter: var(--blur);
     min-width: 640px;
     padding: 8px;
     border-radius: 16px;

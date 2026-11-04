@@ -218,7 +218,8 @@ Longer explanations are in `wayle/NEW-SHELL.md`. In short:
 | config | KDL | same as niri |
 | rendering | GL | less CPU when text changes often |
 | menus | own layer-shell windows, not GTK popovers | niri closes a popover when its size changes |
-| blur, idle inhibit | Wayland protocols via wayland-client on GDK's connection | no raw FFI |
+| blur | GTK's own (4.24+), from CSS `backdrop-filter` | GTK holds the surface's blur object |
+| idle inhibit | Wayland protocol via wayland-client on GDK's connection | no raw FFI |
 
 **Libraries vs our own.** Battery (UPower), brightness, layouts, window title, idle, wallpaper —
 our own, little code. Sound, tray, notification server — prefer a ready crate where one fits.

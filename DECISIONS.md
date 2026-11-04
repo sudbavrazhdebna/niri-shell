@@ -18,8 +18,16 @@ each section. Read before changing any of these.
 - **Mesa glthread off** (`mesa_glthread=false` in `main`): two threads less, same CPU.
 - **Link gtk4-layer-shell before libwayland-client** (`build.rs`): layer-shell intercepts
   libwayland calls; with the wrong order bars become plain windows.
-- **wayland-client on GDK's connection** (`wayland.rs`) for protocols GTK lacks (blur, idle
+- **wayland-client on GDK's connection** (`wayland.rs`) for protocols GTK lacks (idle
   inhibit), instead of the fork's raw FFI.
+- **Blur is GTK's, asked for in CSS** (since GTK 4.24, Fedora 45, 2026-11-04). GTK now makes
+  the surface's `ext-background-effect` object itself, and the protocol allows one per
+  surface: the shell's own second one was a protocol error, niri dropped the connection and
+  the shell didn't start. GTK hands niri the area of every `backdrop-filter: blur()` of 20 px
+  or more (`--blur` in style.css), with rounded corners and following animations, so the
+  shell's own region code (rounded strips, per-frame follow while sliding, corner radii in
+  the code) went away. How strongly it blurs is niri's setting, not the CSS number. Older
+  GTK just doesn't blur.
 
 - **Runs as systemd user services** (`systemd/`, linked with `systemctl --user enable
   <path>`): `nshell-tray-watcher` first, then `nshell`, both part of `niri.service` and
@@ -240,10 +248,9 @@ each section. Read before changing any of these.
   open, as in GNOME: opening one doesn't move what's above it.
 - Animations are CSS (150 ms, `ANIMATION_MS` in ui.rs): a menu fades in sliding 8 px away
   from the bar; popups slide in from the screen edge and back out (asked for 2026-11-04).
-  niri blurs behind a region the shell gives it and can't fade that blur, so popups only
-  slide (the blur follows them each frame, `blur::follow`); the menu's blur is there from
-  its first frame, under a card still fading in. GTK only animates widgets on screen: the
-  menu's animation class goes on after the window shows.
+  niri can't fade a blur, so popups only slide (GTK moves the blur with them); the menu's
+  blur is there from its first frame, under a card still fading in. GTK only animates
+  widgets on screen: the menu's animation class goes on after the window shows.
 - Up to 5 popups at once (was 3, changed 2026-11-04).
 - The center keeps the newest 100 notifications; older ones close (reason "expired").
   Without a limit an app sending one a second, each with an image, grew memory forever.
@@ -274,21 +281,19 @@ each section. Read before changing any of these.
   volume icon is two-tone); opacity and shadow come from CSS.
 - Menus, OSD, popups and dock share one card look through CSS variables (`--glass`,
   `--glass-edge`, `--glass-shadow`, `--accent`, … at the top of style.css), so a user's
-  `:root { … }` restyles all of them. The edge is an inset 1 px shadow, never a `border`:
-  a border changes the card's size, which the blur shape is computed from. They had four
-  different edges before (the OSD a dark border plus a light inset line).
+  `:root { … }` restyles all of them. The edge is an inset 1 px shadow, never a `border`
+  (a border changes the card's size). They had four different edges before (the OSD a
+  dark border plus a light inset line).
 - Shadows are drawn by the shell (CSS), not niri: niri shadows the whole layer surface,
   and the popup window holds several cards. Windows leave room for them (22 px below,
   16 px at the sides); the OSD had 10 px and its shadow was cut off.
 - Blur needs `xray false` in a niri layer-rule for `^nshell-`, or it only blurs the wallpaper.
-- The blur stops 1 px inside a rounded card (its pixel-step corners looked jagged level
-  with the smooth edge), but reaches the edge of the square bar: with the inset, the bar's
-  outer pixels showed the window behind sharp, like a 1 px outline.
 - Blur can be turned off per part (`blur { off "menus" … }`, asked for 2026-11-04), not
-  only all at once: the user wanted plain menus with blurred notifications. Off, the part
-  asks niri for an empty region (the blur object stays, so turning it back on needs no
-  remap) and its window gets `.no-blur`, which makes the glass nearly opaque. Open
-  windows follow a config change at once.
+  only all at once: the user wanted plain menus with blurred notifications. Off, the part's
+  window gets `.no-blur`, which sets `--blur: none` and makes the glass nearly opaque.
+  Open windows follow a config change at once. The class goes on at creation and on a
+  config change, never while GTK lays a window out: a style change there left the menu
+  undrawn (invisible).
 
 ## Events without polling
 

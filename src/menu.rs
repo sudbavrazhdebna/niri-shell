@@ -40,8 +40,6 @@ thread_local! {
 const GAP: i32 = 6;
 /// Menus keep this far from the screen edges.
 const EDGE_MARGIN: i32 = 8;
-/// Corner radius of the menu card (`.menu-card` in style.css), for the blur shape.
-const CARD_RADIUS: i32 = 14;
 /// How long the pointer must stay on a module it reached while heading into the open
 /// menu before that module's menu opens.
 const AIM_DELAY: Duration = Duration::from_millis(250);
@@ -266,16 +264,13 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     card.add_css_class("menu-card");
     card.append(&scrolling(content, &monitor, &bar));
-    // Re-centered under its module and re-blurred whenever the card changes size.
+    // Re-centered under its module whenever the card changes size.
     let placed_under = Rc::new(RefCell::new(anchor.downgrade()));
-    let (window_weak, under, card_weak) = (window.downgrade(), placed_under.clone(), card.downgrade());
+    let (window_weak, under) = (window.downgrade(), placed_under.clone());
     let card_below = card.downgrade();
-    let (wrapped, refresh_blur) = blur::behind_with_refresh(
-        &window,
-        "menus",
+    blur::part(&window, "menus");
+    let wrapped = on_resize(
         &card,
-        move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
-        CARD_RADIUS,
         move || {
             if let (Some(window), Some(anchor)) = (window_weak.upgrade(), under.borrow().upgrade()) {
                 place(&window, &anchor, window.width());
@@ -311,14 +306,13 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     // Placed at its real width before it shows, so it doesn't jump sideways.
     let (_, natural, _, _) = wrapped.measure(gtk4::Orientation::Horizontal, -1);
     place(&window, anchor, natural);
-    // It fades in sliding a little away from the bar (style.css); the blur follows it.
+    // It fades in sliding a little away from the bar (style.css).
     if upward {
         window.add_css_class("upward");
     }
     window.set_visible(true);
     // GTK only animates a widget that is on screen: the class goes on after showing.
     card.add_css_class("opening");
-    blur::follow(&card, refresh_blur, ui::ANIMATION_MS + 50);
     anchor.add_css_class("menu-open");
     OPEN.replace(Some(Open {
         anchor: anchor.downgrade(),
@@ -612,6 +606,18 @@ fn menu_owner_at(window: &gtk4::Window, x: f64, y: f64) -> Option<gtk4::Widget> 
         widget = current.parent();
     }
     None
+}
+
+/// Wraps `content` so that `f` runs whenever its size changes: an invisible layer over it
+/// has its size, and GTK tells that layer about every change.
+fn on_resize(content: &impl IsA<gtk4::Widget>, f: impl Fn() + 'static) -> gtk4::Overlay {
+    let overlay = gtk4::Overlay::new();
+    overlay.set_child(Some(content));
+    let sizer = gtk4::DrawingArea::new();
+    sizer.set_can_target(false);
+    overlay.add_overlay(&sizer);
+    sizer.connect_resize(move |_, _, _| f());
+    overlay
 }
 
 #[cfg(test)]

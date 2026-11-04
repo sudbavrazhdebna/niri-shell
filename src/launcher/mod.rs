@@ -20,8 +20,6 @@ use search::{App, FileHit, History};
 /// Results shown at most: apps, then files.
 const MAX_APPS: usize = 8;
 const MAX_FILES: usize = 6;
-/// Corner radius of `.launcher-card` in style.css, for the blur shape.
-const CARD_RADIUS: i32 = 16;
 
 thread_local! {
     static OPEN: RefCell<Option<Rc<Launcher>>> = const { RefCell::new(None) };
@@ -106,24 +104,14 @@ fn open(services: &Rc<Services>) {
     scroll.set_child(Some(&list));
     card.append(&scroll);
 
-    // The blur wraps the card itself, so it follows the card as results come and go
-    // (wrapped around the whole screen it never saw the card grow).
-    let card_weak = card.downgrade();
-    let wrapped = crate::blur::behind(
-        &window,
-        "launcher",
-        &card,
-        move || card_weak.upgrade().map(|c| c.upcast()).into_iter().collect(),
-        CARD_RADIUS,
-        || {},
-    );
-    wrapped.set_halign(gtk4::Align::Center);
-    wrapped.set_valign(gtk4::Align::Start);
-    wrapped.set_margin_top(monitor.geometry().height() / 5);
+    crate::blur::part(&window, "launcher");
+    card.set_halign(gtk4::Align::Center);
+    card.set_valign(gtk4::Align::Start);
+    card.set_margin_top(monitor.geometry().height() / 5);
     let fill = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     fill.set_hexpand(true);
     fill.set_vexpand(true);
-    fill.append(&wrapped);
+    fill.append(&card);
     window.set_child(Some(&fill));
 
     let launcher = Rc::new(Launcher {

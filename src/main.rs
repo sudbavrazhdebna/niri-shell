@@ -87,10 +87,6 @@ fn main() -> glib::ExitCode {
         std::mem::forget(osd::Osd::start(services.clone()));
         std::mem::forget(popups::Popups::start(services.clone()));
         ipc::serve(services);
-        // Bind the Wayland extras now rather than on the first menu (a noticeable pause).
-        glib::idle_add_local_once(|| {
-            wayland::with(|_| Some(()));
-        });
         // Lives as long as the app: it holds the file watcher.
         std::mem::forget(settings::Settings::start(bars, &config, problem));
     });

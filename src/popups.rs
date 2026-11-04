@@ -32,14 +32,9 @@ pub fn set_bar_at_bottom(bottom: bool) {
     AT_BOTTOM.set(bottom);
 }
 
-/// Corner radius of `.notification` in style.css, for the blur shape.
-const CARD_RADIUS: i32 = 12;
-
 pub struct Popups {
     services: Rc<Services>,
     window: RefCell<Option<(gtk4::Window, gtk4::Box)>>,
-    /// Sets the blur behind the cards again (while one slides).
-    refresh_blur: RefCell<Option<Rc<dyn Fn()>>>,
     /// Cards on screen by notification id.
     cards: RefCell<HashMap<u32, Card>>,
 }
@@ -49,7 +44,6 @@ impl Popups {
         let popups = Rc::new(Popups {
             services: services.clone(),
             window: RefCell::new(None),
-            refresh_blur: RefCell::new(None),
             cards: RefCell::new(HashMap::new()),
         });
         let weak = Rc::downgrade(&popups);
@@ -103,9 +97,8 @@ impl Popups {
             let widget = match existing {
                 Some(widget) => widget,
                 None => {
-                    // Slides in from the screen edge (style.css); the blur follows it.
+                    // Slides in from the screen edge (style.css).
                     let widget = card(n, &server, Rc::new(|| {}), false);
-                    self.follow(&widget);
                     self.watch_hover(&widget, id, n.timeout_ms);
                     let hide = Some(self.hide_later(id, n.timeout_ms));
                     self.cards
@@ -126,7 +119,6 @@ impl Popups {
     fn leave(self: &Rc<Self>, widget: &gtk4::Box) {
         widget.add_css_class("leaving");
         widget.set_can_target(false);
-        self.follow(widget);
         let (weak, widget) = (Rc::downgrade(self), widget.clone());
         glib::timeout_add_local_once(crate::ui::animation(0), move || {
             if let Some(parent) = widget.parent().and_downcast::<gtk4::Box>() {
@@ -145,14 +137,7 @@ impl Popups {
         let empty = self.cards.borrow().is_empty()
             && self.window.borrow().as_ref().is_none_or(|(_, column)| column.first_child().is_none());
         if empty && let Some((window, _)) = self.window.take() {
-            self.refresh_blur.take();
             window.destroy();
-        }
-    }
-
-    fn follow(&self, widget: &gtk4::Box) {
-        if let Some(refresh) = &*self.refresh_blur.borrow() {
-            crate::blur::follow(widget, refresh.clone(), crate::ui::ANIMATION_MS + 50);
         }
     }
 
@@ -230,27 +215,9 @@ impl Popups {
         window.set_exclusive_zone(0);
         let column = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         column.add_css_class("popup-column");
-        // Blur behind each card, following cards as they come and go.
-        let column_weak = column.downgrade();
-        let (wrapped, refresh_blur) = blur::behind_with_refresh(
-            &window,
-            "notifications",
-            &column,
-            move || {
-                let mut cards = Vec::new();
-                let mut child = column_weak.upgrade().and_then(|c| c.first_child());
-                while let Some(card) = child {
-                    child = card.next_sibling();
-                    cards.push(card);
-                }
-                cards
-            },
-            CARD_RADIUS,
-            || {},
-        );
-        window.set_child(Some(&wrapped));
+        blur::part(&window, "notifications");
+        window.set_child(Some(&column));
         window.set_visible(true);
-        self.refresh_blur.replace(Some(refresh_blur));
         self.window.replace(Some((window, column.clone())));
         Some(column)
     }
