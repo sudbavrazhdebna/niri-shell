@@ -604,8 +604,12 @@ button.stack-fold:hover {
     background: rgba(255, 255, 255, 0.2);
 }
 
+/* No theme border (it drew a dark outline). */
 button.clear-all {
     padding: 4px 10px;
+    border: none;
+    outline: none;
+    box-shadow: none;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.08);
 }
