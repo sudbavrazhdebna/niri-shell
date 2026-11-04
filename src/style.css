@@ -698,7 +698,7 @@ window.nshell-dock {
 }
 
 .dock {
-    padding: 6px 8px 4px;
+    padding: 8px 8px 6px;
     /* Room for the shadow at the sides, and the gap to the screen edge. */
     margin: 0 16px 6px;
     border-radius: 16px;
@@ -711,9 +711,10 @@ window.nshell-dock {
     background-color: rgba(255, 255, 255, 0.19);
 }
 
-/* The gap between icons is this padding on both sides (plus 2 px). */
+/* The gap between icons is this padding on both sides. The hover plate stays about
+   square: 32 px icon + 8 wide, 2 + 32 + 2 + 4 (dots) + 1 high. */
 .dock-item {
-    padding: 4px 3px 2px;
+    padding: 2px 4px 1px;
     border-radius: 10px;
 }
 

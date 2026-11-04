@@ -191,7 +191,8 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
 
     let dock = gtk4::Box::new(gtk4::Orientation::Horizontal, 2);
     dock.add_css_class("dock");
-    let apps = gtk4::Box::new(gtk4::Orientation::Horizontal, 2);
+    // No spacing: the gap between icons is their padding in style.css alone.
+    let apps = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
     dock.append(&apps);
     dock.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
     let overview = gtk4::Button::from_icon_name("nshell-overview-symbolic");
@@ -396,7 +397,7 @@ fn items(state: &State, pinned: &[String]) -> Vec<Item> {
 }
 
 fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
-    let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 3);
+    let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
     widget.add_css_class("dock-item");
     if item.focused.is_some() {
         widget.add_css_class("focused");
