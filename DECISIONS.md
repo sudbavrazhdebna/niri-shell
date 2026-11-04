@@ -335,3 +335,12 @@ each section. Read before changing any of these.
   several "the menu isn't drawn" scares came from that. It deletes the file first now.
 - Never `pkill -f` with a pattern that can match your own shell or the real session; use
   `scripts/dev-stop.sh`.
+- The sandbox's config has short idle times (dim after 5 s, screen off soon after): shots
+  taken a while after a restart come out dark or without the shell. Restart with
+  `NSHELL_DEV_AWAKE=1`. Do-not-disturb (`.dev/state/nshell/dnd`) hides all but critical
+  popups. A sandbox left running for hours (its window covered on the host) stopped
+  finishing GTK animations: popups stayed at their slide-in start, invisible. A fresh
+  `dev-nested.sh` fixed it.
+- `NSHELL_DEV_MENU=<module>@secs`: the seconds are the delay before it opens, and the
+  debug build needs several seconds to start; wait for the `nshell-menu` layer in
+  `niri msg layers` rather than a fixed time.
