@@ -488,6 +488,46 @@ button.action:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
+/* A closed stack: the newest card on top, the older ones peek out below it, each
+   narrower and darker; a click on them opens the stack. */
+.notification-center .notification.stacked {
+    margin-bottom: 0;
+}
+
+button.stack-sheets {
+    margin: 0 0 6px;
+    padding: 0;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    min-height: 0;
+}
+
+.stack-sheet {
+    min-height: 8px;
+    border-radius: 0 0 10px 10px;
+}
+
+.stack-sheet.depth-1 {
+    margin: 0 12px;
+    background: rgba(255, 255, 255, 0.075);
+}
+
+.stack-sheet.depth-2 {
+    margin: 0 26px;
+    min-height: 7px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+button.stack-sheets:hover .stack-sheet.depth-1 {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+button.stack-sheets:hover .stack-sheet.depth-2 {
+    background: rgba(255, 255, 255, 0.07);
+}
+
 button.stack-more {
     margin: 0 0 6px;
     padding: 2px 8px;

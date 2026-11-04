@@ -156,25 +156,61 @@ impl Render {
         for group in stacks(&notifications) {
             let app = group[0].app_name.clone();
             let open = group.len() == 1 || self.expanded.borrow().contains(&app);
-            let shown = if open { &group[..] } else { &group[..1] };
-            for n in shown {
-                list.append(&card(n, &self.server, Rc::new(menu::close), true));
-            }
-            if !open {
-                let label = format!("+{} more from {}", group.len() - 1, app_label(&group[0]));
-                let more = gtk4::Button::with_label(&label);
-                more.add_css_class("stack-more");
-                let this = Rc::downgrade(self);
-                more.connect_clicked(move |_| {
-                    if let Some(this) = this.upgrade() {
-                        this.expanded.borrow_mut().insert(app.clone());
-                        this.run();
-                    }
-                });
-                list.append(&more);
+            if open {
+                for n in &group {
+                    list.append(&card(n, &self.server, Rc::new(menu::close), true));
+                }
+                if group.len() > 1 {
+                    let less = gtk4::Button::with_label("Show less");
+                    less.add_css_class("stack-more");
+                    less.set_halign(gtk4::Align::End);
+                    less.connect_clicked(self.toggle(&app, false));
+                    list.append(&less);
+                }
+            } else {
+                list.append(&self.stack(&group, &app));
             }
         }
         self.fit(&list);
+    }
+
+    /// A closed stack: the newest card with the older ones peeking out below it as
+    /// sheets, each narrower and darker (two at most). A click on them opens the stack.
+    fn stack(self: &Rc<Self>, group: &[Rc<Notification>], app: &str) -> gtk4::Box {
+        let stack = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        stack.add_css_class("notification-stack");
+        let top = card(&group[0], &self.server, Rc::new(menu::close), true);
+        top.add_css_class("stacked");
+        stack.append(&top);
+        let sheets = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        for depth in 1..group.len().min(3) {
+            let sheet = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+            sheet.add_css_class("stack-sheet");
+            sheet.add_css_class(&format!("depth-{depth}"));
+            sheets.append(&sheet);
+        }
+        let more = gtk4::Button::new();
+        more.add_css_class("stack-sheets");
+        more.set_child(Some(&sheets));
+        more.set_tooltip_text(Some(&format!("{} more from {}", group.len() - 1, app_label(&group[0]))));
+        more.connect_clicked(self.toggle(app, true));
+        stack.append(&more);
+        stack
+    }
+
+    /// Opens or closes an app's stack.
+    fn toggle(self: &Rc<Self>, app: &str, open: bool) -> impl Fn(&gtk4::Button) + 'static {
+        let (this, app) = (Rc::downgrade(self), app.to_string());
+        move |_| {
+            if let Some(this) = this.upgrade() {
+                if open {
+                    this.expanded.borrow_mut().insert(app.clone());
+                } else {
+                    this.expanded.borrow_mut().remove(&app);
+                }
+                this.run();
+            }
+        }
     }
 
     /// Caps the list at its first VISIBLE notifications (with a "more" row after the
@@ -190,7 +226,7 @@ impl Render {
         let (mut height, mut cards) = (0, 0);
         let mut child = list.first_child();
         while let Some(widget) = &child {
-            if widget.has_css_class("notification") {
+            if widget.has_css_class("notification") || widget.has_css_class("notification-stack") {
                 if cards == VISIBLE {
                     break;
                 }
