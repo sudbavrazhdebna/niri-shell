@@ -124,14 +124,15 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
         server: server.clone(),
     });
     let r = render.clone();
-    server.list.bind(&list, move |_, _| r.run());
+    // A change of the list (one closed, one came) keeps the list's height: see `run`.
+    server.list.bind(&list, move |_, _| r.run(true));
     center
 }
 
 /// Notifications the center shows before its list scrolls.
 const VISIBLE: usize = 4;
 
-/// Redraws the notification list (on changes, and when a stack is opened).
+/// Redraws the notification list (on changes, and when a stack is opened or folded).
 struct Render {
     list: glib::WeakRef<gtk4::Box>,
     scroll: glib::WeakRef<gtk4::ScrolledWindow>,
@@ -141,25 +142,34 @@ struct Render {
 }
 
 impl Render {
-    fn run(self: &Rc<Self>) {
+    /// `hold`: while the menu is open, a closed notification leaves its room empty
+    /// instead of the menu shrinking (it jumped with every one closed), and the next one
+    /// moves up under the pointer. Folding a stack or clearing all does shrink it.
+    fn run(self: &Rc<Self>, hold: bool) {
         let Some(list) = self.list.upgrade() else { return };
         let notifications = self.server.list.get().clone();
+        let held = match self.scroll.upgrade() {
+            Some(scroll) if hold && !notifications.is_empty() => scroll.vadjustment().page_size() as i32,
+            _ => 0,
+        };
         ui::clear(&list);
         if let Some(clear) = self.clear.upgrade() {
             clear.set_visible(!notifications.is_empty());
         }
         if notifications.is_empty() {
             list.append(&ui::note("No notifications"));
-            self.fit(&list);
+            self.fit(&list, 0);
             return;
         }
         for group in stacks(&notifications) {
             let app = group[0].app_name.clone();
-            let open = group.len() == 1 || self.expanded.borrow().contains(&app);
+            if group.len() == 1 {
+                list.append(&card(&group[0], &self.server, Rc::new(menu::close), true));
+                continue;
+            }
+            let open = self.expanded.borrow().contains(&app);
+            list.append(&self.stack_header(&group[0], &app, open));
             if open {
-                if group.len() > 1 {
-                    list.append(&self.stack_header(&group[0], &app));
-                }
                 for n in &group {
                     list.append(&card(n, &self.server, Rc::new(menu::close), true));
                 }
@@ -167,7 +177,7 @@ impl Render {
                 list.append(&self.stack(&group, &app));
             }
         }
-        self.fit(&list);
+        self.fit(&list, held);
     }
 
     /// A closed stack, like iOS: the newest card in front, up to two older ones behind
@@ -178,8 +188,7 @@ impl Render {
             let (this, app) = (Rc::downgrade(self), app.to_string());
             Rc::new(move || {
                 if let Some(this) = this.upgrade() {
-                    this.expanded.borrow_mut().insert(app.clone());
-                    this.run();
+                    this.set_open(&app, true);
                 }
             })
         };
@@ -212,9 +221,10 @@ impl Render {
         stack
     }
 
-    /// Above an opened stack, as in GNOME: the app's icon and name, and a round button
-    /// that folds the stack again.
-    fn stack_header(self: &Rc<Self>, newest: &Notification, app: &str) -> gtk4::Box {
+    /// Above every stack of two or more, as in GNOME: the app's icon and name, and a
+    /// round button that opens or folds the stack. Always there, so opening one doesn't
+    /// move what's above it.
+    fn stack_header(self: &Rc<Self>, newest: &Notification, app: &str, open: bool) -> gtk4::Box {
         let header = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
         header.add_css_class("stack-header");
         let icon = gtk4::Image::new();
@@ -232,24 +242,33 @@ impl Render {
         name.set_hexpand(true);
         name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
         header.append(&name);
-        let fold = gtk4::Button::from_icon_name("pan-up-symbolic");
+        let fold = gtk4::Button::from_icon_name(if open { "pan-up-symbolic" } else { "pan-down-symbolic" });
         fold.add_css_class("stack-fold");
-        fold.set_tooltip_text(Some("Show less"));
+        fold.set_tooltip_text(Some(if open { "Show less" } else { "Show all" }));
         let (this, app) = (Rc::downgrade(self), app.to_string());
         fold.connect_clicked(move |_| {
             if let Some(this) = this.upgrade() {
-                this.expanded.borrow_mut().remove(&app);
-                this.run();
+                this.set_open(&app, !open);
             }
         });
         header.append(&fold);
         header
     }
 
+    fn set_open(self: &Rc<Self>, app: &str, open: bool) {
+        if open {
+            self.expanded.borrow_mut().insert(app.to_string());
+        } else {
+            self.expanded.borrow_mut().remove(app);
+        }
+        self.run(false);
+    }
+
     /// Caps the list at its first VISIBLE notifications (with a "more" row after the
     /// last of them); the rest scrolls inside it. Measured at the list's own width,
     /// since wrapped bodies make cards of different heights.
-    fn fit(&self, list: &gtk4::Box) {
+    /// `held`: the height to keep at least (see `run`), 0 for none.
+    fn fit(&self, list: &gtk4::Box, held: i32) {
         let Some(scroll) = self.scroll.upgrade() else { return };
         let width = if list.width() > 0 {
             list.width()
@@ -270,7 +289,13 @@ impl Render {
         }
         // No cap when everything fits: a cap equal to the content can still round into
         // a scrollbar.
-        scroll.set_max_content_height(if child.is_some() { height } else { -1 });
+        let cap = if child.is_some() { height } else { -1 };
+        // The minimum must never exceed the maximum: drop it before changing either.
+        scroll.set_min_content_height(-1);
+        scroll.set_max_content_height(if cap >= 0 { cap.max(held) } else { -1 });
+        if held > 0 {
+            scroll.set_min_content_height(held);
+        }
     }
 }
 

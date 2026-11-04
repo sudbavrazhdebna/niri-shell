@@ -191,6 +191,12 @@ each section. Read before changing any of these.
   pointer is on its card, in popups and in the center alike: most are only read. They
   float over the card's bottom-right corner (an overlay, covering some text), so hovering
   never changes the card's height; a summary-only card with buttons is a little taller.
+- While the clock menu is open, a closed notification leaves its room empty (the list
+  keeps its height) instead of the menu shrinking: it jumped with every one closed, and the
+  next card now moves up under the pointer, as closing tabs in Chrome. The next opening is
+  measured afresh. Folding a stack or "Clear all" do shrink it: those are asked for.
+- Every stack of two or more has a header (app icon, name, an open/fold arrow), closed or
+  open, as in GNOME: opening one doesn't move what's above it.
 - The center keeps the newest 100 notifications; older ones close (reason "expired").
   Without a limit an app sending one a second, each with an image, grew memory forever.
 - Bodies keep only the spec's markup (b, i, u; links as text). Pango's full markup let
