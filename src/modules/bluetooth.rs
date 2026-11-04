@@ -107,7 +107,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     let s = services.clone();
     column.connect_destroy(move |_| s.bluetooth().stop_scan());
     column.append(&ui::separator());
-    column.append(&ui::plain_item("Bluetooth Settings…", || {
+    column.append(&ui::item("Bluetooth Settings…", false, || {
         menu::close();
         ui::launch("blueman-manager");
     }));

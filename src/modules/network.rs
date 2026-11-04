@@ -60,7 +60,7 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
     let list = ui::column();
     column.append(&list);
     column.append(&ui::separator());
-    column.append(&ui::plain_item("Network Settings…", || {
+    column.append(&ui::item("Network Settings…", false, || {
         menu::close();
         ui::launch("nm-connection-editor");
     }));

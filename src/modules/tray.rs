@@ -94,11 +94,7 @@ fn add_page(
     sender: &Sender,
 ) {
     let column = ui::column();
-    // The check mark column only where something on this page can be checked.
-    let checks = entries.iter().any(|e| matches!(e, Entry::Item { toggle: Some(_), .. }));
-    let item = move |text: &str, checked: bool, on_click: Box<dyn Fn()>| {
-        if checks { ui::item(text, checked, on_click) } else { ui::plain_item(text, on_click) }
-    };
+    let item = |text: &str, checked: bool, on_click: Box<dyn Fn()>| ui::item(text, checked, on_click);
     if let Some((parent, title)) = back {
         let (stack_weak, parent) = (stack.downgrade(), parent.to_string());
         let row = item(&format!("‹  {title}"), false, Box::new(move || {

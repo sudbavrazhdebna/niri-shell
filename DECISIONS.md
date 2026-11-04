@@ -214,6 +214,11 @@ each section. Read before changing any of these.
   it changes. The `taskbar` is the dock's own apps row (`dock::apps`), so pins, dots,
   clicks and menus stay one code; only its CSS is smaller to fit the bar.
 
+- Every menu row keeps the check mark's column on the left, in every menu, checked or
+  not (as macOS, Windows, KDE do). Tried for a while: the column only where something
+  can be checked, then the check at the row's end (as GNOME Shell's quick settings);
+  the user chose one rule everywhere, and text that lines up from menu to menu.
+
 ## Notifications
 
 - A notification's action buttons ("Mark as read", "Reply") slide out only while the
