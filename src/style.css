@@ -466,13 +466,15 @@ button.close-button {
    an almost solid plate with its own shadow. */
 button.action {
     padding: 4px 10px;
+    border: none;
+    outline: none;
     border-radius: 8px;
-    background: rgba(64, 65, 69, 0.97);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.45);
+    background: rgb(64, 65, 69);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 button.action:hover {
-    background: rgba(84, 85, 89, 0.97);
+    background: rgb(84, 85, 89);
 }
 
 /* In the menu the cards sit on the glass card already: no own shadow, less width. */
