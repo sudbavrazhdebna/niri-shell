@@ -181,7 +181,8 @@ impl Bars {
         let (output, monitor) = (ctx.output.clone(), monitor.clone());
         self.services.niri.state.bind(&window, move |window, state| {
             let width = f64::from(monitor.geometry().width());
-            let covered = if bottom {
+            // In the overview windows are shrunk away from the bar: nothing to cover.
+            let covered = !state.overview_open && if bottom {
                 state.covers_bottom(&output, width)
             } else {
                 state.covers_top(&output, width)

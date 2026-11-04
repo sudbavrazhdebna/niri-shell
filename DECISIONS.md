@@ -32,7 +32,9 @@ each section. Read before changing any of these.
   maximized to the edges: the screen's whole width (no gaps, unlike Mod+F's column) as
   the top tile of its column. No line along its edge (seen as a stray border). Not by
   position: niri 26.04 leaves
-  `tile_pos_in_workspace_view` empty even for a plainly visible window. niri's
+  `tile_pos_in_workspace_view` empty even for a plainly visible window. In the overview
+  the windows shrink away from the edges, so the bar is clear there (niri's
+  `OverviewOpenedOrClosed`). niri's
   `WindowLayoutsChanged` comes on every resize and animation frame; it wakes listeners
   only when a top tile's width (in 16 px steps) changes, and never bumps `layout_serial`.
 - The bar's zones are laid out by our own layout manager, not GTK's CenterBox: the

@@ -19,6 +19,8 @@ pub struct State {
     pub windows: HashMap<u64, Window>,
     pub workspaces: HashMap<u64, Workspace>,
     pub keyboard_layouts: Option<KeyboardLayouts>,
+    /// The overview is open: windows are shrunk away from the screen's edges.
+    pub overview_open: bool,
 }
 
 impl State {
@@ -136,6 +138,12 @@ impl State {
                     return false;
                 };
                 window.is_urgent = urgent;
+            }
+            Event::OverviewOpenedOrClosed { is_open } => {
+                if self.overview_open == is_open {
+                    return false;
+                }
+                self.overview_open = is_open;
             }
             Event::KeyboardLayoutsChanged { keyboard_layouts } => {
                 self.keyboard_layouts = Some(keyboard_layouts);
