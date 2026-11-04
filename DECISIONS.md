@@ -186,6 +186,13 @@ each section. Read before changing any of these.
   (AutoEnable) powered the new one on. A block also covers adapters that appear later and
   systemd-rfkill keeps it over a reboot. On is an unblock (BlueZ powers it) plus `Powered`.
 
+- The Wi-Fi list is rebuilt on every scan (every few seconds). An open password field, with
+  what's typed and the focus (cursor at the end, nothing selected), moves to its network's
+  new row; before, a scan threw it away mid-typing. One field at a time; it slides open
+  and closed (150 ms).
+- No hand cursor over buttons and rows: on the desktop (macOS, GNOME, KDE) that's for
+  links only; the arrow stays.
+
 ## Notifications
 
 - A notification's action buttons ("Mark as read", "Reply") slide out only while the

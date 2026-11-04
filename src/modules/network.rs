@@ -72,6 +72,9 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
         let Some(w) = w.upgrade() else { return };
         set_switch(state.enabled);
         card.update(state.networks.iter().find(|n| n.active).filter(|_| state.enabled), state);
+        // Scans rebuild the list every few seconds: an open password field (and what's
+        // typed in it) moves to its network's new row instead of vanishing.
+        let kept = take_open_password(list);
         ui::clear(list);
         if !state.enabled {
             return;
@@ -86,7 +89,31 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
             list.append(&ui::title("Other networks"));
         }
         for network in others {
-            list.append(&network_row(&w, network));
+            let row = network_row(&w, network);
+            if let Some((ssid, revealer)) = &kept
+                && *ssid == network.ssid
+            {
+                row.append(revealer);
+            }
+            list.append(&row);
+        }
+        // The typing goes on: focus once it's in the list again, the cursor at the end
+        // (a plain grab_focus selects all, and the next key replaced the password).
+        if let Some(entry) = kept
+            .as_ref()
+            .filter(|(_, r)| r.parent().is_some())
+            .and_then(|(_, r)| r.child())
+            .and_downcast::<gtk4::PasswordEntry>()
+        {
+            match entry.delegate().and_downcast::<gtk4::Text>() {
+                Some(text) => {
+                    text.grab_focus_without_selecting();
+                    entry.set_position(-1);
+                }
+                None => {
+                    entry.grab_focus();
+                }
+            }
         }
     });
     column
@@ -193,6 +220,8 @@ fn speed(bytes: u64) -> String {
 /// One network; a secured unknown one opens a password field under it.
 fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
+    // Which network the row is, for a password field kept over a rebuild.
+    holder.set_widget_name(&network.ssid);
     let (w, n, h) = (wifi.clone(), network.clone(), holder.downgrade());
     let row = ui::icon_item(wifi_icon(network.strength), &network.ssid, "", move || {
         let Some(holder) = h.upgrade() else { return };
@@ -228,18 +257,47 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     holder
 }
 
-/// Removes the password field under a network, if it has one; says whether it had.
+/// Takes the open password field out of the list, with its network's name.
+fn take_open_password(list: &gtk4::Box) -> Option<(String, gtk4::Revealer)> {
+    let mut child = list.first_child();
+    while let Some(row) = child {
+        child = row.next_sibling();
+        let Ok(holder) = row.downcast::<gtk4::Box>() else { continue };
+        if let Some(revealer) = password_revealer(&holder).filter(|r| r.reveals_child()) {
+            holder.remove(&revealer);
+            return Some((holder.widget_name().to_string(), revealer));
+        }
+    }
+    None
+}
+
+/// The password field under a network, open or sliding closed.
+fn password_revealer(holder: &gtk4::Box) -> Option<gtk4::Revealer> {
+    holder.last_child().and_downcast::<gtk4::Revealer>().filter(|r| r.has_css_class("password-revealer"))
+}
+
+/// Slides the password field under a network closed (then removes it); says whether
+/// one was open.
 fn close_password(holder: &gtk4::Box) -> bool {
-    match holder.last_child().filter(|c| c.has_css_class("menu-password")) {
-        Some(entry) => {
-            holder.remove(&entry);
+    match password_revealer(holder).filter(|r| r.reveals_child()) {
+        Some(revealer) => {
+            revealer.set_reveal_child(false);
             true
         }
         None => false,
     }
 }
 
+/// Slides a password field open under a network (150 ms, like the other animations).
 fn show_password(holder: &gtk4::Box, wifi: &Rc<Wifi>, network: &Network) {
+    // Still sliding closed: open that one again.
+    if let Some(revealer) = password_revealer(holder) {
+        revealer.set_reveal_child(true);
+        if let Some(entry) = revealer.child() {
+            entry.grab_focus();
+        }
+        return;
+    }
     let entry = gtk4::PasswordEntry::new();
     entry.add_css_class("menu-password");
     entry.set_show_peek_icon(true);
@@ -251,6 +309,22 @@ fn show_password(holder: &gtk4::Box, wifi: &Rc<Wifi>, network: &Network) {
             w.connect(&n, Some(&password));
         }
     });
-    holder.append(&entry);
+    let revealer = gtk4::Revealer::new();
+    revealer.add_css_class("password-revealer");
+    revealer.set_transition_type(gtk4::RevealerTransitionType::SlideDown);
+    revealer.set_transition_duration(u32::try_from(ui::ANIMATION_MS).unwrap_or(150));
+    revealer.set_child(Some(&entry));
+    // Closed: gone from the list (the menu's height follows by itself). Its parent, not
+    // the holder it was made in: a rebuild moves it to the network's new row.
+    revealer.connect_child_revealed_notify(move |revealer| {
+        if !revealer.reveals_child()
+            && !revealer.is_child_revealed()
+            && let Some(holder) = revealer.parent().and_downcast::<gtk4::Box>()
+        {
+            holder.remove(revealer);
+        }
+    });
+    holder.append(&revealer);
+    revealer.set_reveal_child(true);
     entry.grab_focus();
 }
