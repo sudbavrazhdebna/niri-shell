@@ -5,6 +5,7 @@ doesn't write code and checks visually: after each step — a screenshot, what's
 Everything in the project (UI text, error messages, docs, comments) is English. macOS is only a
 loose reference for the look.
 
+- [README.md](README.md) — for users: install, what niri needs, commands, where settings live.
 - [DECISIONS.md](DECISIONS.md) — non-obvious choices and why; read before changing them, add new ones.
 - [STYLING.md](STYLING.md) — how styles work and the CSS classes; keep it in step with style.css.
 - [TODO.md](TODO.md) — what is agreed but not done yet; take work from there, keep it current.
