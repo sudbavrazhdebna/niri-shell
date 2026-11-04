@@ -257,7 +257,11 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     // Zero exclusive zone: placed below the bar, not over it.
     window.set_exclusive_zone(0);
     if upward {
-        window.set_margin(Edge::Bottom, bar.margin(Edge::Bottom) + bar.height() + GAP);
+        // A bar at the bottom reserves its room, so the menu already sits above it; the
+        // dock reserves none, so the menu clears it by its height.
+        let reserved = bar.auto_exclusive_zone_is_enabled() || bar.exclusive_zone() > 0;
+        let clear = if reserved { 0 } else { bar.margin(Edge::Bottom) + bar.height() };
+        window.set_margin(Edge::Bottom, clear + GAP);
     } else {
         window.set_margin(Edge::Top, GAP);
     }
@@ -403,12 +407,18 @@ fn open_anchor() -> Option<gtk4::Widget> {
     OPEN.with_borrow(|open| open.as_ref().and_then(|o| o.anchor.upgrade()))
 }
 
+/// Where the menu's top edge is, in its bar's coordinates: below the bar, or above it
+/// (a bar at the bottom, the dock).
+fn menu_top(bar: &gtk4::Window, menu: &gtk4::Window, upward: bool) -> i32 {
+    if upward { -(GAP + menu.height()) } else { bar.height() + GAP }
+}
+
 /// The open menu's area in bar coordinates (bar and menu share the monitor's origin).
 fn open_rect(bar: &gtk4::Window) -> Option<graphene::Rect> {
     OPEN.with_borrow(|open| {
         let open = open.as_ref()?;
         let left = open.window.margin(Edge::Left) as f32;
-        let top = (bar.height() + GAP) as f32;
+        let top = menu_top(bar, &open.window, open.upward) as f32;
         Some(graphene::Rect::new(
             left,
             top,
@@ -483,9 +493,10 @@ fn watch_motion(menu: &gtk4::Window, bar: &gtk4::Window) {
     let menu_weak = menu.downgrade();
     motion.connect_motion(move |_, x, y| {
         let (Some(bar), Some(menu)) = (bar.upgrade(), menu_weak.upgrade()) else { return };
+        let upward = menu.is_anchor(Edge::Bottom) && !menu.is_anchor(Edge::Top);
         let (bx, by) = (
             x + f64::from(menu.margin(Edge::Left)),
-            y + f64::from(bar.height() + GAP),
+            y + f64::from(menu_top(&bar, &menu, upward)),
         );
         AIM.with_borrow_mut(|aim| aim.last_pointer = Some((bar.downgrade(), bx, by)));
     });

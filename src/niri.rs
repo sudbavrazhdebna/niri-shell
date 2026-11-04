@@ -31,6 +31,15 @@ impl State {
         })
     }
 
+    /// Like [`covers_top`](Self::covers_top) for a bar at the bottom: the shown window
+    /// is tiled the whole `width`. Columns fill the height, so it reaches the bottom
+    /// (its lowest tile does; which tile is lowest niri doesn't say, so any counts).
+    pub fn covers_bottom(&self, output: &str, width: f64) -> bool {
+        self.active_window_on(output).is_some_and(|w| {
+            w.layout.pos_in_scrolling_layout.is_some() && w.layout.tile_size.0 >= width - 2.0 * EDGE_SLACK
+        })
+    }
+
     /// The window shown on an output: the active window of its active workspace.
     pub fn active_window_on(&self, output: &str) -> Option<&Window> {
         let workspace = self

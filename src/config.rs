@@ -42,6 +42,8 @@ pub struct Config {
 pub struct BarConfig {
     /// Height in pixels; content is centered vertically.
     pub height: i32,
+    /// Along the bottom edge instead of the top (`position "bottom"`).
+    pub bottom: bool,
     pub left: Vec<String>,
     pub center: Vec<String>,
     pub right: Vec<String>,
@@ -117,6 +119,7 @@ impl Default for Config {
             icon_theme: None,
             bar: BarConfig {
                 height: 34,
+                bottom: false,
                 left: vec!["window-title".into()],
                 center: vec!["clock".into()],
                 right: Vec::new(),
@@ -392,6 +395,14 @@ fn parse_bar(
         let zone = match child.name().value() {
             "height" => {
                 bar.height = int_arg(child, 16..=200).map_err(|e| at(child, e))?;
+                continue;
+            }
+            "position" => {
+                bar.bottom = match string_arg(child).map_err(|e| at(child, e))?.as_str() {
+                    "top" => false,
+                    "bottom" => true,
+                    _ => return Err(at(child, "needs \"top\" or \"bottom\"".into())),
+                };
                 continue;
             }
             "left" => &mut bar.left,

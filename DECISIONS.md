@@ -196,6 +196,12 @@ each section. Read before changing any of these.
 - No hand cursor over buttons and rows: on the desktop (macOS, GNOME, KDE) that's for
   links only; the arrow stays.
 
+- The bar can sit at the bottom (`bar { position "bottom" }`, asked for 2026-11-04 for a
+  Windows-like single bar). Menus then open upward right above it (it reserves its room,
+  so no extra margin, unlike the dock), notification popups show bottom-right above it
+  with the newest lowest, and its glass turns solid when the shown window is tiled full
+  width (niri doesn't say which tile of a column is lowest, so any tile counts).
+
 ## Notifications
 
 - A notification's action buttons ("Mark as read", "Reply") slide out only while the

@@ -79,6 +79,7 @@ fn main() -> glib::ExitCode {
         wallpaper::configure(config.wallpaper.clone());
         osd::set_layout_rename(&config.layout_rename);
         launcher::configure(&config.launcher_paths);
+        popups::set_bar_at_bottom(config.bar.bottom);
         let bars = bar::Bars::start(app, config.clone(), services.clone());
         // Lives as long as the app: the services hold its subscriptions.
         std::mem::forget(osd::Osd::start(services.clone()));

@@ -8,6 +8,9 @@
 bar {
     // Height in pixels; icons and text are centered vertically.
     height 34
+    // "top" or "bottom". At the bottom, menus open upward and notifications show
+    // bottom-right, above the bar.
+    position "top"
 
     // Modules: window-title, clock, media (what plays), tray, keyboard, network,
     // bluetooth, volume, display (brightness), battery, control.

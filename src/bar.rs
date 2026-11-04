@@ -52,6 +52,7 @@ impl Bars {
         crate::wallpaper::configure(config.wallpaper.clone());
         crate::osd::set_layout_rename(&config.layout_rename);
         crate::launcher::configure(&config.launcher_paths);
+        crate::popups::set_bar_at_bottom(config.bar.bottom);
         self.config.replace(config);
         self.problems.replace(problems);
         self.rebuild();
@@ -154,8 +155,12 @@ impl Bars {
         window.set_layer(Layer::Top);
         window.set_monitor(Some(monitor));
         window.set_keyboard_mode(KeyboardMode::None);
-        for edge in [Edge::Top, Edge::Left, Edge::Right] {
+        let bottom = ctx.config.bar.bottom;
+        for edge in [if bottom { Edge::Bottom } else { Edge::Top }, Edge::Left, Edge::Right] {
             window.set_anchor(edge, true);
+        }
+        if bottom {
+            window.add_css_class("bottom");
         }
         window.auto_exclusive_zone_enable();
         window.set_default_size(-1, height);
@@ -175,7 +180,12 @@ impl Bars {
         window.set_child(Some(&wrapped));
         let (output, monitor) = (ctx.output.clone(), monitor.clone());
         self.services.niri.state.bind(&window, move |window, state| {
-            let covered = state.covers_top(&output, f64::from(monitor.geometry().width()));
+            let width = f64::from(monitor.geometry().width());
+            let covered = if bottom {
+                state.covers_bottom(&output, width)
+            } else {
+                state.covers_top(&output, width)
+            };
             if solid.replace(covered) != covered {
                 if covered {
                     window.add_css_class("solid");

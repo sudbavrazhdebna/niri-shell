@@ -22,6 +22,16 @@ struct Card {
     hide: Option<glib::SourceId>,
 }
 
+thread_local! {
+    /// The bar is at the bottom: popups show bottom-right, the newest lowest.
+    static AT_BOTTOM: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Follows the bar's position (from the config). Takes effect with the next popup window.
+pub fn set_bar_at_bottom(bottom: bool) {
+    AT_BOTTOM.set(bottom);
+}
+
 /// Corner radius of `.notification` in style.css, for the blur shape.
 const CARD_RADIUS: i32 = 12;
 
@@ -84,8 +94,10 @@ impl Popups {
         }
         let Some(column) = self.column() else { return };
 
-        // Oldest first, each moved to the top: the newest ends up first.
-        for &id in ids.iter().rev() {
+        // Each moved to the top in turn: oldest last, so the newest ends up first; at the
+        // bottom, newest last, so it ends up last (next to the bar).
+        let order: Vec<u32> = if AT_BOTTOM.get() { ids.to_vec() } else { ids.iter().rev().copied().collect() };
+        for id in order {
             let Some(n) = list.iter().find(|n| n.id == id) else { continue };
             let existing = self.cards.borrow().get(&id).map(|c| c.widget.clone());
             let widget = match existing {
@@ -205,7 +217,9 @@ impl Popups {
         window.set_layer(Layer::Overlay);
         window.set_monitor(self.services.niri.focused_monitor().as_ref());
         window.set_keyboard_mode(KeyboardMode::None);
-        window.set_anchor(Edge::Top, true);
+        // Under a bar at the top; above one at the bottom (as Windows does).
+        let bottom = AT_BOTTOM.get();
+        window.set_anchor(if bottom { Edge::Bottom } else { Edge::Top }, true);
         window.set_anchor(Edge::Right, true);
         // Below the bar.
         window.set_exclusive_zone(0);
