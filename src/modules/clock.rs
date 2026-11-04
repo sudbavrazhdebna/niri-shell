@@ -10,9 +10,9 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use super::Context;
-use crate::notification_card::{card, card_with_click};
+use crate::notification_card::{app_icon, card, card_with_click};
 use crate::services::Services;
-use crate::services::notifications::Notification;
+use crate::services::notifications::{Image, Notification};
 use crate::{menu, ui};
 
 
@@ -157,15 +157,11 @@ impl Render {
             let app = group[0].app_name.clone();
             let open = group.len() == 1 || self.expanded.borrow().contains(&app);
             if open {
+                if group.len() > 1 {
+                    list.append(&self.stack_header(&group[0], &app));
+                }
                 for n in &group {
                     list.append(&card(n, &self.server, Rc::new(menu::close), true));
-                }
-                if group.len() > 1 {
-                    let less = gtk4::Button::with_label("Show less");
-                    less.add_css_class("stack-more");
-                    less.set_halign(gtk4::Align::End);
-                    less.connect_clicked(self.toggle(&app, false));
-                    list.append(&less);
                 }
             } else {
                 list.append(&self.stack(&group, &app));
@@ -216,19 +212,38 @@ impl Render {
         stack
     }
 
-    /// Opens or closes an app's stack.
-    fn toggle(self: &Rc<Self>, app: &str, open: bool) -> impl Fn(&gtk4::Button) + 'static {
+    /// Above an opened stack, as in GNOME: the app's icon and name, and a round button
+    /// that folds the stack again.
+    fn stack_header(self: &Rc<Self>, newest: &Notification, app: &str) -> gtk4::Box {
+        let header = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+        header.add_css_class("stack-header");
+        let icon = gtk4::Image::new();
+        icon.add_css_class("stack-app-icon");
+        match (app_icon(newest), &newest.image) {
+            (Some(gicon), _) => icon.set_from_gicon(&gicon),
+            // No desktop entry: the icon the app named for its notification.
+            (None, Some(Image::Name(name))) => icon.set_icon_name(Some(name)),
+            (None, _) => icon.set_icon_name(Some("dialog-information-symbolic")),
+        }
+        header.append(&icon);
+        let name = gtk4::Label::new(Some(app_label(newest)));
+        name.add_css_class("stack-app-name");
+        name.set_xalign(0.0);
+        name.set_hexpand(true);
+        name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+        header.append(&name);
+        let fold = gtk4::Button::from_icon_name("pan-up-symbolic");
+        fold.add_css_class("stack-fold");
+        fold.set_tooltip_text(Some("Show less"));
         let (this, app) = (Rc::downgrade(self), app.to_string());
-        move |_| {
+        fold.connect_clicked(move |_| {
             if let Some(this) = this.upgrade() {
-                if open {
-                    this.expanded.borrow_mut().insert(app.clone());
-                } else {
-                    this.expanded.borrow_mut().remove(&app);
-                }
+                this.expanded.borrow_mut().remove(&app);
                 this.run();
             }
-        }
+        });
+        header.append(&fold);
+        header
     }
 
     /// Caps the list at its first VISIBLE notifications (with a "more" row after the

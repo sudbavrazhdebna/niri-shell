@@ -148,18 +148,20 @@ fn set_image(image: &gtk4::Image, n: &Notification) {
         Some(Image::File(path)) => image.set_from_file(Some(path)),
         Some(Image::Name(name)) => image.set_icon_name(Some(name)),
         None => {
-            // The app's own icon, from its desktop entry or its name.
-            let gicon = n
-                .desktop_entry
-                .as_deref()
-                .and_then(crate::apps::icon)
-                .or_else(|| crate::apps::icon(&n.app_name.to_lowercase()));
-            match gicon {
+            match app_icon(n) {
                 Some(gicon) => image.set_from_gicon(&gicon),
                 None => image.set_icon_name(Some("dialog-information-symbolic")),
             }
         }
     }
+}
+
+/// The app's own icon, from its desktop entry or its name.
+pub fn app_icon(n: &Notification) -> Option<gtk4::gio::Icon> {
+    n.desktop_entry
+        .as_deref()
+        .and_then(crate::apps::icon)
+        .or_else(|| crate::apps::icon(&n.app_name.to_lowercase()))
 }
 
 /// "now", "5m", "2h", "3d".

@@ -97,7 +97,7 @@ highlight along the top that the fork's cards have.
 - **Center:** in the clock menu, under the calendar: "Clear all", a Do not disturb switch.
   Notifications of one app form a **stack** (like iOS): the newest shows with up to two
   narrower, darker cards behind it, peeking out below; a click anywhere on it expands it,
-  "Show less" folds it.
+  then a header (app icon, name, a round fold button, as in GNOME) folds it again.
 - **Bar:** a dot by the clock while there are unseen notifications; a bell-off icon in DND.
 - **Do not disturb** survives a restart; critical notifications still show (like GNOME).
 - History lives in memory (gone after a restart), the newest 100; older ones close.
