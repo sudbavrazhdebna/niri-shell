@@ -193,9 +193,8 @@ fn speed(bytes: u64) -> String {
 /// One network; a secured unknown one opens a password field under it.
 fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
-    let trailing = if network.secured && !network.known { "🔒" } else { "" };
     let (w, n, h) = (wifi.clone(), network.clone(), holder.downgrade());
-    let row = ui::icon_item(wifi_icon(network.strength), &network.ssid, trailing, move || {
+    let row = ui::icon_item(wifi_icon(network.strength), &network.ssid, "", move || {
         if n.active {
             return;
         }
@@ -209,6 +208,10 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     });
     if network.active {
         row.add_css_class("active");
+    }
+    // A password is needed: a lock at the end, dim like the other trailing details.
+    if network.secured && !network.known {
+        ui::trailing_icon(&row, "nshell-lock-symbolic");
     }
     holder.append(&row);
     holder

@@ -254,8 +254,41 @@ button.menu-item.active {
     font-weight: bold;
 }
 
-.menu-password {
+.menu-trailing-icon {
+    -gtk-icon-size: 14px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+/* The Wi-Fi password field, in the menus' own look rather than the GTK theme's (its
+   dark frame and plain field looked like another program). */
+entry.menu-password {
     margin: 2px 8px 6px;
+    min-height: 32px;
+    padding: 0 10px;
+    border: none;
+    outline: none;
+    border-radius: 8px;
+    background: var(--inner);
+    box-shadow: inset 0 0 0 1px var(--glass-edge);
+    color: var(--text);
+    caret-color: var(--text);
+}
+
+entry.menu-password:focus-within {
+    box-shadow: inset 0 0 0 2px alpha(var(--accent), 0.8);
+}
+
+entry.menu-password placeholder {
+    color: var(--text-faint);
+}
+
+entry.menu-password text selection {
+    background: alpha(var(--accent), 0.5);
+}
+
+entry.menu-password image {
+    -gtk-icon-size: 16px;
+    color: var(--text-dim);
 }
 
 /* ---- Control center ---- */

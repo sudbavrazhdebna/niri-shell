@@ -272,6 +272,14 @@ pub fn icon_item(icon: &str, text: &str, trailing: &str, on_click: impl Fn() + '
     button
 }
 
+/// Adds a dim icon at the end of an [`icon_item`] row.
+pub fn trailing_icon(item: &gtk4::Button, icon: &str) {
+    let Some(row) = item.child().and_downcast::<gtk4::Box>() else { return };
+    let image = gtk4::Image::from_icon_name(icon);
+    image.add_css_class("menu-trailing-icon");
+    row.append(&image);
+}
+
 /// Starts a program (e.g. a settings app) that outlives the shell.
 pub fn launch(command: &str) {
     crate::launch::command(command);
