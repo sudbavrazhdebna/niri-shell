@@ -1,7 +1,7 @@
 # Control center proposal
 
-This is the selected visual proposal. The live implementation is in
-`src/modules/control.rs` and `src/style.css`. Values, device names and media
+This is a visual proposal kept for reference. Its live-shell trial was reverted;
+`src/modules/control.rs` and `src/style.css` use the original control center. Values, device names and media
 metadata are illustrative. Generate with `python3 generate.py` (PyGObject, Cairo,
 Pango, Pillow and the installed Adwaita symbolic icon set).
 
@@ -34,5 +34,5 @@ information with the power profiles below the everyday controls.
 
 Brightness and keyboard light remain conditional on hardware support; media remains
 conditional on an available player. Those sections are shown together here to
-review their spacing. The live implementation retains the existing confirmation for restart/shutdown
-and fits the available screen height.
+review their spacing. The original control center retains its restart/shutdown confirmation and
+fits the available screen height.

@@ -203,7 +203,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         while let Some(child) = card.first_child() {
             card.remove(&child);
         }
-        append_content(&card, content, &monitor, &bar);
+        card.append(&scrolling(content, &monitor, &bar));
         placed_under.replace(anchor.downgrade());
         if let Some(wrapped) = window.child() {
             let (_, natural, _, _) = wrapped.measure(gtk4::Orientation::Horizontal, -1);
@@ -263,7 +263,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
 
     let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     card.add_css_class("menu-card");
-    append_content(&card, content, &monitor, &bar);
+    card.append(&scrolling(content, &monitor, &bar));
     // Re-centered under its module whenever the card changes size.
     let placed_under = Rc::new(RefCell::new(anchor.downgrade()));
     let (window_weak, under) = (window.downgrade(), placed_under.clone());
@@ -328,16 +328,6 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
 /// Room the card's padding, shadow margin and a gap at the far screen edge take, beyond
 /// the content.
 const MENU_FRAME: i32 = 60;
-
-fn append_content(card: &gtk4::Box, content: &impl IsA<gtk4::Widget>, monitor: &gdk::Monitor, bar: &gtk4::Window) {
-    // The same card is reused when moving between modules; its layout must follow.
-    if content.has_css_class("control-center") {
-        card.add_css_class("control-menu");
-    } else {
-        card.remove_css_class("control-menu");
-    }
-    card.append(&scrolling(content, monitor, bar));
-}
 
 /// Wraps menu content so that a menu taller than the screen scrolls (with the wheel)
 /// instead of running off it; shorter ones are exactly their content's size.

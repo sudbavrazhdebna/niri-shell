@@ -359,194 +359,116 @@ entry.menu-password image {
 
 /* ---- Control center ---- */
 
-.menu-card.control-menu {
-    padding: 16px;
-    border-radius: 20px;
-}
-
 .control-center {
-    padding: 0;
-    font-size: 12px;
+    padding: 4px;
 }
 
-/* A single surface treatment for every block; inset edges keep sizes unchanged. */
-.control-center .control-panel,
-.control-center button.tile {
-    background: var(--inner);
-    border-radius: 12px;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10),
-                0 2px 4px rgba(0, 0, 0, 0.16);
+.control-center > * {
+    margin-bottom: 8px;
 }
 
-.control-center .control-panel {
+/* `background` (not -color): it also clears the theme's button image. */
+button.tile {
     padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
 }
 
-.control-center button.tile {
-    padding: 8px 4px;
-    min-width: 0;
-    min-height: 62px;
+button.tile:hover {
+    background: rgba(255, 255, 255, 0.13);
 }
 
-.control-center button.tile:hover {
-    background: var(--inner-hover);
+button.tile.active {
+    background: alpha(var(--accent), 0.85);
 }
 
-.control-center button.tile:active {
-    background: rgba(255, 255, 255, 0.16);
+button.tile.active:hover {
+    background: alpha(mix(var(--accent), white, 0.1), 0.9);
 }
 
-.control-center .tile-icon {
-    -gtk-icon-size: 20px;
-    padding: 4px;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.16);
-}
-
-.control-center button.tile.active .tile-icon {
-    background: var(--accent);
-}
-
-.control-center .tile-title {
-    font-size: 11px;
-    font-weight: 500;
-}
-
-.control-center .tile-subtitle {
-    font-size: 10px;
-    color: var(--text-dim);
-}
-
-.control-center .control-slider {
-    min-height: 40px;
-}
-
-.control-center .menu-row-icon {
-    -gtk-icon-size: 17px;
-}
-
-.control-center scale {
-    padding: 4px 0;
-}
-
-.control-center scale trough highlight {
-    background: var(--text);
-}
-
-.control-center scale trough slider {
-    min-width: 12px;
-    min-height: 12px;
-    margin: -4px;
-    border-radius: 6px;
-}
-
-.control-center .player-cover {
-    min-width: 36px;
-    min-height: 36px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.12);
-}
-
-.control-center .player-title {
-    font-weight: 500;
-}
-
-.control-center .player-artist {
-    font-size: 11px;
-    color: var(--text-dim);
-}
-
-.control-center button.player-button {
-    padding: 4px;
-    min-width: 0;
-    min-height: 0;
-    border-radius: 8px;
-    background: transparent;
+.tile-icon {
     -gtk-icon-size: 18px;
 }
 
-.control-center button.player-button:hover {
-    background: var(--inner-hover);
+.tile-title {
+    font-weight: bold;
 }
 
-.control-center .system-stat {
-    padding: 8px 12px;
-}
-
-.control-center .stat-name,
-.control-center .stat-value,
-.control-center .control-section-title {
-    font-size: 11px;
-    font-weight: normal;
-}
-
-.control-center .stat-name,
-.control-center .control-section-title {
+.tile-subtitle {
+    font-size: 0.85em;
     color: var(--text-dim);
 }
 
-.control-center .stat-value {
-    color: var(--text);
+.control-sliders {
+    padding: 6px 4px;
+    border-radius: 12px;
+    background-color: var(--inner);
 }
 
-.control-center .stat-bar trough,
-.control-center .stat-bar trough block {
-    min-height: 3px;
-    border-radius: 2px;
+.player {
+    padding: 8px 10px;
+    border-radius: 12px;
+    background-color: var(--inner);
 }
 
-.control-center .control-power {
-    padding: 8px 12px;
+.player-title {
+    font-weight: bold;
 }
 
-.control-center .power-profiles button {
-    padding: 3px 4px;
-    min-width: 0;
-    min-height: 0;
-    font-size: 11px;
-    font-weight: normal;
-    border-radius: 6px;
+.player-artist {
+    font-size: 0.9em;
+    color: var(--text-dim);
+}
+
+button.player-button {
+    padding: 4px;
+    border-radius: 8px;
+}
+
+/* Power profiles as one segmented control (not the theme's linked buttons): a panel,
+   the chosen profile a lighter plate in it. */
+.power-profiles {
+    padding: 3px;
+    border-radius: 11px;
+    background: var(--inner);
+}
+
+.power-profiles button {
+    padding: 5px 6px;
+    font-size: 0.9em;
+    border-radius: 8px;
     background: transparent;
     color: var(--text-dim);
 }
 
-.control-center .power-profiles button:hover {
-    background: var(--inner-hover);
+.power-profiles button:hover {
+    background: rgba(255, 255, 255, 0.06);
 }
 
-.control-center .power-profiles button:checked {
+.power-profiles button:checked {
     background: rgba(255, 255, 255, 0.16);
     color: var(--text);
 }
 
-.control-center .session-buttons {
-    padding: 4px;
+button.session-button {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.1);
 }
 
-.control-center button.session-button {
-    min-width: 0;
-    min-height: 0;
-    padding: 4px;
-    border-radius: 8px;
-    background: transparent;
-    -gtk-icon-size: 20px;
+button.session-button:hover {
+    background: rgba(255, 255, 255, 0.18);
 }
 
-.control-center button.session-button:hover {
-    background: var(--inner-hover);
-}
-
-.control-center button.session-button.armed {
+button.session-button.armed {
     background: alpha(var(--danger), 0.9);
 }
 
-.control-center .session-caption {
-    font-size: 10px;
-    color: var(--text-dim);
-}
-
-.control-center button.session-button.armed .session-caption {
-    color: white;
+.session-caption {
+    font-size: 0.8em;
+    color: rgba(255, 255, 255, 0.75);
 }
 
 /* ---- OSD (looks like the swayosd setup it replaces) ---- */
@@ -938,6 +860,12 @@ button.dock-button {
 
 button.dock-button:hover {
     background: rgba(255, 255, 255, 0.1);
+}
+
+.system-stats {
+    padding: 8px 10px;
+    border-radius: 12px;
+    background-color: var(--inner);
 }
 
 .stat-name {

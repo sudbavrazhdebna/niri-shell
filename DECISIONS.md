@@ -302,18 +302,10 @@ each section. Read before changing any of these.
   behaviour stay the same. The chevron rotates upward in 150 ms while its menu is open,
   and returns downward when it closes or another menu takes over. Only the inner image
   rotates, keeping the asymmetric padding, hover plate and hit area stationary.
-- Control center uses the selected grouped-popup study: one glass card, 16 px outer
-  padding, 8 px between visible blocks and a shared 12 px inner surface radius/edge/
-  shadow. Wi-Fi, Bluetooth, keyboard light and Stay awake form one homogeneous row;
-  absent keyboard hardware is hidden without leaving a slot. Only the icon circle
-  turns blue. Keyboard light cycles the hardware levels and shows Off / 50% / 100%
-  on the two-level keyboard. Sound and brightness have separate named slider cards,
-  then the optional player, two separate gauges, power profiles and one shared session
-  surface. Slider values follow the displayed thumb while dragging. Session captions
-  are part of the clickable cell; restart/shutdown keep the existing second-click
-  confirmation. `.control-menu` follows the content when the shared menu card is reused
-  so other module menus retain their own padding. The selected mockup is kept in
-  `design/control-center-studies`; its generator only emits that approved variant.
+- Control center keeps its original 2×2 tiles, shared slider surface and original
+  player/stats/session layout. The grouped-popup study was tried in the live shell
+  and reverted at the user's request; the selected mockup remains a reference only.
+  The bar chevron's open/close animation is independent and stays enabled.
 - Bar tooltips reuse the Waybar information: battery capacity/time/power, Wi-Fi
   SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
   their battery levels. Text is built on GTK's tooltip request from existing caches:
