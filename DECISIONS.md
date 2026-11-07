@@ -297,7 +297,9 @@ each section. Read before changing any of these.
   unchanged. The Wi-Fi cross means disconnected only: even a connected network below
   10% signal shows the weakest signal icon. The control-center button uses the chosen
   Soft downward chevron: a rounded white stroke, replacing the two horizontal switches.
-  The menu and the button's behaviour stay the same.
+  Its left padding is 5 px instead of 9: the narrow glyph has more internal whitespace
+  than its neighbours, so the gap needs an optical correction. The menu and the button's
+  behaviour stay the same.
 - Menus, OSD, popups and dock share one card look through CSS variables (`--glass`,
   `--glass-edge`, `--glass-shadow`, `--accent`, … at the top of style.css), so a user's
   `:root { … }` restyles all of them. The edge is an inset 1 px shadow, never a `border`
