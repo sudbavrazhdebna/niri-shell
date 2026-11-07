@@ -299,7 +299,9 @@ each section. Read before changing any of these.
   Soft downward chevron: a rounded white stroke, replacing the two horizontal switches.
   Its left padding is 5 px instead of 9: the narrow glyph has more internal whitespace
   than its neighbours, so the gap needs an optical correction. The menu and the button's
-  behaviour stay the same.
+  behaviour stay the same. The chevron rotates upward in 150 ms while its menu is open,
+  and returns downward when it closes or another menu takes over. Only the inner image
+  rotates, keeping the asymmetric padding, hover plate and hit area stationary.
 - Bar tooltips reuse the Waybar information: battery capacity/time/power, Wi-Fi
   SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
   their battery levels. Text is built on GTK's tooltip request from existing caches:

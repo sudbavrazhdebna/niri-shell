@@ -8,7 +8,7 @@ use std::time::Duration;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use super::{Context, icon_module};
+use super::Context;
 use crate::services::Services;
 use crate::services::network::Link;
 use crate::services::audio::MAX_PERCENT;
@@ -18,9 +18,15 @@ use crate::{menu, ui};
 const CONFIRM_TIME: Duration = Duration::from_secs(3);
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
-    let image = icon_module("control");
-    image.set_icon_name(Some("nshell-control"));
-    super::tooltips::text(&image, || Some("Control center".into()));
+    // Rotate only the image; the padded hit area and hover plate stay in place.
+    let root = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+    for class in ["module", "icon", "control"] {
+        root.add_css_class(class);
+    }
+    let image = gtk4::Image::from_icon_name("nshell-control");
+    image.add_css_class("control-chevron");
+    root.append(&image);
+    super::tooltips::text(&root, || Some("Control center".into()));
     ctx.services.session().set_lock_command(&ctx.config.idle.lock_command);
     // Start what the menu shows now, so it is known when the menu opens: started on the
     // first opening, the power profiles row came a few frames late and the menu grew and
@@ -36,8 +42,8 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         ctx.services.session().set_awake(true);
     }
     let services = ctx.services.clone();
-    menu::attach(&image, move |anchor| menu::show(anchor, &content(&services)));
-    image.upcast()
+    menu::attach(&root, move |anchor| menu::show(anchor, &content(&services)));
+    root.upcast()
 }
 
 fn content(services: &Rc<Services>) -> gtk4::Box {

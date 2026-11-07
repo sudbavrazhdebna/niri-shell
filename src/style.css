@@ -124,6 +124,15 @@ window.bar.solid .bar-content {
     padding-left: 5px;
 }
 
+.bar-content .control-chevron {
+    transform: rotate(0deg);
+    transition: transform 150ms ease-out;
+}
+
+.bar-content .control.menu-open .control-chevron {
+    transform: rotate(180deg);
+}
+
 .bar-content .keyboard {
     font-weight: 600;
     /* EN and RU differ in width; a fixed minimum keeps the neighbours in place. */
