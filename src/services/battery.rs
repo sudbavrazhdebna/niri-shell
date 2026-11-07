@@ -34,6 +34,10 @@ pub struct Battery {
 }
 
 impl Battery {
+    pub fn power(&self) -> Option<f64> {
+        self._proxy.borrow().as_ref().and_then(|proxy| prop(proxy, "EnergyRate"))
+    }
+
     pub fn start() -> Battery {
         let state = Watch::new(BatteryState::default());
         let slot: std::rc::Rc<std::cell::RefCell<Option<gio::DBusProxy>>> = std::rc::Rc::default();

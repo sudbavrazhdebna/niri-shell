@@ -5,12 +5,14 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 
-use super::{Context, icon_module};
+use super::{Context, icon_module, tooltips};
 use crate::services::Services;
 use crate::{menu, ui};
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("bluetooth");
+    let services = ctx.services.clone();
+    tooltips::text(&image, move || Some(tooltips::bluetooth(&services.bluetooth().state.get())));
     image.set_icon_name(Some("nshell-bluetooth"));
     ctx.services.bluetooth().state.bind(&image, |image, state| {
         image.set_visible(state.powered);
@@ -19,6 +21,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         } else {
             image.remove_css_class("connected");
         }
+        image.trigger_tooltip_query();
     });
     let services = ctx.services.clone();
     menu::attach(&image, move |anchor| menu::show(anchor, &menu_content(&services)));

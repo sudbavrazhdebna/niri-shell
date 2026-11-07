@@ -7,7 +7,7 @@ use std::rc::Rc;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use super::{Context, icon_module};
+use super::{Context, icon_module, tooltips};
 use crate::services::network::Link;
 use crate::services::wifi::{Network, Wifi, WifiState};
 use crate::{menu, ui};
@@ -17,6 +17,11 @@ const MAX_NETWORKS: usize = 10;
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("network");
+    let services = ctx.services.clone();
+    tooltips::text(&image, move || {
+        let network = services.network();
+        Some(tooltips::network(&network.state.get(), &network.wifi_details()))
+    });
     ctx.services.network().state.bind(&image, |image, state| {
         let icon = match state.link {
             Link::Wifi { strength, .. } => wifi_icon(strength),
@@ -24,6 +29,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
             Link::Wired => "network-wired-symbolic",
         };
         ui::set_icon(image, icon);
+        image.trigger_tooltip_query();
     });
     menu::attach(&image, |anchor| {
         // Shown once the known networks are read (~0.05 s), so it doesn't build up in pieces.

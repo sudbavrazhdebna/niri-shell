@@ -19,6 +19,7 @@ const STEP: i32 = 5;
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("display");
     image.set_icon_name(Some("display-brightness-symbolic"));
+    super::tooltips::text(&image, || Some("Displays and brightness".into()));
     let s = ctx.services.clone();
     on_scroll(&image, move |steps| {
         let brightness = s.brightness();

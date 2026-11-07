@@ -29,6 +29,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     root.append(&label);
     root.append(&dnd);
     root.append(&dot);
+    calendar_tooltip(&root);
 
     let format = ctx.config.clock.format.clone();
     let clock = ctx.services.clock();
@@ -49,6 +50,33 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         menu::show(anchor, &menu_content(&services));
     });
     root.upcast()
+}
+
+fn calendar_tooltip(root: &gtk4::Box) {
+    root.set_has_tooltip(true);
+    let calendar = std::cell::OnceCell::<gtk4::Calendar>::new();
+    root.connect_query_tooltip(move |root, _, _, _, tooltip| {
+        if root.has_css_class("menu-open") {
+            return false;
+        }
+        let calendar = calendar.get_or_init(|| {
+            let calendar = gtk4::Calendar::new();
+            calendar.add_css_class("tooltip-calendar");
+            calendar.set_can_focus(false);
+            center_days(&calendar);
+            calendar
+        });
+        if let Ok(now) = glib::DateTime::now_local() {
+            let date = calendar.date();
+            if (date.year(), date.month(), date.day_of_month())
+                != (now.year(), now.month(), now.day_of_month())
+            {
+                calendar.select_day(&now);
+            }
+        }
+        tooltip.set_custom(Some(calendar));
+        true
+    });
 }
 
 fn menu_content(services: &Rc<Services>) -> gtk4::Box {

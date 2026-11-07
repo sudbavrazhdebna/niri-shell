@@ -5,13 +5,18 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 
-use super::{Context, icon_module};
+use super::{Context, icon_module, tooltips};
 use crate::services::Services;
 use crate::services::battery::{BatteryState, Charge};
 use crate::{menu, ui};
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("battery");
+    let services = ctx.services.clone();
+    tooltips::text(&image, move || {
+        let battery = services.battery();
+        Some(tooltips::battery(&battery.state.get(), battery.power()))
+    });
     ctx.services.battery().state.bind(&image, |image, state| {
         image.set_visible(state.present);
         // Like waybar's states: 41..50% shows the 50 icon.
@@ -21,6 +26,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
             Charge::Charging | Charge::Plugged => "charging-",
         };
         ui::set_icon(image, &format!("nshell-battery-{kind}{level}"));
+        image.trigger_tooltip_query();
     });
 
     let services = ctx.services.clone();

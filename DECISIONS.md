@@ -300,6 +300,13 @@ each section. Read before changing any of these.
   Its left padding is 5 px instead of 9: the narrow glyph has more internal whitespace
   than its neighbours, so the gap needs an optical correction. The menu and the button's
   behaviour stay the same.
+- Bar tooltips reuse the Waybar information: battery capacity/time/power, Wi-Fi
+  SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
+  their battery levels. Text is built on GTK's tooltip request from existing caches:
+  exact Wi-Fi values do not replace the stepped bar state, and no polling is added.
+  Missing readings show a dash. Remote names are plain text. The clock uses a cached
+  GTK calendar with Waybar's colours, retaining the configured locale/week start.
+  Tooltips stay hidden while the module's menu is open.
 - Menus, OSD, popups and dock share one card look through CSS variables (`--glass`,
   `--glass-edge`, `--glass-shadow`, `--accent`, … at the top of style.css), so a user's
   `:root { … }` restyles all of them. The edge is an inset 1 px shadow, never a `border`

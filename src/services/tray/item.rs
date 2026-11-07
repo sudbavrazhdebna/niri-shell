@@ -64,6 +64,19 @@ pub struct Item {
 const RELOAD_INTERVAL: Duration = Duration::from_millis(500);
 
 impl Item {
+    pub fn tooltip_text(&self) -> String {
+        let title = self.state.get().title.clone();
+        let body = self.proxy.cached_property("ToolTip")
+            .and_then(|tip| child(&tip, 3))
+            .and_then(|v| v.get::<String>())
+            .unwrap_or_default();
+        match (title.is_empty(), body.is_empty()) {
+            (true, _) => body,
+            (_, true) => title,
+            _ => format!("{title}\n{body}"),
+        }
+    }
+
     pub async fn connect(conn: &gio::DBusConnection, bus: &str, path: &str) -> Option<Rc<Item>> {
         // The proxy subscribes to signals before it reads the properties, so an icon
         // changed right after registration isn't missed.

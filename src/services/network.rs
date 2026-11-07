@@ -40,6 +40,12 @@ pub struct Network {
 }
 
 #[derive(Default)]
+pub struct WifiDetails {
+    pub strength: Option<u8>,
+    pub frequency: Option<u32>,
+}
+
+#[derive(Default)]
 struct Inner {
     nm: RefCell<Option<gio::DBusProxy>>,
     /// The access point being followed for signal strength.
@@ -49,6 +55,15 @@ struct Inner {
 }
 
 impl Network {
+    /// Exact tooltip values, without publishing every signal-percent change to the bar.
+    pub fn wifi_details(&self) -> WifiDetails {
+        let ap = self.inner.access_point.borrow();
+        WifiDetails {
+            strength: ap.as_ref().and_then(|ap| prop(ap, "Strength")),
+            frequency: ap.as_ref().and_then(|ap| prop(ap, "Frequency")),
+        }
+    }
+
     pub fn start() -> Network {
         let network = Network {
             state: Watch::new(NetworkState::default()),

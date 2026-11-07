@@ -8,6 +8,7 @@ mod display;
 mod keyboard;
 mod media;
 mod network;
+mod tooltips;
 mod tray;
 mod volume;
 mod window_title;

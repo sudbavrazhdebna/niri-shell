@@ -20,6 +20,7 @@ const CONFIRM_TIME: Duration = Duration::from_secs(3);
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("control");
     image.set_icon_name(Some("nshell-control"));
+    super::tooltips::text(&image, || Some("Control center".into()));
     ctx.services.session().set_lock_command(&ctx.config.idle.lock_command);
     // Start what the menu shows now, so it is known when the menu opens: started on the
     // first opening, the power profiles row came a few frames late and the menu grew and

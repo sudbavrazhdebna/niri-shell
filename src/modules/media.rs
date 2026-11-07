@@ -36,6 +36,13 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
 
     let services = ctx.services.clone();
     let s = services.clone();
+    super::tooltips::text(&root, move || {
+        s.media().current.get().as_ref().map(|track| {
+            let title = display_title(track);
+            if track.album.is_empty() { title } else { format!("{title}\n{}", track.album) }
+        })
+    });
+    let s = services.clone();
     play.connect_clicked(move |_| s.media().play_pause());
     services.media().current.bind(&root, move |root, track| {
         root.set_visible(track.is_some());

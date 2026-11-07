@@ -138,6 +138,71 @@ window.bar.solid .bar-content {
     color: #ffcc33;
 }
 
+/* ---- Tooltips: the compact dark card and calendar colours from Waybar ---- */
+
+tooltip {
+    background: rgba(20, 21, 23, 0.99);
+    color: white;
+    border: 1px solid rgb(69, 70, 72);
+    border-radius: 14px;
+    padding: 14px 20px;
+    font-size: 18px;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
+}
+
+tooltip label {
+    text-shadow: none;
+}
+
+.tooltip-calendar {
+    background: transparent;
+    border: none;
+    font-family: monospace;
+    color: #ecc6d9;
+}
+
+.tooltip-calendar > header {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: #ffead3;
+    font-weight: bold;
+}
+
+.tooltip-calendar > header button {
+    opacity: 0;
+    padding: 0;
+    min-width: 0;
+    min-height: 0;
+}
+
+.tooltip-calendar > grid > label {
+    padding: 3px;
+}
+
+.tooltip-calendar > grid > label.day-name {
+    color: #ffcc66;
+    font-weight: bold;
+}
+
+.tooltip-calendar > grid > label.other-month {
+    opacity: 0;
+}
+
+.tooltip-calendar > grid > label:selected {
+    background: transparent;
+    color: inherit;
+}
+
+.tooltip-calendar > grid > label.today,
+.tooltip-calendar > grid > label.today:selected {
+    background: transparent;
+    color: #ff6699;
+    font-weight: bold;
+    text-decoration-line: underline;
+    box-shadow: none;
+}
+
 /* ---- Menus: dark glass card under the bar ---- */
 
 window.nshell-menu {

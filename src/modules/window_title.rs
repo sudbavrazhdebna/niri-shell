@@ -46,6 +46,10 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     label.set_max_width_chars(ctx.config.window_title.max_length);
     root.append(&icon);
     root.append(&label);
+    let (niri, output) = (ctx.services.niri.clone(), ctx.output.clone());
+    super::tooltips::text(&root, move || {
+        niri.state.get().active_window_on(&output).and_then(|w| w.title.clone())
+    });
 
     let view = Rc::new(View {
         root: root.downgrade(),

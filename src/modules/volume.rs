@@ -6,17 +6,20 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 
-use super::{Context, MIDDLE, RIGHT, icon_module, on_click, on_scroll};
+use super::{Context, MIDDLE, RIGHT, icon_module, on_click, on_scroll, tooltips};
 use crate::services::audio::{Audio, AudioState, MAX_PERCENT};
 use crate::{menu, ui};
 
 pub fn build(ctx: &Context) -> Option<gtk4::Widget> {
     let audio = ctx.services.audio()?.clone();
     let image = icon_module("volume");
+    let a = audio.clone();
+    tooltips::text(&image, move || Some(tooltips::audio(&a.state.get())));
 
     audio.state.bind(&image, |image, state| {
         image.set_visible(state.available);
         ui::set_icon(image, icon(state));
+        image.trigger_tooltip_query();
     });
 
     let step = ctx.config.volume.scroll_step;

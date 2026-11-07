@@ -35,6 +35,8 @@ fn item_widget(item: &Rc<Item>) -> gtk4::Image {
     image.add_css_class("module");
     image.add_css_class("icon");
     image.add_css_class("tray-item");
+    let i = item.clone();
+    super::tooltips::text(&image, move || Some(i.tooltip_text()));
 
     item.state.bind(&image, |image, state| {
         image.set_visible(state.status != Status::Passive);

@@ -22,6 +22,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         label.set_visible(current.is_some());
         if let Some(name) = current {
             label.set_label(&short_name(name));
+            label.set_tooltip_text(Some(name));
         }
 
     });
