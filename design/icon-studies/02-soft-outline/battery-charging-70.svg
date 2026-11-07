@@ -1,0 +1,3 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+<defs><mask id="bolt-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32"><rect width="32" height="32" fill="white"/><path d="M17.5 6.8 11.5 17.2H16L14.5 25.2 21 14.6H16.5Z" fill="black" stroke="black" stroke-width="1.9" stroke-linejoin="round"/></mask></defs><g mask="url(#bolt-gap)"><rect x="2" y="8.25" width="25" height="15.5" rx="4" fill="none" stroke="#ffffff" stroke-width="1.8"/><rect x="29" y="13" width="1.8" height="6" rx="0.9" fill="#ffffff"/><rect x="4.8" y="12.5" width="13.58" height="7" rx="1.6" fill="#5cdb87"/></g><path d="M17.5 6.8 11.5 17.2H16L14.5 25.2 21 14.6H16.5Z" fill="#ffffff"/>
+</svg>
