@@ -30,6 +30,7 @@ thread_local! {
 
 /// The folders whose files the launcher finds (at start and on config reload).
 pub fn configure(paths: &[PathBuf]) {
+    search::configure_files(paths);
     SEARCH_PATHS.set(paths.to_vec());
 }
 
@@ -320,6 +321,7 @@ impl Launcher {
                 self.history.borrow_mut().record(&app.id);
                 match self.windows_of(&app).and_then(|w| w.first()).filter(|_| !another) {
                     Some(&id) => self.services.niri.action(Action::FocusWindow { id }),
+                    None if another => crate::launch::new_window(&app.info),
                     None => crate::launch::app(&app.info),
                 }
             }

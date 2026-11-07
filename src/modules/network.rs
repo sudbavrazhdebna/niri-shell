@@ -37,13 +37,13 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     image.upcast()
 }
 
-/// Thresholds as in waybar: 66+ full, 33+ two bars, 10+ one bar.
+/// A connected network always has a signal icon, even below 10%. The crossed-out
+/// icon belongs only to Link::Offline, not to a weak but working connection.
 fn wifi_icon(strength: u8) -> &'static str {
     match strength {
         66.. => "nshell-wifi-100",
         33.. => "nshell-wifi-66",
-        10.. => "nshell-wifi-33",
-        _ => "nshell-wifi-off",
+        _ => "nshell-wifi-33",
     }
 }
 

@@ -158,7 +158,10 @@ impl Render {
     /// moves up under the pointer. Folding a stack or clearing all does shrink it.
     fn run(self: &Rc<Self>, hold: bool) {
         let Some(list) = self.list.upgrade() else { return };
-        let notifications = self.server.list.get().clone();
+        let notifications: Vec<_> = self.server.list.get().iter()
+            .filter(|n| !n.transient)
+            .cloned()
+            .collect();
         let held = match self.scroll.upgrade() {
             Some(scroll) if hold && !notifications.is_empty() => scroll.vadjustment().page_size() as i32,
             _ => 0,

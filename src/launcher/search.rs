@@ -230,34 +230,92 @@ const MAX_DEPTH: usize = 8;
 /// An index younger than this is reused when the launcher opens again.
 const FRESH: Duration = Duration::from_secs(60);
 
-thread_local! {
-    static INDEX: RefCell<Option<(Instant, Rc<Vec<FileHit>>)>> = const { RefCell::new(None) };
+#[derive(Default)]
+struct FileIndex {
+    roots: Vec<PathBuf>,
+    generation: u64,
+    current: Option<(Instant, Rc<Vec<FileHit>>)>,
+    running: bool,
+    waiting: Vec<Box<dyn FnOnce()>>,
 }
 
-/// The file index if there is one; starts making a new one when it is missing or old,
-/// and calls `ready` once that is done.
-pub fn files(roots: &[PathBuf], ready: impl FnOnce() + 'static) -> Option<Rc<Vec<FileHit>>> {
-    let current = INDEX.with_borrow(|index| index.clone());
-    if roots.is_empty() {
-        return None;
+impl FileIndex {
+    fn configure(&mut self, roots: &[PathBuf]) {
+        if self.roots != roots {
+            self.roots = roots.to_vec();
+            self.generation = self.generation.wrapping_add(1);
+            self.current = None;
+            self.running = false;
+            self.waiting.clear();
+        }
     }
-    if current.as_ref().is_none_or(|(made, _)| made.elapsed() > FRESH) {
+
+    fn finish(&mut self, generation: u64, found: Option<Vec<FileHit>>) -> Vec<Box<dyn FnOnce()>> {
+        // A scan of the previous folders may finish after settings have changed.
+        if generation != self.generation {
+            return Vec::new();
+        }
+        self.running = false;
+        match found {
+            Some(found) => {
+                self.current = Some((Instant::now(), Rc::new(found)));
+                std::mem::take(&mut self.waiting)
+            }
+            None => {
+                self.waiting.clear();
+                Vec::new()
+            }
+        }
+    }
+}
+
+thread_local! {
+    static INDEX: RefCell<FileIndex> = RefCell::new(FileIndex::default());
+}
+
+pub fn configure_files(roots: &[PathBuf]) {
+    INDEX.with_borrow_mut(|index| index.configure(roots));
+}
+
+/// Reuses a fresh index, or starts one scan shared by all pending searches.
+pub fn files(roots: &[PathBuf], ready: impl FnOnce() + 'static) -> Option<Rc<Vec<FileHit>>> {
+    let (current, start) = INDEX.with_borrow_mut(|index| {
+        index.configure(roots);
+        if roots.is_empty() {
+            return (None, None);
+        }
+        let stale = index.current.as_ref().is_none_or(|(made, _)| made.elapsed() > FRESH);
+        let start = if stale {
+            index.waiting.push(Box::new(ready));
+            if index.running {
+                None
+            } else {
+                index.running = true;
+                Some(index.generation)
+            }
+        } else {
+            None
+        };
+        (index.current.as_ref().map(|(_, files)| files.clone()), start)
+    });
+    if let Some(generation) = start {
         let roots = roots.to_vec();
         glib::spawn_future_local(async move {
-            let Ok(found) = gio::spawn_blocking(move || walk(&roots)).await else { return };
-            let found: Vec<FileHit> = found
-                .into_iter()
-                .map(|(path, is_dir)| FileHit {
+            let found = gio::spawn_blocking(move || walk(&roots)).await.ok().map(|found| {
+                found.into_iter().map(|(path, is_dir)| FileHit {
                     name_lower: path.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default(),
                     path,
                     is_dir,
-                })
-                .collect();
-            INDEX.set(Some((Instant::now(), Rc::new(found))));
-            ready();
+                }).collect()
+            });
+            let waiting = INDEX.with_borrow_mut(|index| index.finish(generation, found));
+            // Callbacks can search again, so run them outside the index's borrow.
+            for ready in waiting {
+                ready();
+            }
         });
     }
-    current.map(|(_, files)| files)
+    current
 }
 
 /// Files matching `query` by name, best first.
@@ -317,7 +375,59 @@ pub fn short_path(path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::score;
+    use super::*;
+
+    #[test]
+    fn concurrent_searches_share_scan_and_notify_all_callers() {
+        let context = glib::MainContext::new();
+        context.with_thread_default(|| {
+            context.block_on(async {
+                let roots = vec![PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("config")];
+                let calls = Rc::new(std::cell::Cell::new(0));
+                for _ in 0..2 {
+                    let calls = calls.clone();
+                    assert!(files(&roots, move || calls.set(calls.get() + 1)).is_none());
+                }
+                INDEX.with_borrow(|index| {
+                    assert!(index.running);
+                    assert_eq!(index.waiting.len(), 2);
+                });
+                for _ in 0..1000 {
+                    if calls.get() == 2 {
+                        break;
+                    }
+                    glib::timeout_future(Duration::from_millis(1)).await;
+                }
+                assert_eq!(calls.get(), 2);
+                let found = files(&roots, || panic!("fresh index must not rescan"));
+                assert!(found.is_some_and(|files| !files.is_empty()));
+            });
+        }).unwrap_or_else(|err| panic!("main context: {err}"));
+    }
+
+    #[test]
+    fn changed_roots_drop_cache_and_reject_old_scan() {
+        let mut index = FileIndex::default();
+        index.configure(&[PathBuf::from("old")]);
+        let old = index.generation;
+        index.current = Some((Instant::now(), Rc::new(Vec::new())));
+        index.running = true;
+        index.waiting.push(Box::new(|| panic!("obsolete callback")));
+        index.configure(&[PathBuf::from("new")]);
+        assert!(index.current.is_none());
+        assert!(!index.running);
+        assert!(index.waiting.is_empty());
+        index.running = true;
+        assert!(index.finish(old, Some(Vec::new())).is_empty());
+        assert!(index.running);
+        assert!(index.current.is_none());
+        let current = index.generation;
+        index.finish(current, Some(Vec::new()));
+        assert!(!index.running);
+        assert!(index.current.is_some());
+        index.configure(&[]);
+        assert!(index.current.is_none());
+    }
 
     #[test]
     fn match_quality_orders() {

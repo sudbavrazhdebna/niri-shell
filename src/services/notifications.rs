@@ -143,6 +143,23 @@ impl Notifications {
                 p.retain(|id| critical.contains(id));
                 p.len() != before
             });
+            self.close_hidden_transients();
+        }
+    }
+
+    /// Transient notifications have no history: if no popup can show them, close them.
+    fn close_hidden_transients(&self) {
+        let ids: Vec<u32> = {
+            let popups = self.popups.get();
+            self.list
+                .get()
+                .iter()
+                .filter(|n| n.transient && !popups.contains(&n.id))
+                .map(|n| n.id)
+                .collect()
+        };
+        for id in ids {
+            self.close(id, Reason::Expired);
         }
     }
 
@@ -309,6 +326,7 @@ impl Notifications {
                 true
             });
         }
+        self.close_hidden_transients();
         id
     }
 }
@@ -451,6 +469,53 @@ fn save_dnd(on: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn server() -> Notifications {
+        Notifications {
+            list: Watch::new(Vec::new()),
+            popups: Watch::new(Vec::new()),
+            dnd: Watch::new(false),
+            unseen: Watch::new(false),
+            conn: RefCell::new(None),
+            next_id: Cell::new(1),
+        }
+    }
+
+    fn send(server: &Notifications, transient: bool, critical: bool) -> u32 {
+        let hints = std::collections::HashMap::from([
+            ("transient", transient.to_variant()),
+            ("urgency", (if critical { 2u8 } else { 1u8 }).to_variant()),
+        ]);
+        server.notify(&("test", 0u32, "", "hello", "body", Vec::<String>::new(), hints, -1i32).to_variant())
+    }
+
+    #[test]
+    fn dnd_closes_transients_without_discarding_history_or_critical_popups() {
+        let server = server();
+        server.dnd.set(true);
+        let transient = send(&server, true, false);
+        assert!(!server.list.get().iter().any(|n| n.id == transient));
+        let normal = send(&server, false, false);
+        assert!(server.list.get().iter().any(|n| n.id == normal));
+        let critical = send(&server, true, true);
+        assert!(server.popups.get().contains(&critical));
+        assert!(server.list.get().iter().any(|n| n.id == critical));
+        server.hide_popup(critical);
+        assert!(!server.list.get().iter().any(|n| n.id == critical));
+    }
+
+    #[test]
+    fn displaced_transients_close_while_normal_notifications_keep_history() {
+        let server = server();
+        let transient = send(&server, true, false);
+        let normal = send(&server, false, false);
+        for _ in 0..MAX_POPUPS {
+            send(&server, false, false);
+        }
+        assert_eq!(server.popups.get().len(), MAX_POPUPS);
+        assert!(!server.list.get().iter().any(|n| n.id == transient));
+        assert!(server.list.get().iter().any(|n| n.id == normal));
+    }
 
     #[test]
     fn markup_is_kept_or_escaped() {

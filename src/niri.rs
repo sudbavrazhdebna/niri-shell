@@ -27,18 +27,24 @@ impl State {
     /// Whether the output's shown window is maximized to the edges: its whole `width`,
     /// no gaps, right under the bar. The active window of the active workspace is always
     /// in view; columns fill the height, so the top tile of such a one touches the bar.
-    pub fn covers_top(&self, output: &str, width: f64) -> bool {
+    /// A fullscreen tile fills the output's height too, ignoring the bar's reserved
+    /// space: it must not make the bar solid, even before overview starts.
+    pub fn covers_top(&self, output: &str, width: f64, height: f64) -> bool {
         self.active_window_on(output).is_some_and(|w| {
-            top_band(&w.layout).is_some() && w.layout.tile_size.0 >= width - 2.0 * EDGE_SLACK
+            top_band(&w.layout).is_some()
+                && w.layout.tile_size.0 >= width - 2.0 * EDGE_SLACK
+                && w.layout.tile_size.1 < height - 2.0 * EDGE_SLACK
         })
     }
 
     /// Like [`covers_top`](Self::covers_top) for a bar at the bottom: the shown window
     /// is tiled the whole `width`. Columns fill the height, so it reaches the bottom
     /// (its lowest tile does; which tile is lowest niri doesn't say, so any counts).
-    pub fn covers_bottom(&self, output: &str, width: f64) -> bool {
+    pub fn covers_bottom(&self, output: &str, width: f64, height: f64) -> bool {
         self.active_window_on(output).is_some_and(|w| {
-            w.layout.pos_in_scrolling_layout.is_some() && w.layout.tile_size.0 >= width - 2.0 * EDGE_SLACK
+            w.layout.pos_in_scrolling_layout.is_some()
+                && w.layout.tile_size.0 >= width - 2.0 * EDGE_SLACK
+                && w.layout.tile_size.1 < height - 2.0 * EDGE_SLACK
         })
     }
 
@@ -55,7 +61,7 @@ impl State {
     /// so listeners aren't woken for them.
     fn apply(&mut self, event: Event) -> bool {
         // Window positions change nothing that `layout_serial` stands for (who is open
-        // where, focus); listeners that care look at `top_band` themselves.
+        // where, focus); listeners that care look at the tile geometry themselves.
         let positions_only = matches!(&event, Event::WindowLayoutsChanged { .. });
         let title_only = positions_only || matches!(&event, Event::WindowOpenedOrChanged { window }
             if self.windows.get(&window.id).is_some_and(|old| {
@@ -115,15 +121,15 @@ impl State {
                 }
                 self.windows.insert(window.id, window);
             }
-            // These come with every resize and animation frame: only a window reaching or
-            // leaving the top band (or changing width while in it) wakes anyone.
+            // These come with every resize and animation frame. Include height: entering
+            // fullscreen can leave the width unchanged but must clear the bar's glass.
             Event::WindowLayoutsChanged { changes } => {
                 let mut noticed = false;
                 for (id, layout) in changes {
                     let Some(window) = self.windows.get_mut(&id) else { continue };
-                    let before = top_band(&window.layout);
+                    let before = bar_layout(&window.layout);
                     window.layout = layout;
-                    noticed |= top_band(&window.layout) != before;
+                    noticed |= bar_layout(&window.layout) != before;
                 }
                 if !noticed {
                     return false;
@@ -175,6 +181,13 @@ pub const EDGE_SLACK: f64 = 1.0;
 fn top_band(layout: &niri_ipc::WindowLayout) -> Option<i64> {
     let (_, tile) = layout.pos_in_scrolling_layout?;
     (tile == 1).then(|| (layout.tile_size.0 / 16.0).round() as i64)
+}
+
+/// Geometry relevant to either bar edge. Heights are not bucketed: fullscreen must
+/// be noticed even with a small reserved bar or a fractional monitor scale.
+fn bar_layout(layout: &niri_ipc::WindowLayout) -> Option<(usize, i64, i64)> {
+    let (_, tile) = layout.pos_in_scrolling_layout?;
+    Some((tile, (layout.tile_size.0 / 16.0).round() as i64, layout.tile_size.1.round() as i64))
 }
 
 /// Handle to the niri connection. Cheap to clone.
@@ -286,4 +299,77 @@ async fn read_line(lines: &mut gio::DataInputStream) -> Result<String, String> {
 async fn read_reply(lines: &mut gio::DataInputStream) -> Result<Reply, String> {
     let line = read_line(lines).await?;
     serde_json::from_str(&line).map_err(|e| format!("bad reply: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn maximized() -> State {
+        let window = Window {
+            id: 1,
+            title: None,
+            app_id: None,
+            pid: None,
+            workspace_id: Some(1),
+            is_focused: true,
+            is_floating: false,
+            is_urgent: false,
+            layout: niri_ipc::WindowLayout {
+                pos_in_scrolling_layout: Some((1, 1)),
+                tile_size: (1920.0, 1046.0),
+                window_size: (1918, 1044),
+                tile_pos_in_workspace_view: None,
+                window_offset_in_tile: (1.0, 1.0),
+            },
+            focus_timestamp: None,
+        };
+        let workspace = Workspace {
+            id: 1,
+            idx: 1,
+            name: None,
+            output: Some("test".into()),
+            is_urgent: false,
+            is_active: true,
+            is_focused: true,
+            active_window_id: Some(1),
+        };
+        State {
+            windows: HashMap::from([(1, window)]),
+            workspaces: HashMap::from([(1, workspace)]),
+            ..State::default()
+        }
+    }
+
+    #[test]
+    fn fullscreen_clears_both_bar_edges_without_a_width_change() {
+        let mut state = maximized();
+        assert!(state.covers_top("test", 1920.0, 1080.0));
+        assert!(state.covers_bottom("test", 1920.0, 1080.0));
+        let mut layout = state.windows[&1].layout.clone();
+        layout.tile_size.1 = 1080.0;
+        layout.window_size = (1920, 1080);
+        assert!(state.apply(Event::WindowLayoutsChanged { changes: vec![(1, layout)] }));
+        assert!(!state.covers_top("test", 1920.0, 1080.0));
+        assert!(!state.covers_bottom("test", 1920.0, 1080.0));
+        assert_eq!(state.layout_serial, 0);
+        assert!(state.apply(Event::OverviewOpenedOrClosed { is_open: true }));
+        assert!(!state.covers_top("test", 1920.0, 1080.0));
+        let layout = maximized().windows[&1].layout.clone();
+        assert!(state.apply(Event::WindowLayoutsChanged { changes: vec![(1, layout)] }));
+        assert!(state.covers_top("test", 1920.0, 1080.0));
+    }
+
+    #[test]
+    fn fullscreen_with_rounding_and_floating_windows_do_not_cover_bar() {
+        let mut state = maximized();
+        let Some(window) = state.windows.get_mut(&1) else { panic!("missing test window") };
+        window.layout.tile_size.1 = 1079.2;
+        assert!(!state.covers_top("test", 1920.0, 1080.0));
+        let Some(window) = state.windows.get_mut(&1) else { panic!("missing test window") };
+        window.layout.tile_size.1 = 1046.0;
+        window.layout.pos_in_scrolling_layout = None;
+        assert!(!state.covers_top("test", 1920.0, 1080.0));
+        assert!(!state.covers_bottom("test", 1920.0, 1080.0));
+    }
 }
