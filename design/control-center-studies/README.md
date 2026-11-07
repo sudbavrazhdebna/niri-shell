@@ -10,10 +10,11 @@ sliders, optional media, power profiles and session actions share one surface wi
 16 px outer padding, consistent text alignment and thin section separators. Power
 profiles use a quieter selected segment. No new navigation or actions are implied.
 
-Revision 02 removes the panel heading and branding. Sound and brightness sit above
+The panel has no heading or branding. Sound and brightness sit above
 the secondary Stay awake / keyboard light controls. Keyboard light shows its actual
 percentage (50% or 100%, plus Off), retaining the existing click-to-cycle interaction;
-the sample shows 50%.
+the sample shows 50%. The player sits above CPU/memory, grouping passive system
+information with the power profiles below the everyday controls.
 
 Brightness and keyboard light remain conditional on hardware support; media remains
 conditional on an available player. Those sections are shown together here to
