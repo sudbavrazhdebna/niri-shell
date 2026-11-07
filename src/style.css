@@ -138,7 +138,7 @@ window.bar.solid .bar-content {
     color: #ffcc33;
 }
 
-/* ---- Tooltips: the compact dark card and calendar colours from Waybar ---- */
+/* ---- Tooltips: one compact dark card, including the text calendar ---- */
 
 tooltip {
     background: rgba(20, 21, 23, 0.99);
@@ -152,55 +152,6 @@ tooltip {
 
 tooltip label {
     text-shadow: none;
-}
-
-.tooltip-calendar {
-    background: transparent;
-    border: none;
-    font-family: monospace;
-    color: #ecc6d9;
-}
-
-.tooltip-calendar > header {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    color: #ffead3;
-    font-weight: bold;
-}
-
-.tooltip-calendar > header button {
-    opacity: 0;
-    padding: 0;
-    min-width: 0;
-    min-height: 0;
-}
-
-.tooltip-calendar > grid > label {
-    padding: 3px;
-}
-
-.tooltip-calendar > grid > label.day-name {
-    color: #ffcc66;
-    font-weight: bold;
-}
-
-.tooltip-calendar > grid > label.other-month {
-    opacity: 0;
-}
-
-.tooltip-calendar > grid > label:selected {
-    background: transparent;
-    color: inherit;
-}
-
-.tooltip-calendar > grid > label.today,
-.tooltip-calendar > grid > label.today:selected {
-    background: transparent;
-    color: #ff6699;
-    font-weight: bold;
-    text-decoration-line: underline;
-    box-shadow: none;
 }
 
 /* ---- Menus: dark glass card under the bar ---- */

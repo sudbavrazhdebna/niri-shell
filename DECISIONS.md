@@ -304,8 +304,10 @@ each section. Read before changing any of these.
   SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
   their battery levels. Text is built on GTK's tooltip request from existing caches:
   exact Wi-Fi values do not replace the stepped bar state, and no polling is added.
-  Missing readings show a dash. Remote names are plain text. The clock uses a cached
-  GTK calendar with Waybar's colours, retaining the configured locale/week start.
+  Missing readings show a dash. Remote names are plain text. The clock renders its
+  calendar as one white text label, with today in bold and the configured week start.
+  A nested GTK calendar lets global `tooltip label` rules draw a card around every day;
+  one label keeps a single background even with a custom GTK stylesheet.
   Tooltips stay hidden while the module's menu is open.
 - Menus, OSD, popups and dock share one card look through CSS variables (`--glass`,
   `--glass-edge`, `--glass-shadow`, `--accent`, … at the top of style.css), so a user's

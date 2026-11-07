@@ -77,6 +77,39 @@ pub fn bluetooth(state: &BluetoothState) -> String {
     }
 }
 
+/// A single text layout keeps global GTK tooltip-label styling off individual days.
+pub fn calendar(now: &gtk4::glib::DateTime, first_weekday: i32) -> Option<String> {
+    use gtk4::glib;
+
+    let first = glib::DateTime::from_local(now.year(), now.month(), 1, 12, 0, 0.0).ok()?;
+    let last = first.add_months(1).ok()?.add_days(-1).ok()?.day_of_month();
+    let start = first_weekday.rem_euclid(7);
+    let offset = (first.day_of_week() - 1 - start).rem_euclid(7);
+    let title = now.format("%B %Y").ok()?;
+    let mut headings = Vec::new();
+    for column in 0..7 {
+        let date = first.add_days((start + column - first.day_of_week() + 1).rem_euclid(7)).ok()?;
+        let name: String = date.format("%a").ok()?.chars().take(3).collect();
+        headings.push(format!("{name:^3}"));
+    }
+    let mut rows = vec![glib::markup_escape_text(&headings.join(" ")).to_string()];
+    let weeks = (offset + last + 6) / 7;
+    for week in 0..weeks {
+        let cells: Vec<_> = (0..7).map(|column| {
+            let day = week * 7 + column - offset + 1;
+            if day < 1 || day > last {
+                "   ".into()
+            } else if day == now.day_of_month() {
+                format!("<b>{day:>3}</b>")
+            } else {
+                format!("{day:>3}")
+            }
+        }).collect();
+        rows.push(cells.join(" ").trim_end().to_string());
+    }
+    Some(format!("<b>{}</b>\n\n<tt>{}</tt>", glib::markup_escape_text(&title), rows.join("\n")))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,5 +167,33 @@ mod tests {
             ..BluetoothState::default()
         };
         assert_eq!(bluetooth(&state), "Headphones — 0%\nMouse");
+    }
+
+    #[test]
+    fn calendar_handles_leap_day_and_both_week_starts_without_colours() {
+        let now = gtk4::glib::DateTime::from_local(2024, 2, 29, 12, 0, 0.0)
+            .unwrap_or_else(|err| panic!("test date: {err}"));
+        for start in [0, 6] {
+            let markup = calendar(&now, start).unwrap_or_else(|| panic!("calendar missing"));
+            let (_, plain, _) = gtk4::pango::parse_markup(&markup, '\0')
+                .unwrap_or_else(|err| panic!("calendar markup: {err}"));
+            assert!(markup.contains("<b> 29</b>"));
+            assert!(!markup.contains("color"));
+            assert!(!plain.contains(" 30"));
+            assert!(!plain.contains(" 31"));
+            assert_eq!(plain.lines().count(), 8);
+        }
+        assert_ne!(calendar(&now, 0), calendar(&now, 6));
+    }
+
+    #[test]
+    fn calendar_uses_six_rows_when_month_needs_them() {
+        let now = gtk4::glib::DateTime::from_local(2026, 3, 31, 12, 0, 0.0)
+            .unwrap_or_else(|err| panic!("test date: {err}"));
+        let markup = calendar(&now, 0).unwrap_or_else(|| panic!("calendar missing"));
+        let (_, plain, _) = gtk4::pango::parse_markup(&markup, '\0')
+            .unwrap_or_else(|err| panic!("calendar markup: {err}"));
+        assert_eq!(plain.lines().count(), 9);
+        assert!(markup.contains("<b> 31</b>"));
     }
 }

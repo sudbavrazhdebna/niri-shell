@@ -29,7 +29,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     root.append(&label);
     root.append(&dnd);
     root.append(&dot);
-    calendar_tooltip(&root);
+    calendar_tooltip(&root, ctx.config.clock.monday_first);
 
     let format = ctx.config.clock.format.clone();
     let clock = ctx.services.clock();
@@ -52,31 +52,54 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     root.upcast()
 }
 
-fn calendar_tooltip(root: &gtk4::Box) {
+fn calendar_tooltip(root: &gtk4::Box, monday_first: bool) {
     root.set_has_tooltip(true);
-    let calendar = std::cell::OnceCell::<gtk4::Calendar>::new();
+    let first_weekday = std::cell::OnceCell::new();
     root.connect_query_tooltip(move |root, _, _, _, tooltip| {
         if root.has_css_class("menu-open") {
             return false;
         }
-        let calendar = calendar.get_or_init(|| {
-            let calendar = gtk4::Calendar::new();
-            calendar.add_css_class("tooltip-calendar");
-            calendar.set_can_focus(false);
-            center_days(&calendar);
-            calendar
+        let Ok(now) = glib::DateTime::now_local() else { return false };
+        let start = *first_weekday.get_or_init(|| {
+            if monday_first { 0 } else { locale_week_start(&now) }
         });
-        if let Ok(now) = glib::DateTime::now_local() {
-            let date = calendar.date();
-            if (date.year(), date.month(), date.day_of_month())
-                != (now.year(), now.month(), now.day_of_month())
-            {
-                calendar.select_day(&now);
-            }
-        }
-        tooltip.set_custom(Some(calendar));
+        let Some(markup) = super::tooltips::calendar(&now, start) else { return false };
+        // One label: user GTK rules for `tooltip label` must not decorate every day.
+        tooltip.set_custom(None::<&gtk4::Widget>);
+        tooltip.set_markup(Some(&markup));
         true
     });
+}
+
+fn locale_week_start(now: &glib::DateTime) -> i32 {
+    let calendar = gtk4::Calendar::new();
+    calendar.select_day(now);
+    let first_day = (now.day_of_week() - now.day_of_month()).rem_euclid(7);
+    let mut child = calendar.first_child();
+    while let Some(widget) = child {
+        if let Some(grid) = widget.downcast_ref::<gtk4::Grid>() {
+            let mut day = grid.first_child();
+            let mut first_column: Option<i32> = None;
+            let mut first_date_column = None;
+            while let Some(label) = day {
+                let column = grid.query_child(&label).0;
+                if label.has_css_class("day-name") {
+                    first_column = Some(first_column.map_or(column, |old| old.min(column)));
+                }
+                if label.has_css_class("day-number") && !label.has_css_class("other-month")
+                    && label.downcast_ref::<gtk4::Label>().is_some_and(|l| l.text() == "1")
+                {
+                    first_date_column = Some(column);
+                }
+                day = label.next_sibling();
+            }
+            if let (Some(column), Some(start)) = (first_date_column, first_column) {
+                return (first_day - column + start).rem_euclid(7);
+            }
+        }
+        child = widget.next_sibling();
+    }
+    0
 }
 
 fn menu_content(services: &Rc<Services>) -> gtk4::Box {
