@@ -368,7 +368,7 @@ entry.menu-password image {
 }
 
 .control-center button.tile,
-.control-center .control-sliders,
+.control-center .control-slider,
 .control-center .system-stats,
 .control-center .player,
 .control-center .power-profiles,
@@ -411,10 +411,31 @@ button.tile.active .tile-icon {
     color: var(--text-dim);
 }
 
-.control-sliders {
-    padding: 6px 4px;
+.control-slider {
+    padding: 10px 12px;
+    min-height: 40px;
     border-radius: 12px;
     background-color: var(--inner);
+    font-size: 12px;
+}
+
+.control-slider .menu-row-icon {
+    -gtk-icon-size: 17px;
+}
+
+.control-slider scale {
+    padding: 4px 0;
+}
+
+.control-slider scale trough highlight {
+    background: var(--text);
+}
+
+.control-slider scale trough slider {
+    min-width: 12px;
+    min-height: 12px;
+    margin: -4px;
+    border-radius: 6px;
 }
 
 .player {

@@ -307,7 +307,11 @@ each section. Read before changing any of these.
   hidden without an empty slot on unsupported hardware. Each tile has its icon above
   the label/state; only the icon circle turns blue. Keyboard light shows percentages
   (Off / 50% / 100% on the two-level keyboard), and tooltips retain truncated names.
-  The shared slider surface and original stats/player/power layout remain. Four
+  Sound and brightness each have their own surface: a white icon, title and numeric
+  percentage above a white slider with a small thumb. Percentages follow the displayed
+  thumb while dragging; existing system subscriptions supply external updates. Slider
+  listeners are bound to the card, not the slider they capture, so closed menus can
+  release them. The original stats/player/power layout remains. Four
   round session buttons share one `--inner` surface with the stats/player padding
   and radius. All inner surfaces have a small soft shadow without a border or inset
   edge. The full grouped-popup study remains a reference only. The bar chevron's

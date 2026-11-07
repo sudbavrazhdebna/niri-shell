@@ -51,7 +51,7 @@ fn content(services: &Rc<Services>) -> gtk4::Box {
     column.add_css_class("control-center");
     column.set_width_request(340);
     column.append(&tiles(services));
-    column.append(&sliders(services));
+    append_sliders(&column, services);
     column.append(&system_stats());
     column.append(&player(services));
     column.append(&power_profiles(services));
@@ -188,18 +188,17 @@ fn tile(icon: &str, name: &str, on_toggle: impl Fn(bool) + 'static) -> Tile {
     Tile { button, subtitle, set }
 }
 
-fn sliders(services: &Rc<Services>) -> gtk4::Box {
-    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
-    column.add_css_class("control-sliders");
-
+fn append_sliders(column: &gtk4::Box, services: &Rc<Services>) {
     if let Some(audio) = services.audio() {
         let a = audio.clone();
         let slider = ui::Slider::new(f64::from(MAX_PERCENT), move |v| a.set_percent(v.round() as u32));
-        let row = slider_row("audio-volume-high-symbolic", slider.widget());
+        let (row, image) = slider_card("audio-volume-high-symbolic", "Sound", slider.widget());
         let s = slider.clone();
-        audio.state.bind(slider.widget(), move |_, state| {
+        audio.state.bind(&row, move |row, state| {
+            row.set_visible(state.available);
             s.show(f64::from(state.percent));
             s.set_dimmed(state.muted);
+            image.set_icon_name(Some(if state.muted { "audio-volume-muted-symbolic" } else { "audio-volume-high-symbolic" }));
         });
         column.append(&row);
     }
@@ -208,24 +207,36 @@ fn sliders(services: &Rc<Services>) -> gtk4::Box {
     if brightness.percent.get().is_some() {
         let s = services.clone();
         let slider = ui::Slider::new(100.0, move |v| s.brightness().set_percent(v.round() as u32));
-        let row = slider_row("display-brightness-symbolic", slider.widget());
+        let (row, _) = slider_card("display-brightness-symbolic", "Brightness", slider.widget());
         let s = slider.clone();
         brightness
             .percent
-            .bind(slider.widget(), move |_, percent| s.show(f64::from(percent.unwrap_or(0))));
+            .bind(&row, move |row, percent| {
+                row.set_visible(percent.is_some());
+                s.show(f64::from(percent.unwrap_or(0)));
+            });
         column.append(&row);
     }
-    column
 }
 
-fn slider_row(icon: &str, slider: &gtk4::Scale) -> gtk4::Box {
+fn slider_card(icon: &str, name: &str, slider: &gtk4::Scale) -> (gtk4::Box, gtk4::Image) {
+    let card = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
+    card.add_css_class("control-slider");
     let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
-    row.add_css_class("menu-slider-row");
     let image = gtk4::Image::from_icon_name(icon);
     image.add_css_class("menu-row-icon");
+    let label = gtk4::Label::new(Some(name));
+    label.set_xalign(0.0);
+    label.set_hexpand(true);
+    let value = gtk4::Label::new(Some("0%"));
+    value.add_css_class("menu-value");
     row.append(&image);
-    row.append(slider);
-    row
+    row.append(&label);
+    row.append(&value);
+    card.append(&row);
+    card.append(slider);
+    slider.connect_value_changed(move |slider| value.set_label(&format!("{:.0}%", slider.value())));
+    (card, image)
 }
 
 /// CPU and memory use. Read every 2 s, and only while the menu is open: the timer
