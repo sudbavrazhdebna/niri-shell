@@ -305,7 +305,9 @@ each section. Read before changing any of these.
 - Control center keeps its original 2×2 tiles, shared slider surface and original
   player/stats/session layout. The grouped-popup study was tried in the live shell
   and reverted at the user's request; the selected mockup remains a reference only.
-  The bar chevron's open/close animation is independent and stays enabled.
+  The bar chevron's open/close animation is independent and stays enabled. Incremental
+  styling starts with one shared `--inner` surface behind the four session actions,
+  matching the stats/player padding and radius; their round buttons stay as before.
 - Bar tooltips reuse the Waybar information: battery capacity/time/power, Wi-Fi
   SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
   their battery levels. Text is built on GTK's tooltip request from existing caches:

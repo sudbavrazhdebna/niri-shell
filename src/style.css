@@ -450,6 +450,12 @@ button.player-button {
     color: var(--text);
 }
 
+.session-buttons {
+    padding: 8px 10px;
+    border-radius: 12px;
+    background-color: var(--inner);
+}
+
 button.session-button {
     min-width: 40px;
     min-height: 40px;
