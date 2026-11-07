@@ -85,7 +85,7 @@ pub fn calendar(now: &gtk4::glib::DateTime, first_weekday: i32) -> Option<String
     let last = first.add_months(1).ok()?.add_days(-1).ok()?.day_of_month();
     let start = first_weekday.rem_euclid(7);
     let offset = (first.day_of_week() - 1 - start).rem_euclid(7);
-    let title = now.format("%B %Y").ok()?;
+    let title = now.format("%A, %-e %B %Y").ok()?;
     let mut headings = Vec::new();
     for column in 0..7 {
         let date = first.add_days((start + column - first.day_of_week() + 1).rem_euclid(7)).ok()?;
@@ -100,7 +100,7 @@ pub fn calendar(now: &gtk4::glib::DateTime, first_weekday: i32) -> Option<String
             if day < 1 || day > last {
                 "   ".into()
             } else if day == now.day_of_month() {
-                format!("<b>{day:>3}</b>")
+                format!("{}<b><u>{day}</u></b>", if day < 10 { "  " } else { " " })
             } else {
                 format!("{day:>3}")
             }
@@ -177,7 +177,7 @@ mod tests {
             let markup = calendar(&now, start).unwrap_or_else(|| panic!("calendar missing"));
             let (_, plain, _) = gtk4::pango::parse_markup(&markup, '\0')
                 .unwrap_or_else(|err| panic!("calendar markup: {err}"));
-            assert!(markup.contains("<b> 29</b>"));
+            assert!(markup.contains("<b><u>29</u></b>"));
             assert!(!markup.contains("color"));
             assert!(!plain.contains(" 30"));
             assert!(!plain.contains(" 31"));
@@ -194,6 +194,20 @@ mod tests {
         let (_, plain, _) = gtk4::pango::parse_markup(&markup, '\0')
             .unwrap_or_else(|err| panic!("calendar markup: {err}"));
         assert_eq!(plain.lines().count(), 9);
-        assert!(markup.contains("<b> 31</b>"));
+        assert!(markup.contains("<b><u>31</u></b>"));
+    }
+
+    #[test]
+    fn calendar_shows_today_in_the_heading_and_marks_its_number() {
+        let now = gtk4::glib::DateTime::from_local(2026, 11, 7, 12, 0, 0.0)
+            .unwrap_or_else(|err| panic!("test date: {err}"));
+        let markup = calendar(&now, 0).unwrap_or_else(|| panic!("calendar missing"));
+        let (_, plain, _) = gtk4::pango::parse_markup(&markup, '\0')
+            .unwrap_or_else(|err| panic!("calendar markup: {err}"));
+        let heading = plain.lines().next().unwrap_or_default();
+        let weekday = now.format("%A").unwrap_or_else(|err| panic!("weekday: {err}"));
+        assert!(heading.contains(weekday.as_str()));
+        assert!(heading.contains('7') && heading.contains("2026"));
+        assert!(markup.contains("<b><u>7</u></b>"));
     }
 }

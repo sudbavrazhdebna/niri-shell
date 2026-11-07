@@ -305,7 +305,8 @@ each section. Read before changing any of these.
   their battery levels. Text is built on GTK's tooltip request from existing caches:
   exact Wi-Fi values do not replace the stepped bar state, and no polling is added.
   Missing readings show a dash. Remote names are plain text. The clock renders its
-  calendar as one white text label, with today in bold and the configured week start.
+  calendar as one white text label: the full current date and weekday above the grid,
+  today bold and underlined, and the configured week start.
   A nested GTK calendar lets global `tooltip label` rules draw a card around every day;
   one label keeps a single background even with a custom GTK stylesheet.
   Tooltips stay hidden while the module's menu is open.

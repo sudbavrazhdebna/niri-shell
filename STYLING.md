@@ -101,7 +101,7 @@ Note: blur is asked for in CSS. Every card has `backdrop-filter: var(--blur)`, a
 | Part | Classes |
 |---|---|
 | bar | `window.bar` (+ `.solid`: glass over a window maximized to the edges), `.bar-content`; every module is `.module` plus its name: `.clock`, `.window-title`, `.keyboard`, `.network`, `.bluetooth`, `.volume`, `.battery`, `.control`, `.tray-item`; icon modules also `.icon`; `.problem` is the ⚠ shown when the config or style has a mistake |
-| tooltips | `tooltip` (dark card, 18 px text); clock calendar is one white text label with today in bold |
+| tooltips | `tooltip` (dark card, 18 px text); clock calendar is one white text label with the full date above it and today bold/underlined |
 | clock extras | `.clock-dot` (unseen notifications), `.clock-dnd` |
 | calendar | `.menu-calendar` (GTK's calendar: `header`, `grid > label.day-number` + `.today`, `.other-month`; a clicked day is `:selected` but left unmarked) |
 | menus | `window.nshell-menu` (+ `.upward` when it opens above a bar at the bottom or the dock), `.menu-card` (the glass card), `.menu-body` (its column of rows), `.menu-title`, `.menu-note`, `.menu-separator`, `button.menu-item` (every row keeps the `.menu-check` column on the left), `.menu-row-icon` (an icon before a row's text), `.menu-header` (title with a switch), `.menu-slider-row`, `.menu-value`, `.menu-trailing`, `.menu-trailing-icon`, `button.menu-icon-button` (the mute button by a slider); a slider whose device is muted or off is `.dimmed` |
