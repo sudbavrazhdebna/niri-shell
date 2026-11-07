@@ -1,7 +1,7 @@
 //! Control center: one menu with the everyday switches, sliders, the player and the
 //! session buttons.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -47,30 +47,30 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
 }
 
 fn content(services: &Rc<Services>) -> gtk4::Box {
-    let column = ui::column();
+    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 8);
+    column.add_css_class("menu-body");
     column.add_css_class("control-center");
-    column.set_width_request(340);
+    column.set_width_request(328);
     column.append(&tiles(services));
-    column.append(&sliders(services));
-    column.append(&system_stats());
+    append_sliders(&column, services);
     column.append(&player(services));
+    column.append(&system_stats());
     column.append(&power_profiles(services));
     column.append(&session_buttons(services));
     column
 }
 
-fn tiles(services: &Rc<Services>) -> gtk4::Grid {
-    let grid = gtk4::Grid::new();
-    grid.add_css_class("tiles");
-    grid.set_column_spacing(8);
-    grid.set_row_spacing(8);
-    grid.set_column_homogeneous(true);
+fn tiles(services: &Rc<Services>) -> gtk4::Box {
+    // Hidden hardware controls leave no empty column in the homogeneous row.
+    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+    row.add_css_class("tiles");
+    row.set_homogeneous(true);
 
     let s = services.clone();
     let wifi = tile("network-wireless-symbolic", "Wi-Fi", move |on| s.network().set_wifi_enabled(on));
     services.network().state.bind(&wifi.button, {
         let (state_label, set) = (wifi.subtitle.clone(), wifi.set.clone());
-        move |_, state| {
+        move |button, state| {
             set(state.wifi_enabled);
             state_label.set_label(&match &state.link {
                 Link::Wifi { ssid, .. } => ssid.clone(),
@@ -78,6 +78,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Grid {
                 Link::Offline if state.wifi_enabled => "Not connected".into(),
                 Link::Offline => "Off".into(),
             });
+            button.set_tooltip_text(Some(&format!("Wi-Fi\n{}", state_label.text())));
         }
     });
 
@@ -85,7 +86,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Grid {
     let bt = tile("bluetooth-symbolic", "Bluetooth", move |on| s.bluetooth().set_powered(on));
     services.bluetooth().state.bind(&bt.button, {
         let (state_label, set) = (bt.subtitle.clone(), bt.set.clone());
-        move |_, state| {
+        move |button, state| {
             set(state.powered);
             let connected: Vec<_> = state.devices.iter().filter(|d| d.connected).map(|d| d.name.clone()).collect();
             state_label.set_label(&match (state.powered, connected.first()) {
@@ -93,6 +94,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Grid {
                 (true, Some(name)) => name.clone(),
                 (true, None) => "On".into(),
             });
+            button.set_tooltip_text(Some(&format!("Bluetooth\n{}", state_label.text())));
         }
     });
 
@@ -100,25 +102,26 @@ fn tiles(services: &Rc<Services>) -> gtk4::Grid {
     let awake = tile("weather-clear-night-symbolic", "Stay awake", move |on| s.session().set_awake(on));
     services.session().awake.bind(&awake.button, {
         let (state_label, set) = (awake.subtitle.clone(), awake.set.clone());
-        move |_, on| {
+        move |button, on| {
             set(*on);
-            state_label.set_label(if *on { "Screen stays on" } else { "Off" });
+            state_label.set_label(if *on { "On" } else { "Off" });
+            button.set_tooltip_text(Some(if *on { "Stay awake: screen stays on" } else { "Stay awake: off" }));
         }
     });
 
-    grid.attach(&wifi.button, 0, 0, 1, 1);
-    grid.attach(&bt.button, 1, 0, 1, 1);
-    grid.attach(&awake.button, 0, 1, 1, 1);
-    grid.attach(&keyboard_light_tile(services), 1, 1, 1, 1);
-    grid
+    row.append(&wifi.button);
+    row.append(&bt.button);
+    row.append(&keyboard_light_tile(services));
+    row.append(&awake.button);
+    row
 }
 
-/// Keyboard backlight: a click steps through the levels (Off → Low → High → Off).
+/// Keyboard backlight: a click steps through the hardware levels (Off → 50% → 100%).
 fn keyboard_light_tile(services: &Rc<Services>) -> gtk4::Button {
     let light = services.keyboard_light();
     // Hidden until UPower answers, and for good on machines without a backlight.
     let s = services.clone();
-    let tile = tile("keyboard-brightness-symbolic", "Keyboard light", move |_| {
+    let tile = tile("keyboard-brightness-symbolic", "Key light", move |_| {
         let light = s.keyboard_light();
         if let Some((now, max)) = *light.level.get() {
             light.set(if now >= max { 0 } else { now + 1 });
@@ -130,18 +133,14 @@ fn keyboard_light_tile(services: &Rc<Services>) -> gtk4::Button {
         let Some((now, max)) = *level else { return };
         set(now > 0);
         subtitle.set_label(&level_name(now, max));
+        button.set_tooltip_text(Some(&format!("Keyboard light: {}\nClick to cycle levels", subtitle.text())));
     });
     tile.button
 }
 
-/// "Off", "Low", "High" for three levels; a percent for more.
+/// Show the hardware level as a percentage, including the two lit levels 50% / 100%.
 fn level_name(now: i32, max: i32) -> String {
-    match (now, max) {
-        (0, _) => "Off".into(),
-        (1, 2) => "Low".into(),
-        (n, m) if n == m => "High".into(),
-        (n, m) => format!("{}%", n * 100 / m.max(1)),
-    }
+    if now <= 0 { "Off".into() } else { format!("{}%", i64::from(now) * 100 / i64::from(max.max(1))) }
 }
 
 struct Tile {
@@ -151,27 +150,27 @@ struct Tile {
     set: Rc<dyn Fn(bool)>,
 }
 
-/// A big on/off button with an icon, a name and a line of state.
+/// One compact tile: an icon circle above its name and state.
 fn tile(icon: &str, name: &str, on_toggle: impl Fn(bool) + 'static) -> Tile {
     let button = gtk4::Button::new();
     button.add_css_class("tile");
-    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
+    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
+    column.set_valign(gtk4::Align::Center);
     let image = gtk4::Image::from_icon_name(icon);
     image.add_css_class("tile-icon");
-    let text = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    image.set_halign(gtk4::Align::Center);
     let title = gtk4::Label::new(Some(name));
     title.add_css_class("tile-title");
-    title.set_xalign(0.0);
+    title.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+    title.set_max_width_chars(10);
     let subtitle = gtk4::Label::new(None);
     subtitle.add_css_class("tile-subtitle");
-    subtitle.set_xalign(0.0);
     subtitle.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-    subtitle.set_max_width_chars(12);
-    text.append(&title);
-    text.append(&subtitle);
-    row.append(&image);
-    row.append(&text);
-    button.set_child(Some(&row));
+    subtitle.set_max_width_chars(10);
+    column.append(&image);
+    column.append(&title);
+    column.append(&subtitle);
+    button.set_child(Some(&column));
 
     let on = Rc::new(Cell::new(false));
     let o = on.clone();
@@ -190,18 +189,17 @@ fn tile(icon: &str, name: &str, on_toggle: impl Fn(bool) + 'static) -> Tile {
     Tile { button, subtitle, set }
 }
 
-fn sliders(services: &Rc<Services>) -> gtk4::Box {
-    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
-    column.add_css_class("control-sliders");
-
+fn append_sliders(column: &gtk4::Box, services: &Rc<Services>) {
     if let Some(audio) = services.audio() {
         let a = audio.clone();
         let slider = ui::Slider::new(f64::from(MAX_PERCENT), move |v| a.set_percent(v.round() as u32));
-        let row = slider_row("audio-volume-high-symbolic", slider.widget());
+        let (row, image) = slider_card("audio-volume-high-symbolic", "Sound", slider.widget());
         let s = slider.clone();
-        audio.state.bind(slider.widget(), move |_, state| {
+        audio.state.bind(&row, move |row, state| {
+            row.set_visible(state.available);
             s.show(f64::from(state.percent));
             s.set_dimmed(state.muted);
+            image.set_icon_name(Some(if state.muted { "audio-volume-muted-symbolic" } else { "audio-volume-high-symbolic" }));
         });
         column.append(&row);
     }
@@ -210,34 +208,49 @@ fn sliders(services: &Rc<Services>) -> gtk4::Box {
     if brightness.percent.get().is_some() {
         let s = services.clone();
         let slider = ui::Slider::new(100.0, move |v| s.brightness().set_percent(v.round() as u32));
-        let row = slider_row("display-brightness-symbolic", slider.widget());
+        let (row, _) = slider_card("display-brightness-symbolic", "Brightness", slider.widget());
         let s = slider.clone();
         brightness
             .percent
-            .bind(slider.widget(), move |_, percent| s.show(f64::from(percent.unwrap_or(0))));
+            .bind(&row, move |row, percent| {
+                row.set_visible(percent.is_some());
+                s.show(f64::from(percent.unwrap_or(0)));
+            });
         column.append(&row);
     }
-    column
 }
 
-fn slider_row(icon: &str, slider: &gtk4::Scale) -> gtk4::Box {
+fn slider_card(icon: &str, name: &str, slider: &gtk4::Scale) -> (gtk4::Box, gtk4::Image) {
+    let card = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
+    card.add_css_class("control-panel");
+    card.add_css_class("control-slider");
     let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
-    row.add_css_class("menu-slider-row");
     let image = gtk4::Image::from_icon_name(icon);
     image.add_css_class("menu-row-icon");
+    let label = gtk4::Label::new(Some(name));
+    label.set_xalign(0.0);
+    label.set_hexpand(true);
+    let value = gtk4::Label::new(Some("0%"));
+    value.add_css_class("menu-value");
     row.append(&image);
-    row.append(slider);
-    row
+    row.append(&label);
+    row.append(&value);
+    card.append(&row);
+    card.append(slider);
+    slider.connect_value_changed(move |slider| value.set_label(&format!("{:.0}%", slider.value())));
+    (card, image)
 }
 
 /// CPU and memory use. Read every 2 s, and only while the menu is open: the timer
 /// stops by itself once the widget is gone.
 fn system_stats() -> gtk4::Box {
-    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 16);
+    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
     row.add_css_class("system-stats");
     row.set_homogeneous(true);
     let gauge = |name: &str| {
         let column = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
+        column.add_css_class("control-panel");
+        column.add_css_class("system-stat");
         let top = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
         let title = gtk4::Label::new(Some(name));
         title.add_css_class("stat-name");
@@ -313,44 +326,64 @@ fn memory() -> Option<(u64, u64)> {
 /// What plays, with previous / play-pause / next. Hidden when nothing plays.
 fn player(services: &Rc<Services>) -> gtk4::Box {
     let card = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+    card.add_css_class("control-panel");
     card.add_css_class("player");
+    let cover = gtk4::Image::from_icon_name("audio-x-generic-symbolic");
+    cover.set_pixel_size(36);
+    cover.add_css_class("player-cover");
+    card.append(&cover);
     let text = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     text.set_hexpand(true);
     let title = gtk4::Label::new(None);
     title.add_css_class("player-title");
     title.set_xalign(0.0);
     title.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-    title.set_max_width_chars(24);
+    title.set_max_width_chars(18);
     let artist = gtk4::Label::new(None);
     artist.add_css_class("player-artist");
     artist.set_xalign(0.0);
     artist.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-    artist.set_max_width_chars(24);
+    artist.set_max_width_chars(18);
     text.append(&title);
     text.append(&artist);
     card.append(&text);
 
-    let button = |icon: &str, action: fn(&crate::services::media::Media), s: &Rc<Services>| {
+    let button = |icon: &str, name: &str, action: fn(&crate::services::media::Media), s: &Rc<Services>| {
         let b = gtk4::Button::from_icon_name(icon);
         b.add_css_class("flat");
         b.add_css_class("player-button");
+        b.set_tooltip_text(Some(name));
         let s = s.clone();
         b.connect_clicked(move |_| action(s.media()));
         b
     };
-    let previous = button("media-skip-backward-symbolic", |m| m.previous(), services);
-    let play = button("media-playback-start-symbolic", |m| m.play_pause(), services);
-    let next = button("media-skip-forward-symbolic", |m| m.next(), services);
+    let previous = button("media-skip-backward-symbolic", "Previous", |m| m.previous(), services);
+    let play = button("media-playback-start-symbolic", "Play / pause", |m| m.play_pause(), services);
+    let next = button("media-skip-forward-symbolic", "Next", |m| m.next(), services);
     card.append(&previous);
     card.append(&play);
     card.append(&next);
 
+    let shown_art: Rc<RefCell<String>> = Rc::default();
     services.media().current.bind(&card, move |card, track| {
         card.set_visible(track.is_some());
         let Some(track) = track else { return };
         title.set_label(if track.title.is_empty() { "Untitled" } else { &track.title });
         artist.set_label(&track.artist);
         artist.set_visible(!track.artist.is_empty());
+        if *shown_art.borrow() != track.art_url {
+            shown_art.replace(track.art_url.clone());
+            cover.set_icon_name(Some("audio-x-generic-symbolic"));
+            let (weak, wanted, url) = (cover.downgrade(), shown_art.clone(), track.art_url.clone());
+            crate::services::media::art(&track.art_url, 36, move |texture| {
+                if *wanted.borrow() == url
+                    && let Some(cover) = weak.upgrade()
+                    && let Some(texture) = texture
+                {
+                    cover.set_paintable(Some(&texture));
+                }
+            });
+        }
         play.set_icon_name(if track.playing {
             "media-playback-pause-symbolic"
         } else {
@@ -363,39 +396,46 @@ fn player(services: &Rc<Services>) -> gtk4::Box {
 }
 
 fn power_profiles(services: &Rc<Services>) -> gtk4::Box {
+    let card = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
+    card.add_css_class("control-panel");
+    card.add_css_class("control-power");
+    let title = gtk4::Label::new(Some("Power mode"));
+    title.add_css_class("control-section-title");
+    title.set_xalign(0.0);
+    card.append(&title);
     let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-    row.add_css_class("linked");
     row.add_css_class("power-profiles");
     row.set_homogeneous(true);
+    card.append(&row);
     let s = services.clone();
-    services.power().state.bind(&row, move |row, state| {
-        ui::clear(row);
-        row.set_visible(!state.profiles.is_empty());
+    services.power().state.bind(&card, move |card, state| {
+        ui::clear(&row);
+        card.set_visible(!state.profiles.is_empty());
         for profile in &state.profiles {
-            let (label, icon) = match profile.as_str() {
-                "power-saver" => ("Saver", "power-profile-power-saver-symbolic"),
-                "balanced" => ("Balanced", "power-profile-balanced-symbolic"),
-                "performance" => ("Performance", "power-profile-performance-symbolic"),
-                other => (other, "power-profile-balanced-symbolic"),
+            let label = match profile.as_str() {
+                "power-saver" => "Saver",
+                "balanced" => "Balanced",
+                "performance" => "Performance",
+                other => other,
             };
             let button = gtk4::ToggleButton::new();
-            let content = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
-            content.set_halign(gtk4::Align::Center);
-            content.append(&gtk4::Image::from_icon_name(icon));
-            content.append(&gtk4::Label::new(Some(label)));
-            button.set_child(Some(&content));
+            let caption = gtk4::Label::new(Some(label));
+            caption.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+            caption.set_max_width_chars(12);
+            button.set_child(Some(&caption));
             button.set_active(*profile == state.active);
             let (s, name) = (s.clone(), profile.clone());
             button.connect_clicked(move |_| s.power().set(&name));
             row.append(&button);
         }
     });
-    row
+    card
 }
 
 fn session_buttons(services: &Rc<Services>) -> gtk4::Box {
     let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
     row.add_css_class("session-buttons");
+    row.add_css_class("control-panel");
     row.set_homogeneous(true);
     let s = services.clone();
     row.append(&session_button("system-lock-screen-symbolic", "Lock", false, move || {
@@ -418,17 +458,18 @@ fn session_buttons(services: &Rc<Services>) -> gtk4::Box {
     row
 }
 
-/// Round icon button with a caption. With `confirm`, the first click only arms it
+/// One full clickable cell in the shared session surface. With `confirm`, a click arms it
 /// ("Again?") for a few seconds.
-fn session_button(icon: &str, caption: &str, confirm: bool, action: impl Fn() + 'static) -> gtk4::Box {
+fn session_button(icon: &str, caption: &str, confirm: bool, action: impl Fn() + 'static) -> gtk4::Button {
     let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
-    let button = gtk4::Button::from_icon_name(icon);
+    let button = gtk4::Button::new();
     button.add_css_class("session-button");
-    button.set_halign(gtk4::Align::Center);
+    let image = gtk4::Image::from_icon_name(icon);
     let label = gtk4::Label::new(Some(caption));
     label.add_css_class("session-caption");
-    holder.append(&button);
+    holder.append(&image);
     holder.append(&label);
+    button.set_child(Some(&holder));
 
     let armed = Rc::new(Cell::new(false));
     let caption = caption.to_string();
@@ -455,5 +496,5 @@ fn session_button(icon: &str, caption: &str, confirm: bool, action: impl Fn() + 
             }
         });
     });
-    holder
+    button
 }
