@@ -302,12 +302,16 @@ each section. Read before changing any of these.
   behaviour stay the same. The chevron rotates upward in 150 ms while its menu is open,
   and returns downward when it closes or another menu takes over. Only the inner image
   rotates, keeping the asymmetric padding, hover plate and hit area stationary.
-- Control center keeps its original 2×2 tiles, shared slider surface and original
-  player/stats/session layout. The grouped-popup study was tried in the live shell
-  and reverted at the user's request; the selected mockup remains a reference only.
-  The bar chevron's open/close animation is independent and stays enabled. Incremental
-  styling starts with one shared `--inner` surface behind the four session actions,
-  matching the stats/player padding and radius; their round buttons stay as before.
+- Control center is being refined from the original layout. Wi-Fi, Bluetooth,
+  keyboard light and Stay awake form one homogeneous row; the keyboard button is
+  hidden without an empty slot on unsupported hardware. Each tile has its icon above
+  the label/state; only the icon circle turns blue. Keyboard light shows percentages
+  (Off / 50% / 100% on the two-level keyboard), and tooltips retain truncated names.
+  The shared slider surface and original stats/player/power layout remain. Four
+  round session buttons share one `--inner` surface with the stats/player padding
+  and radius. All inner surfaces have a small soft shadow without a border or inset
+  edge. The full grouped-popup study remains a reference only. The bar chevron's
+  open/close animation stays enabled independently.
 - Bar tooltips reuse the Waybar information: battery capacity/time/power, Wi-Fi
   SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
   their battery levels. Text is built on GTK's tooltip request from existing caches:

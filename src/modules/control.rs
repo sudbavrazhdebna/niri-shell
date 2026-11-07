@@ -59,18 +59,17 @@ fn content(services: &Rc<Services>) -> gtk4::Box {
     column
 }
 
-fn tiles(services: &Rc<Services>) -> gtk4::Grid {
-    let grid = gtk4::Grid::new();
-    grid.add_css_class("tiles");
-    grid.set_column_spacing(8);
-    grid.set_row_spacing(8);
-    grid.set_column_homogeneous(true);
+fn tiles(services: &Rc<Services>) -> gtk4::Box {
+    // Hidden hardware controls leave no empty column in the homogeneous row.
+    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+    row.add_css_class("tiles");
+    row.set_homogeneous(true);
 
     let s = services.clone();
     let wifi = tile("network-wireless-symbolic", "Wi-Fi", move |on| s.network().set_wifi_enabled(on));
     services.network().state.bind(&wifi.button, {
         let (state_label, set) = (wifi.subtitle.clone(), wifi.set.clone());
-        move |_, state| {
+        move |button, state| {
             set(state.wifi_enabled);
             state_label.set_label(&match &state.link {
                 Link::Wifi { ssid, .. } => ssid.clone(),
@@ -78,6 +77,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Grid {
                 Link::Offline if state.wifi_enabled => "Not connected".into(),
                 Link::Offline => "Off".into(),
             });
+            button.set_tooltip_text(Some(&format!("Wi-Fi\n{}", state_label.text())));
         }
     });
 
@@ -85,7 +85,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Grid {
     let bt = tile("bluetooth-symbolic", "Bluetooth", move |on| s.bluetooth().set_powered(on));
     services.bluetooth().state.bind(&bt.button, {
         let (state_label, set) = (bt.subtitle.clone(), bt.set.clone());
-        move |_, state| {
+        move |button, state| {
             set(state.powered);
             let connected: Vec<_> = state.devices.iter().filter(|d| d.connected).map(|d| d.name.clone()).collect();
             state_label.set_label(&match (state.powered, connected.first()) {
@@ -93,6 +93,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Grid {
                 (true, Some(name)) => name.clone(),
                 (true, None) => "On".into(),
             });
+            button.set_tooltip_text(Some(&format!("Bluetooth\n{}", state_label.text())));
         }
     });
 
@@ -100,25 +101,26 @@ fn tiles(services: &Rc<Services>) -> gtk4::Grid {
     let awake = tile("weather-clear-night-symbolic", "Stay awake", move |on| s.session().set_awake(on));
     services.session().awake.bind(&awake.button, {
         let (state_label, set) = (awake.subtitle.clone(), awake.set.clone());
-        move |_, on| {
+        move |button, on| {
             set(*on);
-            state_label.set_label(if *on { "Screen stays on" } else { "Off" });
+            state_label.set_label(if *on { "On" } else { "Off" });
+            button.set_tooltip_text(Some(if *on { "Stay awake: screen stays on" } else { "Stay awake: off" }));
         }
     });
 
-    grid.attach(&wifi.button, 0, 0, 1, 1);
-    grid.attach(&bt.button, 1, 0, 1, 1);
-    grid.attach(&awake.button, 0, 1, 1, 1);
-    grid.attach(&keyboard_light_tile(services), 1, 1, 1, 1);
-    grid
+    row.append(&wifi.button);
+    row.append(&bt.button);
+    row.append(&keyboard_light_tile(services));
+    row.append(&awake.button);
+    row
 }
 
-/// Keyboard backlight: a click steps through the levels (Off → Low → High → Off).
+/// Keyboard backlight: a click steps through the hardware levels (Off → 50% → 100%).
 fn keyboard_light_tile(services: &Rc<Services>) -> gtk4::Button {
     let light = services.keyboard_light();
     // Hidden until UPower answers, and for good on machines without a backlight.
     let s = services.clone();
-    let tile = tile("keyboard-brightness-symbolic", "Keyboard light", move |_| {
+    let tile = tile("keyboard-brightness-symbolic", "Key light", move |_| {
         let light = s.keyboard_light();
         if let Some((now, max)) = *light.level.get() {
             light.set(if now >= max { 0 } else { now + 1 });
@@ -130,18 +132,14 @@ fn keyboard_light_tile(services: &Rc<Services>) -> gtk4::Button {
         let Some((now, max)) = *level else { return };
         set(now > 0);
         subtitle.set_label(&level_name(now, max));
+        button.set_tooltip_text(Some(&format!("Keyboard light: {}\nClick to cycle levels", subtitle.text())));
     });
     tile.button
 }
 
-/// "Off", "Low", "High" for three levels; a percent for more.
+/// Show the hardware level as a percentage, including the two lit levels 50% / 100%.
 fn level_name(now: i32, max: i32) -> String {
-    match (now, max) {
-        (0, _) => "Off".into(),
-        (1, 2) => "Low".into(),
-        (n, m) if n == m => "High".into(),
-        (n, m) => format!("{}%", n * 100 / m.max(1)),
-    }
+    if now <= 0 { "Off".into() } else { format!("{}%", i64::from(now) * 100 / i64::from(max.max(1))) }
 }
 
 struct Tile {
@@ -151,27 +149,27 @@ struct Tile {
     set: Rc<dyn Fn(bool)>,
 }
 
-/// A big on/off button with an icon, a name and a line of state.
+/// One compact tile: an icon circle above its name and state.
 fn tile(icon: &str, name: &str, on_toggle: impl Fn(bool) + 'static) -> Tile {
     let button = gtk4::Button::new();
     button.add_css_class("tile");
-    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
+    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
+    column.set_valign(gtk4::Align::Center);
     let image = gtk4::Image::from_icon_name(icon);
     image.add_css_class("tile-icon");
-    let text = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    image.set_halign(gtk4::Align::Center);
     let title = gtk4::Label::new(Some(name));
     title.add_css_class("tile-title");
-    title.set_xalign(0.0);
+    title.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+    title.set_max_width_chars(10);
     let subtitle = gtk4::Label::new(None);
     subtitle.add_css_class("tile-subtitle");
-    subtitle.set_xalign(0.0);
     subtitle.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-    subtitle.set_max_width_chars(12);
-    text.append(&title);
-    text.append(&subtitle);
-    row.append(&image);
-    row.append(&text);
-    button.set_child(Some(&row));
+    subtitle.set_max_width_chars(10);
+    column.append(&image);
+    column.append(&title);
+    column.append(&subtitle);
+    button.set_child(Some(&column));
 
     let on = Rc::new(Cell::new(false));
     let o = on.clone();

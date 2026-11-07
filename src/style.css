@@ -367,9 +367,21 @@ entry.menu-password image {
     margin-bottom: 8px;
 }
 
+.control-center button.tile,
+.control-center .control-sliders,
+.control-center .system-stats,
+.control-center .player,
+.control-center .power-profiles,
+.control-center .session-buttons {
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+
 /* `background` (not -color): it also clears the theme's button image. */
 button.tile {
-    padding: 10px 12px;
+    padding: 8px 4px;
+    min-width: 0;
+    min-height: 62px;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.08);
 }
@@ -378,24 +390,24 @@ button.tile:hover {
     background: rgba(255, 255, 255, 0.13);
 }
 
-button.tile.active {
-    background: alpha(var(--accent), 0.85);
-}
-
-button.tile.active:hover {
-    background: alpha(mix(var(--accent), white, 0.1), 0.9);
-}
-
 .tile-icon {
-    -gtk-icon-size: 18px;
+    -gtk-icon-size: 20px;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.16);
+}
+
+button.tile.active .tile-icon {
+    background: var(--accent);
 }
 
 .tile-title {
-    font-weight: bold;
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .tile-subtitle {
-    font-size: 0.85em;
+    font-size: 10px;
     color: var(--text-dim);
 }
 
