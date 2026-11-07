@@ -17,7 +17,7 @@ HERE = Path(__file__).resolve().parent
 ICON_DIR = Path("/usr/share/icons/Adwaita/symbolic")
 ICONS = {path.stem: path for path in ICON_DIR.rglob("*.svg")}
 SCALE = 2
-surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 440 * SCALE, 708 * SCALE)
+surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 440 * SCALE, 670 * SCALE)
 c = cairo.Context(surface)
 c.scale(SCALE, SCALE)
 WHITE, MUTED, BLUE = "f4f5f7", "a5a9b2", "62a6ff"
@@ -100,12 +100,12 @@ def slider(y, glyph, label, value):
     box(58 + 326*value/100 - 6, y+25, 12, 12, 6, WHITE)
 
 
-gradient = cairo.LinearGradient(0, 0, 440, 708)
+gradient = cairo.LinearGradient(0, 0, 440, 670)
 gradient.add_color_stop_rgb(0, .09, .14, .18)
 gradient.add_color_stop_rgb(1, .13, .11, .18)
 c.set_source(gradient)
 c.paint()
-text("CONTROL CENTER / PROPOSAL", 40, 22, 11, MUTED, "Medium")
+text("LAYOUT STUDY / 02", 40, 22, 11, MUTED, "Medium")
 # A static sample of the topbar anchor, showing the open state.
 color(WHITE)
 c.set_line_width(2.4)
@@ -116,56 +116,54 @@ c.line_to(380, 49.5)
 c.line_to(385.5, 55)
 c.stroke()
 
-box(40, 72, 360, 596, 18, "23262c", "464951")
-text("Control center", 56, 90, 14, weight="Medium")
-text("nshell", 330, 92, 11, MUTED, width=54, align=Pango.Alignment.RIGHT)
+box(40, 72, 360, 558, 18, "23262c", "464951")
 
-connection(126, "network-wireless", "Wi-Fi", "Home network")
-connection(176, "bluetooth", "Bluetooth", "Headphones")
+connection(88, "network-wireless", "Wi-Fi", "Home network")
+connection(138, "bluetooth", "Bluetooth", "Headphones")
 
-box(56, 234, 158, 40, 10, "30343b")
-box(226, 234, 158, 40, 10, "30343b")
-icon("weather-clear-night", 68, 246, 16)
-text("Stay awake", 94, 238, 11, weight="Medium")
-text("Off", 94, 253, 10, MUTED)
-icon("keyboard-brightness", 238, 246, 16)
-text("Keyboard light", 264, 238, 11, weight="Medium")
-text("Low", 264, 253, 10, MUTED)
+divider(196)
+slider(212, "audio-volume-high", "Sound", 67)
+slider(264, "display-brightness", "Brightness", 42)
 
-divider(290)
-slider(306, "audio-volume-high", "Sound", 67)
-slider(358, "display-brightness", "Brightness", 42)
+box(56, 314, 158, 40, 10, "30343b")
+box(226, 314, 158, 40, 10, "30343b")
+icon("weather-clear-night", 68, 326, 16)
+text("Stay awake", 94, 318, 11, weight="Medium")
+text("Off", 94, 333, 10, MUTED)
+icon("keyboard-brightness", 238, 326, 16)
+text("Keyboard light", 264, 318, 11, weight="Medium")
+text("50%", 264, 333, 10, MUTED)
 
 for x, label, value, percent in [(58, "CPU", "12%", .12), (230, "Memory", "9.3 / 27 GB", .34)]:
-    text(label, x, 412, 11, MUTED)
-    text(value, x+54, 412, 11, width=100, align=Pango.Alignment.RIGHT)
-    box(x, 435, 154, 3, 1.5, "444851")
-    box(x, 435, 154*percent, 3, 1.5, "b7bfcc")
+    text(label, x, 370, 11, MUTED)
+    text(value, x+54, 370, 11, width=100, align=Pango.Alignment.RIGHT)
+    box(x, 393, 154, 3, 1.5, "444851")
+    box(x, 393, 154*percent, 3, 1.5, "b7bfcc")
 
-divider(454)
-box(58, 470, 36, 36, 8, "3d4350")
-text("♪", 67, 473, 23)
-text("Evening playlist", 106, 470, 12, weight="Medium", width=156)
-text("Music player", 106, 489, 11, MUTED, width=156)
-icon("media-skip-backward", 278, 481, 16)
-icon("media-playback-start", 318, 479, 20)
-icon("media-skip-forward", 362, 481, 16)
+divider(412)
+box(58, 428, 36, 36, 8, "3d4350")
+text("♪", 67, 431, 23)
+text("Evening playlist", 106, 428, 12, weight="Medium", width=156)
+text("Music player", 106, 447, 11, MUTED, width=156)
+icon("media-skip-backward", 278, 439, 16)
+icon("media-playback-start", 318, 437, 20)
+icon("media-skip-forward", 362, 439, 16)
 
-text("Power mode", 58, 524, 11, MUTED)
-box(56, 546, 328, 32, 9, "30343b")
-box(165, 549, 106, 26, 7, "4a505b")
+text("Power mode", 58, 482, 11, MUTED)
+box(56, 504, 328, 32, 9, "30343b")
+box(165, 507, 106, 26, 7, "4a505b")
 for x, label in [(58, "Saver"), (166, "Balanced"), (274, "Performance")]:
-    text(label, x, 553, 11, WHITE if label == "Balanced" else MUTED,
+    text(label, x, 511, 11, WHITE if label == "Balanced" else MUTED,
          width=108, align=Pango.Alignment.CENTER)
 
-divider(594)
+divider(552)
 for x, label, glyph in [(58, "Lock", "system-lock-screen"),
                          (142, "Sleep", "weather-clear-night"),
                          (226, "Restart", "system-reboot"),
                          (310, "Shut down", "system-shutdown")]:
-    icon(glyph, x+28, 610, 18)
-    text(label, x, 638, 10, MUTED, width=72, align=Pango.Alignment.CENTER)
+    icon(glyph, x+28, 568, 18)
+    text(label, x, 596, 10, MUTED, width=72, align=Pango.Alignment.CENTER)
 
-text("Illustrative states · optional media section shown", 40, 685, 10, MUTED)
+text("Illustrative states · optional media section shown", 40, 647, 10, MUTED)
 surface.write_to_png(str(HERE / "unified-panel.png"))
 print(HERE / "unified-panel.png")
