@@ -217,6 +217,113 @@ def render(depth):
     return path
 
 
+def plate(x, y, w, h, radius=12):
+    shadow(x, y, w, h, radius, blur=2, offset=1, opacity=.16)
+    box(x, y, w, h, radius, "424750", "535963")
+
+
+def grouped_slider(y, glyph, label, value):
+    plate(56, y, 328, 60)
+    icon(glyph, 68, y+11, 17)
+    text(label, 94, y+10, 12, weight="Medium")
+    text(f"{value}%", 328, y+10, 12, MUTED, width=44, align=Pango.Alignment.RIGHT)
+    box(70, y+40, 300, 5, 2.5, "626874")
+    box(70, y+40, 300*value/100, 5, 2.5, WHITE)
+    thumb_x = 70 + 300*value/100 - 6
+    shadow(thumb_x, y+36.5, 12, 12, 6, blur=1.5, offset=1, opacity=.4)
+    box(thumb_x, y+36.5, 12, 12, 6, WHITE)
+
+
+def render_grouped():
+    global c
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 440*SCALE, 652*SCALE)
+    c = cairo.Context(surface)
+    c.scale(SCALE, SCALE)
+    background = cairo.LinearGradient(0, 0, 440, 652)
+    background.add_color_stop_rgb(0, .09, .14, .18)
+    background.add_color_stop_rgb(1, .13, .11, .18)
+    c.set_source(background)
+    c.paint()
+    text("LAYOUT STUDY / 06", 40, 22, 11, MUTED, "Medium")
+    color(WHITE)
+    c.set_line_width(2.4)
+    c.set_line_cap(cairo.LINE_CAP_ROUND)
+    c.set_line_join(cairo.LINE_JOIN_ROUND)
+    c.move_to(374.5, 55)
+    c.line_to(380, 49.5)
+    c.line_to(385.5, 55)
+    c.stroke()
+
+    shadow(40, 72, 360, 536, 20, blur=12, offset=8, opacity=.5)
+    rounded_path(c, 40, 72, 360, 536, 20)
+    # Static material approximation; a live popup would sample its blurred backdrop.
+    material = cairo.LinearGradient(40, 72, 400, 608)
+    material.add_color_stop_rgb(0, .22, .24, .28)
+    material.add_color_stop_rgb(1, .16, .18, .22)
+    c.set_source(material)
+    c.fill_preserve()
+    color("59616b")
+    c.set_line_width(1)
+    c.stroke()
+
+    for x, glyph, title, state, on in [
+            (56, "network-wireless", "Wi-Fi", "Home network", True),
+            (168, "bluetooth", "Bluetooth", "Headphones", True),
+            (280, "weather-clear-night", "Stay awake", "Off", False)]:
+        plate(x, 88, 104, 78)
+        box(x+38, 97, 28, 28, 14, "2785ed" if on else "626873")
+        icon(glyph, x+42, 101, 20)
+        text(title, x+8, 130, 12, weight="Medium", width=88,
+             align=Pango.Alignment.CENTER)
+        text(state, x+8, 149, 10, "c5cbd5", width=88,
+             align=Pango.Alignment.CENTER)
+
+    grouped_slider(174, "audio-volume-high", "Sound", 67)
+    grouped_slider(242, "display-brightness", "Brightness", 42)
+
+    plate(56, 310, 328, 36)
+    icon("keyboard-brightness", 68, 320, 16)
+    text("Keyboard light", 94, 319, 12, weight="Medium")
+    text("50%", 324, 319, 12, WHITE, width=48, align=Pango.Alignment.RIGHT)
+
+    plate(56, 354, 328, 60)
+    box(68, 366, 36, 36, 8, "626b7b")
+    text("♪", 77, 369, 23)
+    text("Evening playlist", 116, 366, 12, weight="Medium", width=140)
+    text("Music player", 116, 385, 11, "c5cbd5", width=140)
+    icon("media-skip-backward", 268, 377, 16)
+    icon("media-playback-start", 310, 375, 20)
+    icon("media-skip-forward", 354, 377, 16)
+
+    for x, label, value, percent in [(56, "CPU", "12%", .12),
+                                     (224, "Memory", "9.3 / 27 GB", .34)]:
+        plate(x, 422, 160, 44)
+        text(label, x+12, 432, 11, "c5cbd5")
+        text(value, x+58, 432, 11, width=90, align=Pango.Alignment.RIGHT)
+        box(x+12, 455, 136, 3, 1.5, "626874")
+        box(x+12, 455, 136*percent, 3, 1.5, "d1d9e5")
+
+    plate(56, 474, 328, 56)
+    text("Power mode", 68, 484, 11, "c5cbd5")
+    box(166, 504, 108, 20, 6, "626a77")
+    for x, label in [(60, "Saver"), (166, "Balanced"), (274, "Performance")]:
+        text(label, x, 507, 11, width=106, align=Pango.Alignment.CENTER)
+
+    for x, label, glyph in [(56, "Lock", "system-lock-screen"),
+                             (140, "Sleep", "weather-clear-night"),
+                             (224, "Restart", "system-reboot"),
+                             (308, "Shut down", "system-shutdown")]:
+        plate(x, 538, 76, 54)
+        icon(glyph, x+28, 548, 20)
+        text(label, x+6, 575, 10, "c5cbd5", width=64,
+             align=Pango.Alignment.CENTER)
+
+    text("Illustrative states · material/blur approximation", 40, 629, 10, MUTED)
+    path = HERE / "grouped-panel.png"
+    surface.write_to_png(str(path))
+    return path
+
+
 flat, depth = render(False), render(True)
 comparison = Image.new("RGB", (848, 652), "#191e27")
 labels = ImageDraw.Draw(comparison)
@@ -228,3 +335,14 @@ for path, x, label in [(flat, 0, "01 / Прежний вариант"),
     comparison.paste(panel.resize((400, 562), Image.Resampling.LANCZOS), (x+12, 64))
 comparison.save(HERE / "depth-comparison.png")
 print(HERE / "depth-comparison.png")
+
+grouped = render_grouped()
+comparison = Image.new("RGB", (848, 652), "#191e27")
+labels = ImageDraw.Draw(comparison)
+for path, x, label in [(depth, 0, "01 / Предыдущий вариант"),
+                       (grouped, 424, "02 / Единый попап + подложки")]:
+    labels.text((x+32, 24), label, font=font, fill="#e2e5eb")
+    panel = Image.open(path).convert("RGB").crop((20*SCALE, 60*SCALE, 420*SCALE, 622*SCALE))
+    comparison.paste(panel.resize((400, 562), Image.Resampling.LANCZOS), (x+12, 64))
+comparison.save(HERE / "grouped-comparison.png")
+print(HERE / "grouped-comparison.png")
