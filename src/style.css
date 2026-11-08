@@ -455,7 +455,7 @@ button.tile.keyboard-light:not(.active) .tile-icon {
 }
 
 .player-title {
-    font-weight: normal;
+    font-weight: 600;
 }
 
 .player-artist {

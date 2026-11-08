@@ -337,9 +337,11 @@ each section. Read before changing any of these.
   The last control-center child has no bottom margin: the row's old 8 px margin
   stacked with the popup padding, making its bottom field wider than its other edges.
   Typography inherits the system family but uses only two sizes inside this panel:
-  12 px regular for names, values, track titles and power profiles; 11 px regular for
+  12 px regular for names, values and power profiles; 11 px regular for
   device/state lines, artists and session captions. CPU/Memory no longer inherit the
   larger system size or a bold weight. Secondary text is distinguished by colour.
+  The playing track's title stays 12 px but uses semibold (600) to stand out above
+  the artist without increasing the player card's text size.
 - Bar tooltips reuse the Waybar information: battery capacity/time/power, Wi-Fi
   SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
   their battery levels. Text is built on GTK's tooltip request from existing caches:
