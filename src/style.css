@@ -437,11 +437,13 @@ button.tile.keyboard-light:not(.active) .tile-icon {
     padding: 4px 0;
 }
 
-.control-slider scale trough highlight {
+.control-slider scale trough highlight,
+.sound-menu scale trough highlight {
     background: var(--text);
 }
 
-.control-slider scale trough slider {
+.control-slider scale trough slider,
+.sound-menu scale trough slider {
     min-width: 12px;
     min-height: 12px;
     margin: -4px;
@@ -985,6 +987,35 @@ button.dock-button:hover {
     font-size: 0.9em;
     color: rgba(255, 255, 255, 0.75);
     font-feature-settings: "tnum";
+}
+
+/* Sound controls keep neutral interaction states instead of GTK's accent plates. */
+.sound-menu button.menu-icon-button {
+    background: transparent;
+    color: var(--text);
+    border: none;
+    box-shadow: none;
+    outline: none;
+    transition: background-color 100ms ease-out;
+}
+
+.sound-menu button.menu-icon-button:hover {
+    background: var(--inner-hover);
+}
+
+.sound-menu button.menu-icon-button:active {
+    background: rgba(255, 255, 255, 0.20);
+    transition: none;
+}
+
+.sound-menu button.menu-icon-button:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.35);
+    outline-offset: 2px;
+}
+
+.sound-menu button.menu-icon-button:disabled {
+    background: transparent;
+    color: var(--text-faint);
 }
 
 .app-stream-row image {

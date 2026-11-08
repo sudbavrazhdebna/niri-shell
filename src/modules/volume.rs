@@ -47,6 +47,7 @@ fn icon(state: &AudioState) -> &'static str {
 
 fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     let column = ui::column();
+    column.add_css_class("sound-menu");
     column.set_width_request(320);
     column.append(&ui::title("Sound"));
     column.append(&ui::separator());

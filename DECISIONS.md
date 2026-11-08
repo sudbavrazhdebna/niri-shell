@@ -15,6 +15,9 @@ each section. Read before changing any of these.
   labels. App icons survive muting (dimmed instead), using Pulse's icon name or a cached
   desktop-entry lookup by application id/executable/display name, then a generic app fallback.
   Row callbacks hold Audio weakly because the service itself owns their watch listeners.
+  The popup's `.sound-menu` scope shares control-center white sliders and small thumbs;
+  mute remains grey. Icon buttons explicitly clear GTK backgrounds, borders and shadows
+  in favour of neutral hover/press plates and a visible white keyboard focus outline.
 - **GL renderer, not Vulkan.** The fork measured GL as cheaper with changing text, and GTK's
   Vulkan renderer was seen stalling for minutes in `wl_display_roundtrip` while opening a bar
   window. Set in `main` unless `GSK_RENDERER` is given.
