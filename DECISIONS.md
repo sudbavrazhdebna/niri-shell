@@ -10,7 +10,7 @@ each section. Read before changing any of these.
   `VariantDict::new` panic on unexpected types, and apps do send unexpected types.
 - **libpulse on the GLib main loop** (`libpulse-glib-binding`) for sound: no threads, and it
   unifies with gtk-rs' glib 0.22.
-- The sound menu puts per-app playback above microphone gain. Each stream occupies one
+- The sound menu keeps playback controls in the popup. Each stream occupies one
   icon/slider/percentage row; names and mute actions stay in tooltips and accessibility
   labels. App icons survive muting (dimmed instead), using Pulse's icon name or a cached
   desktop-entry lookup by application id/executable/display name, then a generic app fallback.
@@ -20,8 +20,11 @@ each section. Read before changing any of these.
   in favour of neutral hover/press plates and a visible white keyboard focus outline.
   Apps starts collapsed on each menu opening, behind one count/chevron disclosure row.
   Stream updates rebuild only its list and preserve expansion; an empty section hides
-  entirely and resets closed. Microphone remains directly visible. GTK's revealer animates
-  the list and the menu's existing sizing follows it; no extra polling is introduced.
+  entirely and resets closed. GTK's revealer animates the list and the menu's existing
+  sizing follows it; no extra polling is introduced. Microphone controls are delegated to
+  pavucontrol through the footer's Sound Settings item, which closes the popup before
+  launching it, like Bluetooth Settings. The unused input tracking and source subscription
+  are removed from Audio; this does not mute or disable any actual microphone.
 - **GL renderer, not Vulkan.** The fork measured GL as cheaper with changing text, and GTK's
   Vulkan renderer was seen stalling for minutes in `wl_display_roundtrip` while opening a bar
   window. Set in `main` unless `GSK_RENDERER` is given.

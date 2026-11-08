@@ -64,28 +64,6 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
         output.show(icon(state), state.percent, state.muted);
     });
 
-    // The microphone, if there is one.
-    let (a, b) = (Rc::downgrade(audio), Rc::downgrade(audio));
-    let mic = LevelRow::new(
-        move || { if let Some(a) = a.upgrade() { a.toggle_mic_mute(); } },
-        move |v| { if let Some(b) = b.upgrade() { b.set_mic_percent(v); } },
-    );
-    let mic_box = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-    mic_box.append(&ui::separator());
-    mic_box.append(&ui::title("Microphone"));
-    mic_box.append(&mic.row);
-    audio.mic.bind(&mic_box, move |mic_box, state| {
-        mic_box.set_visible(state.is_some());
-        if let Some(state) = state {
-            let icon = if state.muted || state.percent == 0 {
-                "microphone-sensitivity-muted-symbolic"
-            } else {
-                "audio-input-microphone-symbolic"
-            };
-            mic.show(icon, state.percent, state.muted);
-        }
-    });
-
     // Programs playing sound, each with its own volume.
     let apps = ui::column();
     apps.append(&ui::separator());
@@ -177,9 +155,12 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
         }
     });
     column.append(&outputs);
-    // Playback controls first; microphone gain is a separate, less frequent adjustment.
     column.append(&apps);
-    column.append(&mic_box);
+    column.append(&ui::separator());
+    column.append(&ui::item("Sound Settings…", false, || {
+        menu::close();
+        ui::launch("pavucontrol");
+    }));
     column
 }
 
