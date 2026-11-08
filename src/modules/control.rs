@@ -128,6 +128,7 @@ fn keyboard_light_tile(services: &Rc<Services>) -> gtk4::Button {
             light.set(if now >= max { 0 } else { now + 1 });
         }
     });
+    tile.button.add_css_class("keyboard-light");
     let (subtitle, set, image) = (tile.subtitle.clone(), tile.set.clone(), tile.image.clone());
     light.level.bind(&tile.button, move |button, level| {
         button.set_visible(level.is_some());
@@ -226,7 +227,7 @@ fn brightness_icon(percent: u32) -> &'static str {
 
 fn keyboard_light_icon(now: i32, max: i32) -> &'static str {
     if now <= 0 {
-        "nshell-keyboard-light-off-symbolic"
+        "keyboard-brightness-symbolic"
     } else if i64::from(now) * 2 <= i64::from(max) {
         "nshell-keyboard-light-low-symbolic"
     } else {

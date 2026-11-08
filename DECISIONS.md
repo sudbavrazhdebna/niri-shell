@@ -309,6 +309,8 @@ each section. Read before changing any of these.
   (Off / 50% / 100% on the two-level keyboard), and tooltips retain truncated names.
   Tile icons follow their service state: Wi-Fi disabled / disconnected / connected
   signal, Bluetooth disabled / on, and keyboard light off / low / high.
+  Keyboard light off keeps the ordinary backlight glyph in `--text-faint`, without
+  a slash; the active state restores the normal foreground on its blue circle.
   Wi-Fi's button only changes NetworkManager's WirelessEnabled, so it never claims
   airplane mode. Even the weakest connected Wi-Fi signal keeps a connected glyph.
   Sound uses muted / low / medium / high icons; brightness uses outline / half-filled /
@@ -334,6 +336,10 @@ each section. Read before changing any of these.
   open/close animation stays enabled independently.
   The last control-center child has no bottom margin: the row's old 8 px margin
   stacked with the popup padding, making its bottom field wider than its other edges.
+  Typography inherits the system family but uses only two sizes inside this panel:
+  12 px regular for names, values, track titles and power profiles; 11 px regular for
+  device/state lines, artists and session captions. CPU/Memory no longer inherit the
+  larger system size or a bold weight. Secondary text is distinguished by colour.
 - Bar tooltips reuse the Waybar information: battery capacity/time/power, Wi-Fi
   SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
   their battery levels. Text is built on GTK's tooltip request from existing caches:
