@@ -367,6 +367,10 @@ entry.menu-password image {
     margin-bottom: 8px;
 }
 
+.control-center > :last-child {
+    margin-bottom: 0;
+}
+
 .control-center button.tile,
 .control-center .control-slider,
 .control-center .system-stats,

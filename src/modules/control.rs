@@ -10,7 +10,7 @@ use gtk4::prelude::*;
 
 use super::Context;
 use crate::services::Services;
-use crate::services::network::Link;
+use crate::services::network::{Link, NetworkState};
 use crate::services::audio::MAX_PERCENT;
 use crate::{menu, ui};
 
@@ -68,14 +68,15 @@ fn tiles(services: &Rc<Services>) -> gtk4::Box {
     let s = services.clone();
     let wifi = tile("network-wireless-symbolic", "Wi-Fi", move |on| s.network().set_wifi_enabled(on));
     services.network().state.bind(&wifi.button, {
-        let (state_label, set) = (wifi.subtitle.clone(), wifi.set.clone());
+        let (state_label, set, image) = (wifi.subtitle.clone(), wifi.set.clone(), wifi.image.clone());
         move |button, state| {
             set(state.wifi_enabled);
+            ui::set_icon(&image, wifi_icon(state));
             state_label.set_label(&match &state.link {
+                _ if !state.wifi_enabled => "Off".into(),
                 Link::Wifi { ssid, .. } => ssid.clone(),
                 Link::Wired => "Wired".into(),
-                Link::Offline if state.wifi_enabled => "Not connected".into(),
-                Link::Offline => "Off".into(),
+                Link::Offline => "Not connected".into(),
             });
             button.set_tooltip_text(Some(&format!("Wi-Fi\n{}", state_label.text())));
         }
@@ -84,10 +85,11 @@ fn tiles(services: &Rc<Services>) -> gtk4::Box {
     let s = services.clone();
     let bt = tile("bluetooth-symbolic", "Bluetooth", move |on| s.bluetooth().set_powered(on));
     services.bluetooth().state.bind(&bt.button, {
-        let (state_label, set) = (bt.subtitle.clone(), bt.set.clone());
+        let (state_label, set, image) = (bt.subtitle.clone(), bt.set.clone(), bt.image.clone());
         move |button, state| {
             set(state.powered);
             let connected: Vec<_> = state.devices.iter().filter(|d| d.connected).map(|d| d.name.clone()).collect();
+            ui::set_icon(&image, if state.powered { "bluetooth-symbolic" } else { "bluetooth-disabled-symbolic" });
             state_label.set_label(&match (state.powered, connected.first()) {
                 (false, _) => "Off".to_string(),
                 (true, Some(name)) => name.clone(),
@@ -126,11 +128,12 @@ fn keyboard_light_tile(services: &Rc<Services>) -> gtk4::Button {
             light.set(if now >= max { 0 } else { now + 1 });
         }
     });
-    let (subtitle, set) = (tile.subtitle.clone(), tile.set.clone());
+    let (subtitle, set, image) = (tile.subtitle.clone(), tile.set.clone(), tile.image.clone());
     light.level.bind(&tile.button, move |button, level| {
         button.set_visible(level.is_some());
         let Some((now, max)) = *level else { return };
         set(now > 0);
+        ui::set_icon(&image, keyboard_light_icon(now, max));
         subtitle.set_label(&level_name(now, max));
         button.set_tooltip_text(Some(&format!("Keyboard light: {}\nClick to cycle levels", subtitle.text())));
     });
@@ -144,6 +147,7 @@ fn level_name(now: i32, max: i32) -> String {
 
 struct Tile {
     button: gtk4::Button,
+    image: gtk4::Image,
     subtitle: gtk4::Label,
     /// Shows on/off without calling the toggle callback.
     set: Rc<dyn Fn(bool)>,
@@ -185,7 +189,49 @@ fn tile(icon: &str, name: &str, on_toggle: impl Fn(bool) + 'static) -> Tile {
             }
         }
     });
-    Tile { button, subtitle, set }
+    Tile { button, image, subtitle, set }
+}
+
+fn wifi_icon(state: &NetworkState) -> &'static str {
+    // This button only sets WirelessEnabled; it does not enable airplane mode.
+    if !state.wifi_enabled {
+        return "network-wireless-disabled-symbolic";
+    }
+    match state.link {
+        Link::Wifi { strength: 66.., .. } => "network-wireless-signal-excellent-symbolic",
+        Link::Wifi { strength: 33.., .. } => "network-wireless-signal-ok-symbolic",
+        Link::Wifi { .. } => "network-wireless-signal-weak-symbolic",
+        Link::Offline => "network-wireless-offline-symbolic",
+        Link::Wired => "network-wireless-symbolic",
+    }
+}
+
+fn volume_icon(percent: u32, muted: bool) -> &'static str {
+    match percent {
+        _ if muted => "audio-volume-muted-symbolic",
+        0 => "audio-volume-muted-symbolic",
+        1..=33 => "audio-volume-low-symbolic",
+        34..=66 => "audio-volume-medium-symbolic",
+        _ => "audio-volume-high-symbolic",
+    }
+}
+
+fn brightness_icon(percent: u32) -> &'static str {
+    match percent {
+        0..=33 => "nshell-brightness-low-symbolic",
+        34..=66 => "nshell-brightness-medium-symbolic",
+        _ => "display-brightness-symbolic",
+    }
+}
+
+fn keyboard_light_icon(now: i32, max: i32) -> &'static str {
+    if now <= 0 {
+        "nshell-keyboard-light-off-symbolic"
+    } else if i64::from(now) * 2 <= i64::from(max) {
+        "nshell-keyboard-light-low-symbolic"
+    } else {
+        "keyboard-brightness-symbolic"
+    }
 }
 
 fn append_sliders(column: &gtk4::Box, services: &Rc<Services>) {
@@ -198,7 +244,7 @@ fn append_sliders(column: &gtk4::Box, services: &Rc<Services>) {
             row.set_visible(state.available);
             s.show(f64::from(state.percent));
             s.set_dimmed(state.muted);
-            image.set_icon_name(Some(if state.muted { "audio-volume-muted-symbolic" } else { "audio-volume-high-symbolic" }));
+            ui::set_icon(&image, volume_icon(state.percent, state.muted));
         });
         column.append(&row);
     }
@@ -207,13 +253,15 @@ fn append_sliders(column: &gtk4::Box, services: &Rc<Services>) {
     if brightness.percent.get().is_some() {
         let s = services.clone();
         let slider = ui::Slider::new(100.0, move |v| s.brightness().set_percent(v.round() as u32)).with_smoothing();
-        let (row, _) = slider_card("display-brightness-symbolic", "Brightness", slider.widget());
+        let (row, image) = slider_card("display-brightness-symbolic", "Brightness", slider.widget());
         let s = slider.clone();
         brightness
             .percent
             .bind(&row, move |row, percent| {
                 row.set_visible(percent.is_some());
-                s.show(f64::from(percent.unwrap_or(0)));
+                let percent = percent.unwrap_or(0);
+                s.show(f64::from(percent));
+                ui::set_icon(&image, brightness_icon(percent));
             });
         column.append(&row);
     }

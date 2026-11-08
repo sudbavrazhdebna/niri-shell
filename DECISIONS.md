@@ -307,6 +307,14 @@ each section. Read before changing any of these.
   hidden without an empty slot on unsupported hardware. Each tile has its icon above
   the label/state; only the icon circle turns blue. Keyboard light shows percentages
   (Off / 50% / 100% on the two-level keyboard), and tooltips retain truncated names.
+  Tile icons follow their service state: Wi-Fi disabled / disconnected / connected
+  signal, Bluetooth disabled / on, and keyboard light off / low / high.
+  Wi-Fi's button only changes NetworkManager's WirelessEnabled, so it never claims
+  airplane mode. Even the weakest connected Wi-Fi signal keeps a connected glyph.
+  Sound uses muted / low / medium / high icons; brightness uses outline / half-filled /
+  filled suns. The added brightness and keyboard SVGs extend the existing symbolic
+  menu icons with filled geometry: GTK's symbolic recolouring can suppress SVG
+  strokes. Bar assets stay independent. These updates use existing subscriptions.
   Sound and brightness each have their own surface: a white icon, title and numeric
   percentage above a white slider with a small thumb. Percentages follow the displayed
   thumb while dragging; existing system subscriptions supply external updates. Slider
@@ -324,6 +332,8 @@ each section. Read before changing any of these.
   and radius. All inner surfaces have a small soft shadow without a border or inset
   edge. The full grouped-popup study remains a reference only. The bar chevron's
   open/close animation stays enabled independently.
+  The last control-center child has no bottom margin: the row's old 8 px margin
+  stacked with the popup padding, making its bottom field wider than its other edges.
 - Bar tooltips reuse the Waybar information: battery capacity/time/power, Wi-Fi
   SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
   their battery levels. Text is built on GTK's tooltip request from existing caches:
