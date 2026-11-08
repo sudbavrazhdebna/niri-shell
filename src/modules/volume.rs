@@ -157,7 +157,7 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     column.append(&outputs);
     column.append(&apps);
     column.append(&ui::separator());
-    column.append(&ui::item("Sound Settings…", false, || {
+    column.append(&ui::action_item("Sound Settings…", || {
         menu::close();
         ui::launch("pavucontrol");
     }));

@@ -246,10 +246,11 @@ each section. Read before changing any of these.
   it changes. The `taskbar` is the dock's own apps row (`dock::apps`), so pins, dots,
   clicks and menus stay one code; only its CSS is smaller to fit the bar.
 
-- Every menu row keeps the check mark's column on the left, in every menu, checked or
-  not (as macOS, Windows, KDE do). Tried for a while: the column only where something
-  can be checked, then the check at the row's end (as GNOME Shell's quick settings);
-  the user chose one rule everywhere, and text that lines up from menu to menu.
+- Selection rows keep the check mark's column on the left even when unchecked, so
+  choices stay aligned. Settings commands in Sound, Bluetooth and Wi-Fi use the shared
+  `ui::action_item` instead: it omits the check widget and keeps the usual row padding,
+  aligning text with section headings. Both row types use one builder; no negative
+  margins or module-specific position adjustments. Other menu rows retain their layout.
 
 - No arrow on menus pointing at their module or dock icon (asked about 2026-11-04, the
   user declined): GTK's Popover would bring its own surface without our blur and menu

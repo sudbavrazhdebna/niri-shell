@@ -37,20 +37,31 @@ pub fn separator() -> gtk4::Separator {
     sep
 }
 
-/// A clickable row with a check mark when `checked`. Every row keeps the check mark's
-/// column, checked or not, in every menu (as macOS does): text lines up from menu to
-/// menu.
+/// A selection row; unselected choices keep the check column so their text lines up.
 pub fn item(text: &str, checked: bool, on_click: impl Fn() + 'static) -> gtk4::Button {
     checked_item(None, text, checked, on_click)
 }
 
 /// Like [`item`], with an icon between the check mark and the text.
 pub fn checked_item(icon: Option<&str>, text: &str, checked: bool, on_click: impl Fn() + 'static) -> gtk4::Button {
+    menu_item(icon, text, Some(checked), on_click)
+}
+
+/// A command, such as opening settings: no check column is needed.
+pub fn action_item(text: &str, on_click: impl Fn() + 'static) -> gtk4::Button {
+    let button = menu_item(None, text, None, on_click);
+    button.add_css_class("menu-action");
+    button
+}
+
+fn menu_item(icon: Option<&str>, text: &str, checked: Option<bool>, on_click: impl Fn() + 'static) -> gtk4::Button {
     let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
-    let check = gtk4::Image::from_icon_name("object-select-symbolic");
-    check.add_css_class("menu-check");
-    check.set_opacity(if checked { 1.0 } else { 0.0 });
-    row.append(&check);
+    if let Some(checked) = checked {
+        let check = gtk4::Image::from_icon_name("object-select-symbolic");
+        check.add_css_class("menu-check");
+        check.set_opacity(if checked { 1.0 } else { 0.0 });
+        row.append(&check);
+    }
     if let Some(icon) = icon {
         let image = gtk4::Image::from_icon_name(icon);
         image.add_css_class("menu-row-icon");
