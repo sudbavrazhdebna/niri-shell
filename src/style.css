@@ -379,7 +379,6 @@ entry.menu-password image {
 .control-center .control-slider,
 .control-center .system-stats,
 .control-center .player,
-.control-center .power-profiles,
 .control-center .session-buttons {
     border: none;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
@@ -496,6 +495,8 @@ button.player-button:disabled {
     padding: 3px;
     border-radius: 11px;
     background: var(--inner);
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
 }
 
 .power-profiles button {

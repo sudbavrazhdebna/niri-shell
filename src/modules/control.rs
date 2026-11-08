@@ -8,7 +8,7 @@ use std::time::Duration;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use super::Context;
+use super::{Context, power_profiles};
 use crate::services::Services;
 use crate::services::network::{Link, NetworkState};
 use crate::services::audio::MAX_PERCENT;
@@ -54,7 +54,7 @@ fn content(services: &Rc<Services>) -> gtk4::Box {
     append_sliders(&column, services);
     column.append(&system_stats());
     column.append(&player(services));
-    column.append(&power_profiles(services));
+    column.append(&power_profiles::build(services));
     column.append(&session_buttons(services));
     column
 }
@@ -422,37 +422,6 @@ fn player(services: &Rc<Services>) -> gtk4::Box {
         next.set_sensitive(track.can_next);
     });
     card
-}
-
-fn power_profiles(services: &Rc<Services>) -> gtk4::Box {
-    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-    row.add_css_class("linked");
-    row.add_css_class("power-profiles");
-    row.set_homogeneous(true);
-    let s = services.clone();
-    services.power().state.bind(&row, move |row, state| {
-        ui::clear(row);
-        row.set_visible(!state.profiles.is_empty());
-        for profile in &state.profiles {
-            let (label, icon) = match profile.as_str() {
-                "power-saver" => ("Saver", "power-profile-power-saver-symbolic"),
-                "balanced" => ("Balanced", "power-profile-balanced-symbolic"),
-                "performance" => ("Performance", "power-profile-performance-symbolic"),
-                other => (other, "power-profile-balanced-symbolic"),
-            };
-            let button = gtk4::ToggleButton::new();
-            let content = gtk4::Box::new(gtk4::Orientation::Horizontal, 6);
-            content.set_halign(gtk4::Align::Center);
-            content.append(&gtk4::Image::from_icon_name(icon));
-            content.append(&gtk4::Label::new(Some(label)));
-            button.set_child(Some(&content));
-            button.set_active(*profile == state.active);
-            let (s, name) = (s.clone(), profile.clone());
-            button.connect_clicked(move |_| s.power().set(&name));
-            row.append(&button);
-        }
-    });
-    row
 }
 
 fn session_buttons(services: &Rc<Services>) -> gtk4::Box {

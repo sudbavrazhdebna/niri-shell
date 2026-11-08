@@ -308,6 +308,10 @@ each section. Read before changing any of these.
   button: the per-button way kept missing some (Mark as read, Clear all, the control
   center's tiles and power profiles, 2026-11-04). The power profiles are a segmented
   control of our own, not the theme's linked buttons.
+  Battery and control center share the same component and surface styling. It shows only
+  daemon-provided profiles, follows cached state, and hides when unavailable. Re-clicking
+  the selected mode keeps it selected without writing the same profile again. Service
+  references in widget callbacks stay weak so closed popups can release their listeners.
 - Bar icons keep their colours (not recoloured as symbolic, the volume icon is two-tone);
   opacity and shadow come from CSS. Battery icons use the chosen Classic design: a rounded
   macOS-inspired outline (fully white, including the terminal), proportional fill in

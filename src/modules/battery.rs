@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use gtk4::prelude::*;
 
-use super::{Context, icon_module, tooltips};
+use super::{Context, icon_module, power_profiles, tooltips};
 use crate::services::Services;
 use crate::services::battery::{BatteryState, Charge};
 use crate::{menu, ui};
@@ -82,44 +82,14 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     column.append(&facts);
 
     let profiles = ui::column();
-    let s = services.clone();
-    services.power().state.bind(&profiles, move |profiles, state| {
-        while let Some(child) = profiles.first_child() {
-            profiles.remove(&child);
-        }
-        if state.profiles.is_empty() {
-            return;
-        }
-        profiles.append(&ui::separator());
-        profiles.append(&ui::title("Power mode"));
-        for profile in &state.profiles {
-            let (s, name) = (s.clone(), profile.clone());
-            let icon = profile_icon(profile);
-            profiles.append(&ui::checked_item(Some(icon), profile_name(profile), *profile == state.active, move || {
-                s.power().set(&name);
-            }));
-        }
+    profiles.append(&ui::separator());
+    profiles.append(&ui::title("Power mode"));
+    profiles.append(&power_profiles::build(services));
+    services.power().state.bind(&profiles, |profiles, state| {
+        profiles.set_visible(!state.profiles.is_empty());
     });
     column.append(&profiles);
     column
-}
-
-/// The same icons as the control center's buttons.
-fn profile_icon(profile: &str) -> &'static str {
-    match profile {
-        "power-saver" => "power-profile-power-saver-symbolic",
-        "performance" => "power-profile-performance-symbolic",
-        _ => "power-profile-balanced-symbolic",
-    }
-}
-
-fn profile_name(profile: &str) -> &str {
-    match profile {
-        "power-saver" => "Power saver",
-        "balanced" => "Balanced",
-        "performance" => "Performance",
-        other => other,
-    }
 }
 
 fn status_text(state: &BatteryState) -> String {
