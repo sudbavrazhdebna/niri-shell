@@ -88,17 +88,52 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
 
     // Programs playing sound, each with its own volume.
     let apps = ui::column();
+    apps.append(&ui::separator());
+    let toggle = gtk4::ToggleButton::new();
+    toggle.add_css_class("flat");
+    toggle.add_css_class("sound-apps-toggle");
+    toggle.set_cursor_from_name(Some("pointer"));
+    toggle.update_state(&[gtk4::accessible::State::Expanded(Some(false))]);
+    let heading = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+    let title = ui::title("Apps");
+    title.set_hexpand(true);
+    let count = gtk4::Label::new(None);
+    count.add_css_class("sound-apps-count");
+    let chevron = gtk4::Image::from_icon_name("pan-end-symbolic");
+    chevron.add_css_class("sound-apps-chevron");
+    heading.append(&title);
+    heading.append(&count);
+    heading.append(&chevron);
+    toggle.set_child(Some(&heading));
+    apps.append(&toggle);
+    let list = ui::column();
+    let revealer = gtk4::Revealer::new();
+    revealer.set_transition_type(gtk4::RevealerTransitionType::SlideDown);
+    revealer.set_transition_duration(ui::ANIMATION_MS);
+    revealer.set_child(Some(&list));
+    apps.append(&revealer);
+    let weak = revealer.downgrade();
+    toggle.connect_toggled(move |toggle| {
+        if let Some(revealer) = weak.upgrade() {
+            let open = toggle.is_active();
+            revealer.set_reveal_child(open);
+            toggle.update_state(&[gtk4::accessible::State::Expanded(Some(open))]);
+        }
+    });
     let rows: Rc<RefCell<Vec<(u32, AppRow)>>> = Rc::default();
     let a = Rc::downgrade(audio);
     audio.apps.bind(&apps, move |apps, streams| {
+        apps.set_visible(!streams.is_empty());
+        count.set_label(&streams.len().to_string());
+        toggle.update_property(&[gtk4::accessible::Property::Label(&format!("Apps, {} audio streams", streams.len()))]);
+        if streams.is_empty() {
+            toggle.set_active(false);
+        }
         let same = rows.borrow().iter().map(|(i, _)| *i).eq(streams.iter().map(|s| s.index));
         if !same {
-            ui::clear(apps);
+            // Rebuild only the list: changing streams must not reset the disclosure.
+            ui::clear(&list);
             rows.borrow_mut().clear();
-            if !streams.is_empty() {
-                apps.append(&ui::separator());
-                apps.append(&ui::title("Apps"));
-            }
             for stream in streams {
                 let (a1, a2, index) = (a.clone(), a.clone(), stream.index);
                 let level = LevelRow::new(
@@ -106,7 +141,7 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
                     move |v| { if let Some(a) = a2.upgrade() { a.set_app_percent(index, v); } },
                 );
                 level.row.add_css_class("app-stream-row");
-                apps.append(&level.row);
+                list.append(&level.row);
                 let row = AppRow { level, identity: RefCell::default() };
                 rows.borrow_mut().push((index, row));
             }

@@ -1018,6 +1018,51 @@ button.dock-button:hover {
     color: var(--text-faint);
 }
 
+.sound-menu button.sound-apps-toggle {
+    padding: 4px 8px;
+    min-height: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    border: none;
+    box-shadow: none;
+    outline: none;
+}
+
+.sound-menu button.sound-apps-toggle:hover {
+    background: var(--inner-hover);
+}
+
+.sound-menu button.sound-apps-toggle:active {
+    background: rgba(255, 255, 255, 0.20);
+}
+
+.sound-menu button.sound-apps-toggle:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.35);
+    outline-offset: 2px;
+}
+
+.sound-apps-toggle .menu-title {
+    padding: 0;
+}
+
+.sound-apps-count {
+    color: var(--text-dim);
+    font-weight: normal;
+    font-feature-settings: "tnum";
+}
+
+.sound-apps-chevron {
+    -gtk-icon-size: 14px;
+    color: var(--text-dim);
+    transform: rotate(0deg);
+    transition: transform 150ms ease-out;
+}
+
+.sound-apps-toggle:checked .sound-apps-chevron {
+    transform: rotate(90deg);
+}
+
 .app-stream-row image {
     -gtk-icon-size: 20px;
 }

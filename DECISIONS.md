@@ -18,6 +18,10 @@ each section. Read before changing any of these.
   The popup's `.sound-menu` scope shares control-center white sliders and small thumbs;
   mute remains grey. Icon buttons explicitly clear GTK backgrounds, borders and shadows
   in favour of neutral hover/press plates and a visible white keyboard focus outline.
+  Apps starts collapsed on each menu opening, behind one count/chevron disclosure row.
+  Stream updates rebuild only its list and preserve expansion; an empty section hides
+  entirely and resets closed. Microphone remains directly visible. GTK's revealer animates
+  the list and the menu's existing sizing follows it; no extra polling is introduced.
 - **GL renderer, not Vulkan.** The fork measured GL as cheaper with changing text, and GTK's
   Vulkan renderer was seen stalling for minutes in `wl_display_roundtrip` while opening a bar
   window. Set in `main` unless `GSK_RENDERER` is given.
