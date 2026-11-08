@@ -1,0 +1,512 @@
+[
+  {
+    "label": "moving-false-control",
+    "duration": 8.380905333993724,
+    "battery_w": 12.136375,
+    "battery_range_w": [
+      11.297,
+      12.861
+    ],
+    "apu_ppt_w": 7.0771875,
+    "gpu_busy_pct": 16.0625,
+    "energy_delta_uwh": 30000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 17.301,
+        "gpu_ms_per_s": 23.629
+      },
+      "test_niri": {
+        "cpu_pct": 17.898,
+        "gpu_ms_per_s": 53.46
+      },
+      "test_nshell": {
+        "cpu_pct": 0.358,
+        "gpu_ms_per_s": 0.623
+      },
+      "backdrop": {
+        "cpu_pct": 42.835,
+        "gpu_ms_per_s": 64.593
+      },
+      "host_nshell": {
+        "cpu_pct": 1.313,
+        "gpu_ms_per_s": 0.601
+      }
+    }
+  },
+  {
+    "label": "moving-true-control",
+    "duration": 8.38075080300041,
+    "battery_w": 12.26775,
+    "battery_range_w": [
+      11.11,
+      13.36
+    ],
+    "apu_ppt_w": 7.0999375,
+    "gpu_busy_pct": 14.625,
+    "energy_delta_uwh": 20000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 17.898,
+        "gpu_ms_per_s": 23.021
+      },
+      "test_niri": {
+        "cpu_pct": 14.796,
+        "gpu_ms_per_s": 37.272
+      },
+      "test_nshell": {
+        "cpu_pct": 0.358,
+        "gpu_ms_per_s": 0.653
+      },
+      "backdrop": {
+        "cpu_pct": 43.075,
+        "gpu_ms_per_s": 64.574
+      },
+      "host_nshell": {
+        "cpu_pct": 1.193,
+        "gpu_ms_per_s": 0.554
+      }
+    }
+  },
+  {
+    "label": "moving-false-dock",
+    "duration": 8.382463960995665,
+    "battery_w": 12.432875,
+    "battery_range_w": [
+      11.639,
+      12.826
+    ],
+    "apu_ppt_w": 7.0486875,
+    "gpu_busy_pct": 14.1875,
+    "energy_delta_uwh": 30000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 17.537,
+        "gpu_ms_per_s": 23.411
+      },
+      "test_niri": {
+        "cpu_pct": 18.372,
+        "gpu_ms_per_s": 44.05
+      },
+      "test_nshell": {
+        "cpu_pct": 0.0,
+        "gpu_ms_per_s": 0.0
+      },
+      "backdrop": {
+        "cpu_pct": 43.305,
+        "gpu_ms_per_s": 64.685
+      },
+      "host_nshell": {
+        "cpu_pct": 1.312,
+        "gpu_ms_per_s": 0.671
+      }
+    }
+  },
+  {
+    "label": "moving-true-dock",
+    "duration": 8.37141629299731,
+    "battery_w": 12.125625,
+    "battery_range_w": [
+      11.411,
+      12.567
+    ],
+    "apu_ppt_w": 6.74675,
+    "gpu_busy_pct": 13.0625,
+    "energy_delta_uwh": 30000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 17.44,
+        "gpu_ms_per_s": 23.117
+      },
+      "test_niri": {
+        "cpu_pct": 14.693,
+        "gpu_ms_per_s": 20.829
+      },
+      "test_nshell": {
+        "cpu_pct": 0.0,
+        "gpu_ms_per_s": 0.0
+      },
+      "backdrop": {
+        "cpu_pct": 43.242,
+        "gpu_ms_per_s": 63.984
+      },
+      "host_nshell": {
+        "cpu_pct": 1.075,
+        "gpu_ms_per_s": 0.681
+      }
+    }
+  },
+  {
+    "label": "moving-false-launcher",
+    "duration": 8.377290582997375,
+    "battery_w": 12.292625000000001,
+    "battery_range_w": [
+      11.987,
+      12.673
+    ],
+    "apu_ppt_w": 6.8851875,
+    "gpu_busy_pct": 17.625,
+    "energy_delta_uwh": 20000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 17.189,
+        "gpu_ms_per_s": 22.505
+      },
+      "test_niri": {
+        "cpu_pct": 14.444,
+        "gpu_ms_per_s": 76.149
+      },
+      "test_nshell": {
+        "cpu_pct": 4.775,
+        "gpu_ms_per_s": 20.163
+      },
+      "backdrop": {
+        "cpu_pct": 30.439,
+        "gpu_ms_per_s": 46.773
+      },
+      "host_nshell": {
+        "cpu_pct": 1.074,
+        "gpu_ms_per_s": 0.599
+      }
+    }
+  },
+  {
+    "label": "moving-true-launcher",
+    "duration": 8.378327986996737,
+    "battery_w": 11.951125000000001,
+    "battery_range_w": [
+      11.348,
+      13.061
+    ],
+    "apu_ppt_w": 6.5680625,
+    "gpu_busy_pct": 13.75,
+    "energy_delta_uwh": 30000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 17.307,
+        "gpu_ms_per_s": 23.524
+      },
+      "test_niri": {
+        "cpu_pct": 11.936,
+        "gpu_ms_per_s": 31.619
+      },
+      "test_nshell": {
+        "cpu_pct": 4.774,
+        "gpu_ms_per_s": 18.963
+      },
+      "backdrop": {
+        "cpu_pct": 30.316,
+        "gpu_ms_per_s": 44.384
+      },
+      "host_nshell": {
+        "cpu_pct": 1.194,
+        "gpu_ms_per_s": 0.587
+      }
+    }
+  },
+  {
+    "label": "moving-false-osd",
+    "duration": 8.50769210299768,
+    "battery_w": 12.05175,
+    "battery_range_w": [
+      11.439,
+      12.53
+    ],
+    "apu_ppt_w": 6.7831875,
+    "gpu_busy_pct": 14.8125,
+    "energy_delta_uwh": 30000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 17.631,
+        "gpu_ms_per_s": 25.202
+      },
+      "test_niri": {
+        "cpu_pct": 17.396,
+        "gpu_ms_per_s": 36.183
+      },
+      "test_nshell": {
+        "cpu_pct": 0.588,
+        "gpu_ms_per_s": 0.256
+      },
+      "backdrop": {
+        "cpu_pct": 43.373,
+        "gpu_ms_per_s": 71.58
+      },
+      "host_nshell": {
+        "cpu_pct": 1.175,
+        "gpu_ms_per_s": 0.569
+      }
+    }
+  },
+  {
+    "label": "moving-true-osd",
+    "duration": 8.465294502006145,
+    "battery_w": 11.768625,
+    "battery_range_w": [
+      11.26,
+      12.944
+    ],
+    "apu_ppt_w": 6.8189375,
+    "gpu_busy_pct": 12.9375,
+    "energy_delta_uwh": 30000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 17.483,
+        "gpu_ms_per_s": 23.33
+      },
+      "test_niri": {
+        "cpu_pct": 14.294,
+        "gpu_ms_per_s": 20.61
+      },
+      "test_nshell": {
+        "cpu_pct": 0.709,
+        "gpu_ms_per_s": 0.281
+      },
+      "backdrop": {
+        "cpu_pct": 42.29,
+        "gpu_ms_per_s": 62.124
+      },
+      "host_nshell": {
+        "cpu_pct": 1.063,
+        "gpu_ms_per_s": 0.66
+      }
+    }
+  },
+  {
+    "label": "static-true-dock",
+    "duration": 8.426136624999344,
+    "battery_w": 5.958375,
+    "battery_range_w": [
+      5.753,
+      6.128
+    ],
+    "apu_ppt_w": 3.3410625,
+    "gpu_busy_pct": 6.125,
+    "energy_delta_uwh": 20000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 2.611,
+        "gpu_ms_per_s": 0.059
+      },
+      "test_niri": {
+        "cpu_pct": 0.119,
+        "gpu_ms_per_s": 0.0
+      },
+      "test_nshell": {
+        "cpu_pct": 0.0,
+        "gpu_ms_per_s": 0.0
+      },
+      "backdrop": {
+        "cpu_pct": 0.119,
+        "gpu_ms_per_s": 0.0
+      },
+      "host_nshell": {
+        "cpu_pct": 1.305,
+        "gpu_ms_per_s": 0.0
+      }
+    }
+  },
+  {
+    "label": "static-false-launcher",
+    "duration": 8.432393834998948,
+    "battery_w": 8.064,
+    "battery_range_w": [
+      6.097,
+      9.224
+    ],
+    "apu_ppt_w": 4.7141875,
+    "gpu_busy_pct": 12,
+    "energy_delta_uwh": 20000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 12.096,
+        "gpu_ms_per_s": 15.95
+      },
+      "test_niri": {
+        "cpu_pct": 7.708,
+        "gpu_ms_per_s": 31.503
+      },
+      "test_nshell": {
+        "cpu_pct": 9.724,
+        "gpu_ms_per_s": 38.11
+      },
+      "backdrop": {
+        "cpu_pct": 0.0,
+        "gpu_ms_per_s": 0.0
+      },
+      "host_nshell": {
+        "cpu_pct": 1.186,
+        "gpu_ms_per_s": 0.0
+      }
+    }
+  },
+  {
+    "label": "static-true-launcher",
+    "duration": 8.448208215006161,
+    "battery_w": 7.18275,
+    "battery_range_w": [
+      5.82,
+      7.561
+    ],
+    "apu_ppt_w": 4.241875,
+    "gpu_busy_pct": 14.4375,
+    "energy_delta_uwh": 20000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 12.784,
+        "gpu_ms_per_s": 19.057
+      },
+      "test_niri": {
+        "cpu_pct": 8.404,
+        "gpu_ms_per_s": 38.687
+      },
+      "test_nshell": {
+        "cpu_pct": 10.298,
+        "gpu_ms_per_s": 38.35
+      },
+      "backdrop": {
+        "cpu_pct": 0.237,
+        "gpu_ms_per_s": 0.0
+      },
+      "host_nshell": {
+        "cpu_pct": 1.302,
+        "gpu_ms_per_s": 0.0
+      }
+    }
+  },
+  {
+    "label": "static-false-osd",
+    "duration": 8.52015107900661,
+    "battery_w": 6.227625,
+    "battery_range_w": [
+      5.815,
+      7.791
+    ],
+    "apu_ppt_w": 3.372375,
+    "gpu_busy_pct": 6.125,
+    "energy_delta_uwh": 20000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 3.286,
+        "gpu_ms_per_s": 1.441
+      },
+      "test_niri": {
+        "cpu_pct": 0.587,
+        "gpu_ms_per_s": 1.214
+      },
+      "test_nshell": {
+        "cpu_pct": 0.704,
+        "gpu_ms_per_s": 0.399
+      },
+      "backdrop": {
+        "cpu_pct": 0.0,
+        "gpu_ms_per_s": 0.0
+      },
+      "host_nshell": {
+        "cpu_pct": 1.761,
+        "gpu_ms_per_s": 0.115
+      }
+    }
+  },
+  {
+    "label": "static-true-osd",
+    "duration": 8.52579715900356,
+    "battery_w": 5.959625,
+    "battery_range_w": [
+      5.735,
+      6.52
+    ],
+    "apu_ppt_w": 3.3666875000000003,
+    "gpu_busy_pct": 6.125,
+    "energy_delta_uwh": 10000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 3.401,
+        "gpu_ms_per_s": 1.434
+      },
+      "test_niri": {
+        "cpu_pct": 0.469,
+        "gpu_ms_per_s": 1.012
+      },
+      "test_nshell": {
+        "cpu_pct": 0.704,
+        "gpu_ms_per_s": 0.352
+      },
+      "backdrop": {
+        "cpu_pct": 0.235,
+        "gpu_ms_per_s": 0.0
+      },
+      "host_nshell": {
+        "cpu_pct": 1.407,
+        "gpu_ms_per_s": 0.0
+      }
+    }
+  },
+  {
+    "label": "moving-false-closed",
+    "duration": 8.377545020994148,
+    "battery_w": 11.069749999999999,
+    "battery_range_w": [
+      9.058,
+      11.575
+    ],
+    "apu_ppt_w": 6.566125,
+    "gpu_busy_pct": 13,
+    "energy_delta_uwh": 20000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 15.756,
+        "gpu_ms_per_s": 17.643
+      },
+      "test_niri": {
+        "cpu_pct": 14.085,
+        "gpu_ms_per_s": 20.683
+      },
+      "test_nshell": {
+        "cpu_pct": 0.0,
+        "gpu_ms_per_s": 0.0
+      },
+      "backdrop": {
+        "cpu_pct": 44.046,
+        "gpu_ms_per_s": 65.608
+      },
+      "host_nshell": {
+        "cpu_pct": 0.836,
+        "gpu_ms_per_s": 0.0
+      }
+    }
+  },
+  {
+    "label": "moving-true-closed",
+    "duration": 8.377579145992058,
+    "battery_w": 11.6125,
+    "battery_range_w": [
+      11.348,
+      12.31
+    ],
+    "apu_ppt_w": 6.737,
+    "gpu_busy_pct": 12.75,
+    "energy_delta_uwh": 30000,
+    "processes": {
+      "host_niri": {
+        "cpu_pct": 15.756,
+        "gpu_ms_per_s": 17.795
+      },
+      "test_niri": {
+        "cpu_pct": 13.727,
+        "gpu_ms_per_s": 20.624
+      },
+      "test_nshell": {
+        "cpu_pct": 0.119,
+        "gpu_ms_per_s": 0.022
+      },
+      "backdrop": {
+        "cpu_pct": 43.211,
+        "gpu_ms_per_s": 63.995
+      },
+      "host_nshell": {
+        "cpu_pct": 1.074,
+        "gpu_ms_per_s": 0.069
+      }
+    }
+  }
+]
