@@ -25,6 +25,10 @@ each section. Read before changing any of these.
   pavucontrol through the footer's Sound Settings item, which closes the popup before
   launching it, like Bluetooth Settings. The unused input tracking and source subscription
   are removed from Audio; this does not mute or disable any actual microphone.
+- Percentage labels reserve 3 em in `.menu-value`, in addition to tabular digits.
+  GtkLabel's `width-chars(4)` uses average character widths and was narrower than
+  `100%`: going from 99 to 100 shortened adjacent volume/brightness sliders. The
+  font-relative minimum keeps their geometry stable without padding the actual text.
 - **GL renderer, not Vulkan.** The fork measured GL as cheaper with changing text, and GTK's
   Vulkan renderer was seen stalling for minutes in `wl_display_roundtrip` while opening a bar
   window. Set in `main` unless `GSK_RENDERER` is given.

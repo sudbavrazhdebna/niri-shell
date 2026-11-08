@@ -249,6 +249,8 @@ button.menu-item:hover {
 .menu-value {
     color: var(--text-dim);
     font-feature-settings: "tnum";
+    /* width-chars uses average glyphs: four of them can be narrower than "100%". */
+    min-width: 3em;
 }
 
 button.menu-icon-button {
