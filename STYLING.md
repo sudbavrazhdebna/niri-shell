@@ -104,6 +104,7 @@ Note: blur is asked for in CSS. Every card has `backdrop-filter: var(--blur)`, a
 | tooltips | `tooltip` (dark card, 18 px text); clock calendar is one white text label with the full date above it and today bold/underlined |
 | clock extras | `.clock-dot` (unseen notifications), `.clock-dnd` |
 | control chevron | `.control-chevron` inside `.control`; rotates when the parent has `.menu-open` |
+| window title menu | `.menu-action` rows throughout; Floating is a mode-toggle command without a check mark |
 | calendar | `.menu-calendar` (GTK's calendar: `header`, `grid > label.day-number` + `.today`, `.other-month`; a clicked day is `:selected` but left unmarked) |
 | menus | `window.nshell-menu` (+ `.upward` when it opens above a bar at the bottom or the dock), `.menu-card` (the glass card), `.menu-body` (its column of rows), `.menu-title`, `.menu-note`, `.menu-separator`, `button.menu-item` (selection rows keep `.menu-check` on the left; `.menu-action` settings commands omit it), `.menu-row-icon` (an icon before a row's text), `.menu-header` (title with a switch), `.menu-slider-row`, `.menu-value` (tabular digits, 3 em minimum width to fit 100% without shifting sliders), `.menu-trailing`, `.menu-trailing-icon`, `button.menu-icon-button` (the mute button by a slider); a slider whose device is muted or off is `.dimmed` |
 | tray menus | the same rows; a submenu's way back is `button.menu-back` |

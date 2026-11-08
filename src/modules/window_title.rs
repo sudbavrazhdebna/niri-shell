@@ -172,7 +172,7 @@ fn window_menu(window: &niri_ipc::Window, niri: &Niri) -> gtk4::Box {
         for action in entry.list_actions() {
             let label = entry.action_name(&action);
             let (entry, action) = (entry.clone(), action.to_string());
-            column.append(&ui::item(&label, false, move || {
+            column.append(&ui::action_item(&label, move || {
                 crate::launch::action(&entry, &action);
                 menu::close();
             }));
@@ -183,18 +183,18 @@ fn window_menu(window: &niri_ipc::Window, niri: &Niri) -> gtk4::Box {
     }
 
     let id = window.id;
-    let action = |label: &str, checked: bool, make: fn(u64) -> Action| {
+    let action = |label: &str, make: fn(u64) -> Action| {
         let niri = niri.clone();
-        ui::item(label, checked, move || {
+        ui::action_item(label, move || {
             niri.action(make(id));
             menu::close();
         })
     };
-    column.append(&action("Floating", window.is_floating, |id| Action::ToggleWindowFloating { id: Some(id) }));
-    column.append(&action("Maximize", false, |id| Action::MaximizeWindowToEdges { id: Some(id) }));
-    column.append(&action("Fullscreen", false, |id| Action::FullscreenWindow { id: Some(id) }));
+    column.append(&action("Floating", |id| Action::ToggleWindowFloating { id: Some(id) }));
+    column.append(&action("Maximize", |id| Action::MaximizeWindowToEdges { id: Some(id) }));
+    column.append(&action("Fullscreen", |id| Action::FullscreenWindow { id: Some(id) }));
     column.append(&ui::separator());
-    column.append(&action("Close window", false, |id| Action::CloseWindow { id: Some(id) }));
+    column.append(&action("Close window", |id| Action::CloseWindow { id: Some(id) }));
     column
 }
 

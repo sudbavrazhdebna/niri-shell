@@ -251,6 +251,9 @@ each section. Read before changing any of these.
   `ui::action_item` instead: it omits the check widget and keeps the usual row padding,
   aligning text with section headings. Both row types use one builder; no negative
   margins or module-specific position adjustments. Other menu rows retain their layout.
+- The current-window title menu also uses action rows throughout. Floating invokes
+  niri's toggle for the selected window without a state check mark; app actions,
+  Maximize, Fullscreen and Close keep the same text alignment.
 
 - No arrow on menus pointing at their module or dock icon (asked about 2026-11-04, the
   user declined): GTK's Popover would bring its own surface without our blur and menu
