@@ -191,7 +191,7 @@ fn tile(icon: &str, name: &str, on_toggle: impl Fn(bool) + 'static) -> Tile {
 fn append_sliders(column: &gtk4::Box, services: &Rc<Services>) {
     if let Some(audio) = services.audio() {
         let a = audio.clone();
-        let slider = ui::Slider::new(f64::from(MAX_PERCENT), move |v| a.set_percent(v.round() as u32));
+        let slider = ui::Slider::new(f64::from(MAX_PERCENT), move |v| a.set_percent(v.round() as u32)).with_smoothing();
         let (row, image) = slider_card("audio-volume-high-symbolic", "Sound", slider.widget());
         let s = slider.clone();
         audio.state.bind(&row, move |row, state| {
@@ -206,7 +206,7 @@ fn append_sliders(column: &gtk4::Box, services: &Rc<Services>) {
     let brightness = services.brightness();
     if brightness.percent.get().is_some() {
         let s = services.clone();
-        let slider = ui::Slider::new(100.0, move |v| s.brightness().set_percent(v.round() as u32));
+        let slider = ui::Slider::new(100.0, move |v| s.brightness().set_percent(v.round() as u32)).with_smoothing();
         let (row, _) = slider_card("display-brightness-symbolic", "Brightness", slider.widget());
         let s = slider.clone();
         brightness

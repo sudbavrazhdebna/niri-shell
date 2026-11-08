@@ -1,6 +1,6 @@
 //! Building blocks for menu contents, so every menu looks the same.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -86,7 +86,18 @@ struct SliderInner {
     last_sent: Cell<Option<Instant>>,
     /// A value waiting for its send (a timer is due).
     pending: Cell<Option<f64>>,
+    smoothing: Cell<bool>,
+    target: Cell<f64>,
+    tick: RefCell<Option<gtk4::TickCallbackId>>,
     on_change: Box<dyn Fn(f64)>,
+}
+
+impl SliderInner {
+    fn stop_animation(&self) {
+        if let Some(tick) = self.tick.take() {
+            tick.remove();
+        }
+    }
 }
 
 thread_local! {
@@ -118,6 +129,9 @@ impl Slider {
             let_go: Cell::new(None),
             last_sent: Cell::new(None),
             pending: Cell::new(None),
+            smoothing: Cell::new(false),
+            target: Cell::new(0.0),
+            tick: RefCell::new(None),
             on_change: Box::new(on_change),
         }));
 
@@ -129,18 +143,31 @@ impl Slider {
         events.connect_event(move |_, event| {
             if let Some(inner) = weak.upgrade() {
                 match event.event_type() {
-                    gtk4::gdk::EventType::ButtonPress | gtk4::gdk::EventType::TouchBegin => inner.held.set(true),
+                    gtk4::gdk::EventType::ButtonPress | gtk4::gdk::EventType::TouchBegin => {
+                        inner.stop_animation();
+                        inner.held.set(true);
+                    }
                     gtk4::gdk::EventType::ButtonRelease | gtk4::gdk::EventType::TouchEnd => {
                         inner.held.set(false);
                         inner.let_go.set(Some(Instant::now()));
                     }
-                    gtk4::gdk::EventType::Scroll => inner.let_go.set(Some(Instant::now())),
+                    gtk4::gdk::EventType::Scroll => {
+                        inner.stop_animation();
+                        inner.let_go.set(Some(Instant::now()));
+                    }
                     _ => {}
                 }
             }
             glib::Propagation::Proceed
         });
         scale.add_controller(events);
+
+        let weak = Rc::downgrade(&slider.0);
+        scale.connect_unmap(move |_| {
+            if let Some(inner) = weak.upgrade() {
+                inner.stop_animation();
+            }
+        });
 
         let weak = Rc::downgrade(&slider.0);
         // Clamped to the range in effect: a slider's range can change (a track's length).
@@ -157,6 +184,12 @@ impl Slider {
         &self.0.scale
     }
 
+    /// Ease external changes like the OSD; direct input always controls the thumb.
+    pub fn with_smoothing(self) -> Self {
+        self.0.smoothing.set(true);
+        self
+    }
+
     /// Grey fill: the level holds but is off (muted).
     pub fn set_dimmed(&self, dimmed: bool) {
         if dimmed {
@@ -170,13 +203,43 @@ impl Slider {
     pub fn show(&self, value: f64) {
         let inner = &self.0;
         let recently = inner.let_go.get().is_some_and(|t| t.elapsed() < SLIDER_GRACE);
-        if !inner.held.get() && !recently && inner.pending.get().is_none() {
-            inner.scale.set_value(value);
+        if inner.held.get() || recently || inner.pending.get().is_some() {
+            return;
         }
+        let adjustment = inner.scale.adjustment();
+        let value = value.clamp(adjustment.lower(), adjustment.upper());
+        inner.target.set(value);
+        if !inner.smoothing.get() || !inner.scale.is_mapped() || !inner.scale.settings().is_gtk_enable_animations() {
+            inner.stop_animation();
+            inner.scale.set_value(value);
+            return;
+        }
+        if inner.tick.borrow().is_some() || inner.scale.value() == value {
+            return;
+        }
+        let weak = Rc::downgrade(inner);
+        let tick = inner.scale.add_tick_callback(move |scale, _| {
+            let Some(inner) = weak.upgrade() else { return glib::ControlFlow::Break };
+            let adjustment = scale.adjustment();
+            let target = inner.target.get().clamp(adjustment.lower(), adjustment.upper());
+            let delta = target - scale.value();
+            // Match the OSD: 30% of the remaining distance each frame, stop within
+            // 0.4% of the range. Programmatic values never emit change-value.
+            if delta.abs() < ((adjustment.upper() - adjustment.lower()) * 0.004).max(f64::EPSILON) {
+                scale.set_value(target);
+                inner.tick.take();
+                return glib::ControlFlow::Break;
+            }
+            scale.set_value(scale.value() + delta * 0.3);
+            glib::ControlFlow::Continue
+        });
+        inner.tick.replace(Some(tick));
     }
 
     fn send(&self, value: f64) {
         let inner = &self.0;
+        inner.stop_animation();
+        inner.let_go.set(Some(Instant::now()));
         let wait = inner
             .last_sent
             .get()

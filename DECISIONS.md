@@ -311,7 +311,15 @@ each section. Read before changing any of these.
   percentage above a white slider with a small thumb. Percentages follow the displayed
   thumb while dragging; existing system subscriptions supply external updates. Slider
   listeners are bound to the card, not the slider they capture, so closed menus can
-  release them. The original stats/player/power layout remains. Four
+  release them. Their external updates use the OSD's frame-clock easing: 30% of the
+  remaining distance per frame, settling within 0.4% of the range. A new target
+  retargets the active animation from its current position; animation frames only
+  update the display and never send service writes. Initial/unmapped values and
+  reduced-motion settings are immediate. Direct pointer/touch/wheel/key input
+  cancels the animation and retains the slider's existing feedback grace period.
+  The tick is removed at rest or on unmap. Smoothing is opt-in for these two sliders;
+  other menus and media seeking keep their existing update behaviour.
+  The original stats/player/power layout remains. Four
   round session buttons share one `--inner` surface with the stats/player padding
   and radius. All inner surfaces have a small soft shadow without a border or inset
   edge. The full grouped-popup study remains a reference only. The bar chevron's
