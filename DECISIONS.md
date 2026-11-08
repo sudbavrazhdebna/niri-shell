@@ -342,6 +342,11 @@ each section. Read before changing any of these.
   larger system size or a bold weight. Secondary text is distinguished by colour.
   The playing track's title stays 12 px but uses semibold (600) to stand out above
   the artist without increasing the player card's text size.
+  Player transport buttons explicitly style their normal, hover, pressed and disabled
+  states: a transparent base, `--inner-hover` plate, stronger neutral pressed plate,
+  and dimmed disabled glyphs. Pressed glyphs keep `--text` instead of a GTK theme colour.
+  Play/pause updates a persistent child image instead of resetting the button's icon
+  property, keeping its interactive child stable while player events arrive.
 - Bar tooltips reuse the Waybar information: battery capacity/time/power, Wi-Fi
   SSID/exact signal/frequency, volume/default device, connected Bluetooth devices and
   their battery levels. Text is built on GTK's tooltip request from existing caches:

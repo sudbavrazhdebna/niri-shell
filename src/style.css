@@ -466,6 +466,24 @@ button.tile.keyboard-light:not(.active) .tile-icon {
 button.player-button {
     padding: 4px;
     border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    transition: background-color 100ms ease-out;
+}
+
+button.player-button:hover {
+    background: var(--inner-hover);
+}
+
+button.player-button:active {
+    background: rgba(255, 255, 255, 0.20);
+    color: var(--text);
+    transition: none;
+}
+
+button.player-button:disabled {
+    background: transparent;
+    color: var(--text-faint);
 }
 
 /* Power profiles as one segmented control (not the theme's linked buttons): a panel,

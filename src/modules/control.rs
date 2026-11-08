@@ -389,16 +389,19 @@ fn player(services: &Rc<Services>) -> gtk4::Box {
     card.append(&text);
 
     let button = |icon: &str, action: fn(&crate::services::media::Media), s: &Rc<Services>| {
-        let b = gtk4::Button::from_icon_name(icon);
+        let b = gtk4::Button::new();
+        let image = gtk4::Image::from_icon_name(icon);
+        b.set_child(Some(&image));
         b.add_css_class("flat");
+        b.add_css_class("image-button");
         b.add_css_class("player-button");
         let s = s.clone();
         b.connect_clicked(move |_| action(s.media()));
-        b
+        (b, image)
     };
-    let previous = button("media-skip-backward-symbolic", |m| m.previous(), services);
-    let play = button("media-playback-start-symbolic", |m| m.play_pause(), services);
-    let next = button("media-skip-forward-symbolic", |m| m.next(), services);
+    let (previous, _) = button("media-skip-backward-symbolic", |m| m.previous(), services);
+    let (play, play_image) = button("media-playback-start-symbolic", |m| m.play_pause(), services);
+    let (next, _) = button("media-skip-forward-symbolic", |m| m.next(), services);
     card.append(&previous);
     card.append(&play);
     card.append(&next);
@@ -409,7 +412,8 @@ fn player(services: &Rc<Services>) -> gtk4::Box {
         title.set_label(if track.title.is_empty() { "Untitled" } else { &track.title });
         artist.set_label(&track.artist);
         artist.set_visible(!track.artist.is_empty());
-        play.set_icon_name(if track.playing {
+        // Player updates must not replace a button's child during pointer interaction.
+        ui::set_icon(&play_image, if track.playing {
             "media-playback-pause-symbolic"
         } else {
             "media-playback-start-symbolic"
