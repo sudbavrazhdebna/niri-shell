@@ -7,7 +7,7 @@ use std::rc::Rc;
 use gtk4::prelude::*;
 
 use super::{Context, MIDDLE, RIGHT, icon_module, on_click, on_scroll, tooltips};
-use crate::services::audio::{Audio, AudioState, MAX_PERCENT};
+use crate::services::audio::{AppStream, Audio, AudioState, MAX_PERCENT};
 use crate::{menu, ui};
 
 pub fn build(ctx: &Context) -> Option<gtk4::Widget> {
@@ -51,8 +51,11 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     column.append(&ui::title("Sound"));
     column.append(&ui::separator());
 
-    let (a, b) = (audio.clone(), audio.clone());
-    let output = LevelRow::new(move || a.toggle_mute(), move |v| b.set_percent(v));
+    let (a, b) = (Rc::downgrade(audio), Rc::downgrade(audio));
+    let output = LevelRow::new(
+        move || { if let Some(a) = a.upgrade() { a.toggle_mute(); } },
+        move |v| { if let Some(b) = b.upgrade() { b.set_percent(v); } },
+    );
     column.append(&output.row);
     // Bound to the column, not the row: the closure owns the row, which would then
     // never go away, and neither would the listener.
@@ -61,8 +64,11 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
     });
 
     // The microphone, if there is one.
-    let (a, b) = (audio.clone(), audio.clone());
-    let mic = LevelRow::new(move || a.toggle_mic_mute(), move |v| b.set_mic_percent(v));
+    let (a, b) = (Rc::downgrade(audio), Rc::downgrade(audio));
+    let mic = LevelRow::new(
+        move || { if let Some(a) = a.upgrade() { a.toggle_mic_mute(); } },
+        move |v| { if let Some(b) = b.upgrade() { b.set_mic_percent(v); } },
+    );
     let mic_box = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
     mic_box.append(&ui::separator());
     mic_box.append(&ui::title("Microphone"));
@@ -81,8 +87,8 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
 
     // Programs playing sound, each with its own volume.
     let apps = ui::column();
-    let rows: Rc<RefCell<Vec<(u32, LevelRow)>>> = Rc::default();
-    let a = audio.clone();
+    let rows: Rc<RefCell<Vec<(u32, AppRow)>>> = Rc::default();
+    let a = Rc::downgrade(audio);
     audio.apps.bind(&apps, move |apps, streams| {
         let same = rows.borrow().iter().map(|(i, _)| *i).eq(streams.iter().map(|s| s.index));
         if !same {
@@ -94,24 +100,23 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
             }
             for stream in streams {
                 let (a1, a2, index) = (a.clone(), a.clone(), stream.index);
-                let row = LevelRow::new(move || a1.toggle_app_mute(index), move |v| a2.set_app_percent(index, v));
-                let name = gtk4::Label::new(Some(&stream.name));
-                name.add_css_class("app-stream-name");
-                name.set_xalign(0.0);
-                name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-                apps.append(&name);
-                apps.append(&row.row);
+                let level = LevelRow::new(
+                    move || { if let Some(a) = a1.upgrade() { a.toggle_app_mute(index); } },
+                    move |v| { if let Some(a) = a2.upgrade() { a.set_app_percent(index, v); } },
+                );
+                level.row.add_css_class("app-stream-row");
+                apps.append(&level.row);
+                let row = AppRow { level, identity: RefCell::default() };
                 rows.borrow_mut().push((index, row));
             }
         }
         for (stream, (_, row)) in streams.iter().zip(rows.borrow().iter()) {
-            let icon = if stream.icon.is_empty() { "audio-volume-high-symbolic" } else { &stream.icon };
-            row.show(if stream.muted { "audio-volume-muted-symbolic" } else { icon }, stream.percent, stream.muted);
+            row.show(stream);
         }
     });
 
     let outputs = ui::column();
-    let a = audio.clone();
+    let a = Rc::downgrade(audio);
     let shown = RefCell::new(None::<(Vec<crate::services::audio::Output>, String)>);
     audio.state.bind(&outputs, move |outputs, state| {
         // Volume steps change the state too; the list only when the devices do.
@@ -131,14 +136,14 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
         for output in &state.outputs {
             let (a, name) = (a.clone(), output.name.clone());
             outputs.append(&ui::item(&output.description, output.name == state.default, move || {
-                a.set_default(&name);
+                if let Some(a) = a.upgrade() { a.set_default(&name); }
             }));
         }
     });
     column.append(&outputs);
-    // Sound, the outputs, then the microphone and the apps.
-    column.append(&mic_box);
+    // Playback controls first; microphone gain is a separate, less frequent adjustment.
     column.append(&apps);
+    column.append(&mic_box);
     column
 }
 
@@ -146,6 +151,7 @@ fn menu_content(audio: &Rc<Audio>) -> gtk4::Box {
 struct LevelRow {
     row: gtk4::Box,
     icon: gtk4::Image,
+    mute: gtk4::Button,
     slider: ui::Slider,
     percent: gtk4::Label,
 }
@@ -169,13 +175,58 @@ impl LevelRow {
         row.append(&mute);
         row.append(slider.widget());
         row.append(&percent);
-        LevelRow { row, icon, slider, percent }
+        LevelRow { row, icon, mute, slider, percent }
     }
 
     fn show(&self, icon: &str, percent: u32, muted: bool) {
         ui::set_icon(&self.icon, icon);
+        self.show_level(percent, muted);
+    }
+
+    fn show_level(&self, percent: u32, muted: bool) {
         self.slider.show(f64::from(percent));
         self.slider.set_dimmed(muted);
         self.percent.set_label(&format!("{percent}%"));
     }
+}
+
+type AppIdentity = (String, String, String, String);
+
+struct AppRow {
+    level: LevelRow,
+    identity: RefCell<Option<AppIdentity>>,
+}
+
+impl AppRow {
+    fn show(&self, stream: &AppStream) {
+        let identity = (stream.name.clone(), stream.icon.clone(), stream.app_id.clone(), stream.binary.clone());
+        if self.identity.borrow().as_ref() != Some(&identity) {
+            self.identity.replace(Some(identity));
+            match app_icon(stream) {
+                Some(icon) => self.level.icon.set_from_gicon(&icon),
+                None => ui::set_icon(&self.level.icon, "application-x-executable-symbolic"),
+            }
+        }
+        // Muting must not replace the app's identity with a generic speaker glyph.
+        self.level.icon.set_opacity(if stream.muted { 0.4 } else { 1.0 });
+        self.level.show_level(stream.percent, stream.muted);
+        let name = if stream.name.is_empty() { "Application" } else { &stream.name };
+        let action = if stream.muted { "Unmute" } else { "Mute" };
+        self.level.mute.set_tooltip_text(Some(&format!("{name}\n{action}")));
+        self.level.mute.update_property(&[gtk4::accessible::Property::Label(&format!("{action} {name}"))]);
+        self.level.slider.widget().update_property(&[gtk4::accessible::Property::Label(&format!("{name} volume"))]);
+    }
+}
+
+fn app_icon(stream: &AppStream) -> Option<gtk4::gio::Icon> {
+    if !stream.icon.is_empty()
+        && let Some(display) = gtk4::gdk::Display::default()
+        && gtk4::IconTheme::for_display(&display).has_icon(&stream.icon)
+    {
+        return Some(gtk4::gio::ThemedIcon::new(&stream.icon).upcast());
+    }
+    [&stream.app_id, &stream.binary, &stream.name]
+        .into_iter()
+        .filter(|id| !id.is_empty())
+        .find_map(|id| crate::apps::icon(id))
 }

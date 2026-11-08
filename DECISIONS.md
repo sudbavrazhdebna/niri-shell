@@ -10,6 +10,11 @@ each section. Read before changing any of these.
   `VariantDict::new` panic on unexpected types, and apps do send unexpected types.
 - **libpulse on the GLib main loop** (`libpulse-glib-binding`) for sound: no threads, and it
   unifies with gtk-rs' glib 0.22.
+- The sound menu puts per-app playback above microphone gain. Each stream occupies one
+  icon/slider/percentage row; names and mute actions stay in tooltips and accessibility
+  labels. App icons survive muting (dimmed instead), using Pulse's icon name or a cached
+  desktop-entry lookup by application id/executable/display name, then a generic app fallback.
+  Row callbacks hold Audio weakly because the service itself owns their watch listeners.
 - **GL renderer, not Vulkan.** The fork measured GL as cheaper with changing text, and GTK's
   Vulkan renderer was seen stalling for minutes in `wl_display_roundtrip` while opening a bar
   window. Set in `main` unless `GSK_RENDERER` is given.

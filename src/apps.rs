@@ -76,7 +76,7 @@ fn resolve_color(name: &str) -> Option<gio::File> {
     (!path.to_string_lossy().contains("-symbolic")).then_some(file)
 }
 
-/// niri app ids are usually the desktop file name; some apps only match by StartupWMClass.
+/// App ids usually match the desktop file; Pulse/notifications may supply a display name.
 fn desktop_entry(app_id: &str) -> Option<DesktopAppInfo> {
     let lower = app_id.to_lowercase();
     // A full desktop id, or an app id (which may itself end in ".desktop", like
@@ -95,6 +95,7 @@ fn desktop_entry(app_id: &str) -> Option<DesktopAppInfo> {
         .find(|info| {
             info.startup_wm_class()
                 .is_some_and(|class| class.eq_ignore_ascii_case(app_id))
+                || info.name().eq_ignore_ascii_case(app_id)
         })
 }
 

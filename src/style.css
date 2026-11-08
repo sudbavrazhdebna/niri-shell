@@ -987,10 +987,8 @@ button.dock-button:hover {
     font-feature-settings: "tnum";
 }
 
-.app-stream-name {
-    margin: 4px 8px 0;
-    font-size: 0.9em;
-    color: rgba(255, 255, 255, 0.75);
+.app-stream-row image {
+    -gtk-icon-size: 20px;
 }
 
 .battery-facts {

@@ -42,6 +42,9 @@ pub struct AppStream {
     pub name: String,
     /// Icon name the app gave, if any.
     pub icon: String,
+    /// Desktop/application id and executable, used when no icon was supplied.
+    pub app_id: String,
+    pub binary: String,
     pub percent: u32,
     pub muted: bool,
     /// Real playback that keeps the session from going idle: not a system sound, speech
@@ -355,6 +358,8 @@ impl Audio {
                         index: info.index,
                         name,
                         icon: prop("application.icon_name"),
+                        app_id: prop("application.id"),
+                        binary: prop("application.process.binary"),
                         percent: percent_of(&info.volume),
                         muted: info.mute,
                         keeps_awake: !info.mute && keeps_awake(&identity),
