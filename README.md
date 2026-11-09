@@ -62,6 +62,8 @@ wallpaper tools from niri's autostart: nshell does their jobs.
   [`config/default.kdl`](config/default.kdl), which explains every option. Saved changes
   apply at once; a mistake shows ⚠ on the bar (hover it for the reason) and the previous
   settings stay.
+- Add `no-overview` inside `dock { … }` to hide its overview button and the separator
+  before it. Remove that line to restore them. niri's overview itself is unaffected.
 - **`~/.config/nshell/style.css`**: the look. It goes on top of the built-in style;
   [STYLING.md](STYLING.md) explains how and lists every class.
 

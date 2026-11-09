@@ -74,6 +74,9 @@ each section. Read before changing any of these.
 
 ## Dock
 
+- `dock { no-overview; }` hides the overview button together with its preceding
+  separator. The button remains enabled by default and can be restored through hot
+  reload; niri overview bindings and the pinned/running-app separator are independent.
 - **A fully transparent GTK window never reaches the compositor**: with nothing to draw, GTK
   attaches no buffer, the layer surface stays unmapped and gets no pointer (seen with
   WAYLAND_DEBUG: no `wl_surface.attach`). The dock's hot edge and the menu catcher therefore

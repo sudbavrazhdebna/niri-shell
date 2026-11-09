@@ -190,13 +190,15 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     let dock = gtk4::Box::new(gtk4::Orientation::Horizontal, 2);
     dock.add_css_class("dock");
     dock.append(&apps(config, niri));
-    dock.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
-    let overview = gtk4::Button::from_icon_name("nshell-overview-symbolic");
-    overview.add_css_class("dock-button");
-    overview.set_cursor_from_name(Some("pointer"));
-    let n = niri.clone();
-    overview.connect_clicked(move |_| n.action(Action::ToggleOverview {}));
-    dock.append(&overview);
+    if config.dock.overview {
+        dock.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
+        let overview = gtk4::Button::from_icon_name("nshell-overview-symbolic");
+        overview.add_css_class("dock-button");
+        overview.set_cursor_from_name(Some("pointer"));
+        let n = niri.clone();
+        overview.connect_clicked(move |_| n.action(Action::ToggleOverview {}));
+        dock.append(&overview);
+    }
 
     // With autohide the dock slides below the screen edge and its window goes away
     // entirely; a separate two-pixel strip along the bottom edge brings it back.

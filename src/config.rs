@@ -64,6 +64,8 @@ pub struct DockConfig {
     pub enabled: bool,
     /// Hidden until the pointer touches the bottom edge (or `nshell msg show-dock`).
     pub autohide: bool,
+    /// Show the overview button and its separator after the apps.
+    pub overview: bool,
     /// App ids (as niri reports them) or desktop entry ids, in dock order.
     pub pinned: Vec<String>,
 }
@@ -164,6 +166,7 @@ impl Default for Config {
             dock: DockConfig {
                 enabled: true,
                 autohide: false,
+                overview: true,
                 pinned: Vec::new(),
             },
         }
@@ -350,6 +353,7 @@ impl Config {
                         match child.name().value() {
                             "off" => config.dock.enabled = false,
                             "autohide" => config.dock.autohide = true,
+                            "no-overview" => config.dock.overview = false,
                             "pinned" => {
                                 config.dock.pinned = strings(child).map_err(|e| at(child, e))?
                             }
@@ -623,6 +627,16 @@ mod tests {
         assert_eq!(config.bar.height, 30);
         let added = with_pinned("bar { height 30; }\n", &["x".into()]).unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(Config::parse(&added).map(|c| c.dock.pinned).unwrap_or_default(), ["x"]);
+    }
+
+    #[test]
+    fn dock_overview_setting_survives_pin_changes() {
+        assert!(Config::default().dock.overview);
+        let text = "dock { no-overview; pinned \"a\"; }\n";
+        let out = with_pinned(text, &["b".into()]).unwrap_or_else(|e| panic!("{e}"));
+        let config = Config::parse(&out).unwrap_or_else(|e| panic!("{e}"));
+        assert!(!config.dock.overview);
+        assert_eq!(config.dock.pinned, ["b"]);
     }
 
     #[test]
