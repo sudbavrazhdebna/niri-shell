@@ -502,6 +502,11 @@ fn cycle(item: &Item, niri: &Niri, step: isize) {
 
 fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&DesktopAppInfo>) -> gtk4::Box {
     let column = ui::column();
+    // A running app's window choices reserve a check column for the whole menu.
+    let reserve_check = !item.windows.is_empty();
+    let command = |text: &str, action: Box<dyn Fn()>| {
+        if reserve_check { ui::item(text, false, action) } else { ui::action_item(text, action) }
+    };
     let name = entry.map_or_else(|| item.key.clone(), |e| e.name().to_string());
     column.append(&ui::title(&name));
     column.append(&ui::separator());
@@ -528,17 +533,17 @@ fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&Deskt
 
     if let Some(entry) = entry.cloned() {
         let running = !item.windows.is_empty();
-        column.append(&ui::action_item(if running { "New window" } else { "Open" }, move || {
+        column.append(&command(if running { "New window" } else { "Open" }, Box::new(move || {
             if running {
                 crate::launch::new_window(&entry);
             } else {
                 crate::launch::app(&entry);
             }
             menu::close();
-        }));
+        })));
     }
     let (key, pinned, list) = (item.key.clone(), item.pinned, config.dock.pinned.clone());
-    column.append(&ui::action_item(if pinned { "Unpin" } else { "Pin" }, move || {
+    column.append(&command(if pinned { "Unpin" } else { "Pin" }, Box::new(move || {
         let mut list = list.clone();
         if pinned {
             list.retain(|k| *k != key);
@@ -549,16 +554,16 @@ fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&Deskt
             tracing::warn!("can't save the dock: {err}");
         }
         menu::close();
-    }));
+    })));
     if !item.windows.is_empty() {
         let (n, windows) = (niri.clone(), item.windows.clone());
         let label = if windows.len() > 1 { "Close all" } else { "Close" };
-        column.append(&ui::action_item(label, move || {
+        column.append(&command(label, Box::new(move || {
             for id in &windows {
                 n.action(Action::CloseWindow { id: Some(*id) });
             }
             menu::close();
-        }));
+        })));
     }
     column
 }

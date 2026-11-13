@@ -96,13 +96,18 @@ fn add_page(
     sender: &Sender,
 ) {
     let column = ui::column();
+    // Reserve one column for every row on a page that contains checkbox/radio items.
+    let reserve_check = entries.iter().any(|entry| matches!(entry, Entry::Item { toggle: Some(_), .. }));
+    let row = |text: &str, checked: Option<bool>, action: Box<dyn Fn()>| {
+        if reserve_check { ui::item(text, checked.unwrap_or(false), action) } else { ui::action_item(text, action) }
+    };
     if let Some((parent, title)) = back {
         let (stack_weak, parent) = (stack.downgrade(), parent.to_string());
-        let row = ui::action_item(&format!("‹  {title}"), move || {
+        let row = row(&format!("‹  {title}"), None, Box::new(move || {
             if let Some(stack) = stack_weak.upgrade() {
                 stack.set_visible_child_name(&parent);
             }
-        });
+        }));
         row.add_css_class("menu-back");
         column.append(&row);
         column.append(&ui::separator());
@@ -116,10 +121,7 @@ fn add_page(
                     sender.clicked(id);
                     menu::close();
                 };
-                let row = match toggle {
-                    Some(checked) => ui::item(label, *checked, action),
-                    None => ui::action_item(label, action),
-                };
+                let row = row(label, *toggle, Box::new(action));
                 row.set_sensitive(*enabled);
                 column.append(&row);
             }
@@ -127,11 +129,11 @@ fn add_page(
                 let page = format!("{name}/{i}");
                 add_page(stack, &page, Some((name, label)), children, sender);
                 let stack_weak = stack.downgrade();
-                let row = ui::action_item(&format!("{label}  ›"), move || {
+                let row = row(&format!("{label}  ›"), None, Box::new(move || {
                     if let Some(stack) = stack_weak.upgrade() {
                         stack.set_visible_child_name(&page);
                     }
-                });
+                }));
                 row.set_sensitive(*enabled);
                 column.append(&row);
             }

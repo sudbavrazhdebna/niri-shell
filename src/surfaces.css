@@ -1,0 +1,25 @@
+/* Root surfaces only, loaded above GTK's global user CSS. Blur and shadows belong
+   to the cards inside these windows, never to their transparent margins/catchers.
+   nshell's own user style.css is loaded at a still higher priority. */
+window {
+    background: transparent;
+    backdrop-filter: none;
+    border: none;
+    border-radius: 0;
+    outline: none;
+    box-shadow: none;
+}
+
+/* An unloaded wallpaper must cover the output. */
+window.nshell-wallpaper {
+    background: black;
+}
+
+/* Fully transparent windows may never map. Keep click catchers and the hot edge
+   drawable without giving the entire surface a visible fill or background blur. */
+window.menu-catcher,
+window.nshell-launcher,
+window.idle-inhibitor,
+window.dock-hot-edge {
+    background: rgba(0, 0, 0, 0.004);
+}

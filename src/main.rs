@@ -110,6 +110,15 @@ fn load_css() {
         &provider,
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
+    // Global gtk-4.0/gtk.css may blur/fill every window, including our fullscreen
+    // click catchers. Reset only root surfaces above that CSS; keep card blur intact.
+    let surfaces = gtk4::CssProvider::new();
+    surfaces.load_from_string(include_str!("surfaces.css"));
+    gtk4::style_context_add_provider_for_display(
+        &display,
+        &surfaces,
+        gtk4::STYLE_PROVIDER_PRIORITY_USER + 1,
+    );
 }
 
 fn load_icons() {

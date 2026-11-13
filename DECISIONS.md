@@ -35,6 +35,13 @@ each section. Read before changing any of these.
 - **`GSK_DEBUG=full-redraw`** (set in `main`): GTK 4.22's partial redraw left streaks of the
   old frame on the OSD bar (the fork saw the same on numbers). Whole-surface redraws fix it.
 - **Mesa glthread off** (`mesa_glthread=false` in `main`): two threads less, same CPU.
+- Root-window CSS (`surfaces.css`) is loaded at GTK's user priority + 1, and nshell's
+  personal `style.css` at user + 2. Global `gtk-4.0/gtk.css` can apply a fill and
+  `backdrop-filter` to every `window`: after restart that painted the fullscreen menu
+  catcher grey and blurred rectangular margins around the dock and bar. Reset only root
+  fills, blur and decorations above that global CSS; card styles retain their own blur
+  and shadows. Never change the user's global GTK theme to fix shell surfaces. Reproduce
+  global window rules in the sandbox too: its private XDG config otherwise hides them.
 - **Link gtk4-layer-shell before libwayland-client** (`build.rs`): layer-shell intercepts
   libwayland calls; with the wrong order bars become plain windows.
 - **wayland-client on GDK's connection** (`wayland.rs`) for protocols GTK lacks (idle
@@ -204,9 +211,11 @@ each section. Read before changing any of these.
   the menu on an outside click; it has exclusive zone 0 so the bar stays hoverable.
 - Tray menus are drawn with our own widgets from the dbusmenu tree, not `PopoverMenu`, so they
   look like the rest and live in the same windows. Submenus are stack pages.
-- Plain commands use `ui::action_item`, without an empty check column: this includes dock
-  Open/Pin/Close and tray commands, submenu links and Back. Selection rows and dbusmenu
-  checkbox/radio items keep the column even when unchecked, so their text does not move.
+- Omit the check column only from menus/pages with no selectable items. A running dock
+  app's window choices reserve the column for its commands too; apps without windows
+  use `ui::action_item`. Each tray page reserves it for all rows when any checkbox/radio
+  item is present, including unchecked ones. Plain pages have no column. Removing it
+  from individual command rows in mixed menus broke their shared text alignment.
 - Menu windows use the *on-demand* keyboard mode. niri gives a mapped on-demand layer surface
   the keyboard (Escape works) and the app shows unfocused; a click on any app window gives it
   the focus back, which the shell sees as a niri focus change and closes the menu

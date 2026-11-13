@@ -46,21 +46,6 @@ button {
     box-shadow: none;
 }
 
-window.bar {
-    background: transparent;
-}
-
-/* The idle inhibitor's pixel: drawn, so niri counts it as shown (a fully transparent
-   window never maps), but not to be seen. */
-window.idle-inhibitor {
-    background: rgba(0, 0, 0, 0.004);
-}
-
-/* Black around an image that doesn't load yet. */
-window.nshell-wallpaper {
-    background: black;
-}
-
 /* In niri's overview a blurred copy of the wallpaper (made once, `overview-blur` in
    config.kdl) fades in over it. */
 window.nshell-wallpaper .wallpaper-blurred {
@@ -164,16 +149,6 @@ tooltip label {
 }
 
 /* ---- Menus: dark glass card under the bar ---- */
-
-window.nshell-menu {
-    background: transparent;
-}
-
-/* Almost, not fully, transparent: a window with nothing to draw may never reach the
-   compositor, and then it gets no pointer (clicks went through the catcher). */
-window.menu-catcher {
-    background: rgba(0, 0, 0, 0.004);
-}
 
 window.nshell-menu {
     color: var(--text);
@@ -545,10 +520,6 @@ button.session-button.armed {
 
 /* ---- OSD (looks like the swayosd setup it replaces) ---- */
 
-window.nshell-osd {
-    background: transparent;
-}
-
 .osd-card {
     backdrop-filter: var(--blur);
     min-width: 178px;
@@ -599,10 +570,6 @@ window.nshell-osd {
 }
 
 /* ---- Notifications (after the swaync setup they replace) ---- */
-
-window.nshell-popups {
-    background: transparent;
-}
 
 .popup-column {
     /* Room for the cards' shadows inside the window. */
@@ -831,10 +798,6 @@ button.clear-all:hover {
 
 /* ---- Dock (after the ironbar setup it replaces) ---- */
 
-window.nshell-dock {
-    background: transparent;
-}
-
 .dock {
     backdrop-filter: var(--blur);
     padding: 8px 8px 6px;
@@ -912,11 +875,6 @@ window.nshell-dock {
 .taskbar separator {
     margin: 6px 4px;
     background-color: rgba(255, 255, 255, 0.19);
-}
-
-/* The invisible strip along the screen edge that brings a hidden dock back. */
-window.dock-hot-edge {
-    background: rgba(0, 0, 0, 0.004);
 }
 
 button.dock-button {
@@ -1227,12 +1185,6 @@ button.media-control:hover {
 }
 
 /* ---- Launcher (Spotlight-like) ---- */
-
-/* The window covers the screen to catch a click beside the card; almost, not fully,
-   transparent, or it never maps (see menu-catcher). */
-window.nshell-launcher {
-    background: rgba(0, 0, 0, 0.004);
-}
 
 .launcher-card {
     backdrop-filter: var(--blur);

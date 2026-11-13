@@ -44,7 +44,7 @@ impl Settings {
             gtk4::style_context_add_provider_for_display(
                 &display,
                 &user_css,
-                gtk4::STYLE_PROVIDER_PRIORITY_USER,
+                gtk4::STYLE_PROVIDER_PRIORITY_USER + 2,
             );
         }
 
