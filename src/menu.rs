@@ -99,6 +99,18 @@ pub fn on_button(anchor: &impl IsA<gtk4::Widget>, button: u32) {
     anchor.as_ref().add_controller(gesture);
 }
 
+/// Context menus open on press so holding the button can browse adjacent dock icons.
+pub fn on_press(anchor: &impl IsA<gtk4::Widget>, button: u32) {
+    let gesture = gtk4::GestureClick::new();
+    gesture.set_button(button);
+    gesture.connect_pressed(|gesture, _, _, _| {
+        if let Some(anchor) = gesture.widget() {
+            toggle(&anchor);
+        }
+    });
+    anchor.as_ref().add_controller(gesture);
+}
+
 /// Opens the anchor's menu, or closes it if it is the open one.
 pub fn toggle(anchor: &gtk4::Widget) {
     if open_anchor().as_ref() == Some(anchor) {
@@ -333,7 +345,9 @@ const MENU_FRAME: i32 = 60;
 /// instead of running off it; shorter ones are exactly their content's size.
 fn scrolling(content: &impl IsA<gtk4::Widget>, monitor: &gdk::Monitor, owner: &gtk4::Window) -> gtk4::ScrolledWindow {
     let scroll = gtk4::ScrolledWindow::new();
-    scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+    // During a revealer animation content briefly outgrows the previous allocation.
+    // Keep wheel/touch scrolling without flashing GTK's overlay scrollbar.
+    scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::External);
     scroll.set_propagate_natural_height(true);
     scroll.set_propagate_natural_width(true);
     let room = monitor.geometry().height() - owner.height() - GAP - MENU_FRAME;
@@ -501,6 +515,25 @@ pub fn watch_bar(window: &gtk4::Window) {
         }
     });
     window.add_controller(click);
+}
+
+/// While right-click is held, the dock's implicit pointer grab stays on its original
+/// icon. Pick in window coordinates so motion can still reach neighbouring icons.
+pub fn watch_dock(window: &gtk4::Window) {
+    let motion = gtk4::EventControllerMotion::new();
+    motion.set_propagation_phase(gtk4::PropagationPhase::Capture);
+    let weak = window.downgrade();
+    motion.connect_motion(move |motion, x, y| {
+        if !motion.current_event_state().contains(gdk::ModifierType::BUTTON3_MASK) {
+            return;
+        }
+        let (Some(window), Some(current)) = (weak.upgrade(), open_anchor()) else { return };
+        if let Some(target) = menu_owner_at(&window, x, y).filter(|target| *target != current) {
+            cancel_pending();
+            open(&target);
+        }
+    });
+    window.add_controller(motion);
 }
 
 /// The menu window gets the pointer while it is over it; report that to the bar so the

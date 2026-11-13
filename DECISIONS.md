@@ -74,6 +74,13 @@ each section. Read before changing any of these.
 
 ## Dock
 
+- App activation runs on primary press, so holding the button does not delay launching
+  or focusing. Secondary press opens the context menu; while held, motion picks adjacent
+  icons in dock-window coordinates (the implicit pointer grab still belongs to the first
+  icon). Releasing leaves the last menu open. Ordinary hover does not switch dock menus.
+- A menu taking keyboard focus must not rebuild dock icons just because niri reports no
+  focused window: keep the last app highlight while that menu is open. Replacing the
+  widgets destroyed the menu anchor and the pointer grab during a held right-click.
 - `dock { no-overview; }` hides the overview button together with its preceding
   separator. The button remains enabled by default and can be restored through hot
   reload; niri overview bindings and the pinned/running-app separator are independent.
@@ -197,6 +204,9 @@ each section. Read before changing any of these.
   the menu on an outside click; it has exclusive zone 0 so the bar stays hoverable.
 - Tray menus are drawn with our own widgets from the dbusmenu tree, not `PopoverMenu`, so they
   look like the rest and live in the same windows. Submenus are stack pages.
+- Plain commands use `ui::action_item`, without an empty check column: this includes dock
+  Open/Pin/Close and tray commands, submenu links and Back. Selection rows and dbusmenu
+  checkbox/radio items keep the column even when unchecked, so their text does not move.
 - Menu windows use the *on-demand* keyboard mode. niri gives a mapped on-demand layer surface
   the keyboard (Escape works) and the app shows unfocused; a click on any app window gives it
   the focus back, which the shell sees as a niri focus change and closes the menu
@@ -222,6 +232,9 @@ each section. Read before changing any of these.
   The scrolled window's minimum doesn't follow its content, so the menu window is refit
   whenever the content's height changes (`notify::upper`); without it a player or device
   appearing in an open menu was cut off.
+- The outer menu scroller uses `External` vertical policy: wheel/touch scrolling remains,
+  but no overlay scrollbar appears. `Automatic` briefly showed one while the sound Apps
+  revealer outgrew the previous allocation during its animation.
 - Hover switching waits 250 ms when the pointer heads diagonally into the open menu (the fork's
   "safe triangle"), switches at once along the bar.
 - Bluetooth off is an rfkill soft block of all Bluetooth radios (as GNOME does), not the

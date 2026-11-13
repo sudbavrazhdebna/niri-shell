@@ -96,14 +96,13 @@ fn add_page(
     sender: &Sender,
 ) {
     let column = ui::column();
-    let item = |text: &str, checked: bool, on_click: Box<dyn Fn()>| ui::item(text, checked, on_click);
     if let Some((parent, title)) = back {
         let (stack_weak, parent) = (stack.downgrade(), parent.to_string());
-        let row = item(&format!("‹  {title}"), false, Box::new(move || {
+        let row = ui::action_item(&format!("‹  {title}"), move || {
             if let Some(stack) = stack_weak.upgrade() {
                 stack.set_visible_child_name(&parent);
             }
-        }));
+        });
         row.add_css_class("menu-back");
         column.append(&row);
         column.append(&ui::separator());
@@ -113,10 +112,14 @@ fn add_page(
             Entry::Separator => column.append(&ui::separator()),
             Entry::Item { id, label, enabled, toggle } => {
                 let (sender, id) = (sender.clone(), *id);
-                let row = item(label, toggle.unwrap_or(false), Box::new(move || {
+                let action = move || {
                     sender.clicked(id);
                     menu::close();
-                }));
+                };
+                let row = match toggle {
+                    Some(checked) => ui::item(label, *checked, action),
+                    None => ui::action_item(label, action),
+                };
                 row.set_sensitive(*enabled);
                 column.append(&row);
             }
@@ -124,11 +127,11 @@ fn add_page(
                 let page = format!("{name}/{i}");
                 add_page(stack, &page, Some((name, label)), children, sender);
                 let stack_weak = stack.downgrade();
-                let row = item(&format!("{label}  ›"), false, Box::new(move || {
+                let row = ui::action_item(&format!("{label}  ›"), move || {
                     if let Some(stack) = stack_weak.upgrade() {
                         stack.set_visible_child_name(&page);
                     }
-                }));
+                });
                 row.set_sensitive(*enabled);
                 column.append(&row);
             }

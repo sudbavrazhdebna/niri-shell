@@ -205,6 +205,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
     let autohide = config.dock.autohide;
     blur::part(&window, "dock");
     window.set_child(Some(&dock));
+    menu::watch_dock(window.upcast_ref());
 
     let state = Rc::new(Autohide {
         enabled: autohide,
@@ -292,7 +293,19 @@ pub fn apps(config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
         if serial.replace(Some(state.layout_serial)) == Some(state.layout_serial) {
             return;
         }
-        let items = items(state, &config.dock.pinned);
+        let mut items = items(state, &config.dock.pinned);
+        if menu::is_open() && !state.windows.values().any(|window| window.is_focused) {
+            // Our menu takes keyboard focus. Keep the last app highlight and its
+            // widgets: rebuilding here destroys the anchor and a held pointer grab.
+            if let Some(previous) = last.borrow().as_ref() {
+                for item in &mut items {
+                    item.focused = previous.iter()
+                        .find(|old| old.key == item.key)
+                        .and_then(|old| old.focused)
+                        .filter(|id| item.windows.contains(id));
+                }
+            }
+        }
         if last.borrow().as_ref() == Some(&items) {
             return;
         }
@@ -428,14 +441,19 @@ fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
     let click = gtk4::GestureClick::new();
     click.set_button(0);
     let (it, n, e) = (item.clone(), niri.clone(), entry.clone());
-    click.connect_released(move |gesture, _, _, _| match gesture.current_button() {
-        gdk::BUTTON_PRIMARY => activate(&it, &n, e.as_ref()),
-        gdk::BUTTON_MIDDLE => {
-            if let Some(entry) = &e {
-                crate::launch::new_window(entry);
-            }
+    click.connect_pressed(move |gesture, _, _, _| {
+        if gesture.current_button() == gdk::BUTTON_PRIMARY {
+            menu::close();
+            activate(&it, &n, e.as_ref());
         }
-        _ => {}
+    });
+    let e = entry.clone();
+    click.connect_released(move |gesture, _, _, _| {
+        if gesture.current_button() == gdk::BUTTON_MIDDLE
+            && let Some(entry) = &e
+        {
+            crate::launch::new_window(entry);
+        }
     });
     widget.add_controller(click);
 
@@ -451,7 +469,7 @@ fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
 
     let (it, c, n) = (item.clone(), config.clone(), niri.clone());
     menu::register(&widget, move |anchor| menu::show(anchor, &item_menu(&it, &c, &n, entry.as_ref())));
-    menu::on_button(&widget, gdk::BUTTON_SECONDARY);
+    menu::on_press(&widget, gdk::BUTTON_SECONDARY);
     widget
 }
 
@@ -510,7 +528,7 @@ fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&Deskt
 
     if let Some(entry) = entry.cloned() {
         let running = !item.windows.is_empty();
-        column.append(&ui::item(if running { "New window" } else { "Open" }, false, move || {
+        column.append(&ui::action_item(if running { "New window" } else { "Open" }, move || {
             if running {
                 crate::launch::new_window(&entry);
             } else {
@@ -520,7 +538,7 @@ fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&Deskt
         }));
     }
     let (key, pinned, list) = (item.key.clone(), item.pinned, config.dock.pinned.clone());
-    column.append(&ui::item(if pinned { "Unpin" } else { "Pin" }, false, move || {
+    column.append(&ui::action_item(if pinned { "Unpin" } else { "Pin" }, move || {
         let mut list = list.clone();
         if pinned {
             list.retain(|k| *k != key);
@@ -535,7 +553,7 @@ fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&Deskt
     if !item.windows.is_empty() {
         let (n, windows) = (niri.clone(), item.windows.clone());
         let label = if windows.len() > 1 { "Close all" } else { "Close" };
-        column.append(&ui::item(label, false, move || {
+        column.append(&ui::action_item(label, move || {
             for id in &windows {
                 n.action(Action::CloseWindow { id: Some(*id) });
             }
