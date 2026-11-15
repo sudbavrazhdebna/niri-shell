@@ -7,6 +7,8 @@ use gtk4::{gdk, glib};
 
 use crate::services::notifications::{Image, Notification, Notifications, Reason};
 
+mod fading_body;
+
 /// Builds the card. `on_done` runs after a click or an action, e.g. to close a menu.
 /// `show_time`: the center says how old each one is; a popup is always "now".
 pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn()>, show_time: bool) -> gtk4::Box {
@@ -64,7 +66,7 @@ pub fn card_with_click(
     top.append(&close);
     text.append(&top);
 
-    if !n.body.is_empty() {
+    let body_text = if !n.body.is_empty() {
         let body = gtk4::Label::new(None);
         body.set_markup(&n.body);
         body.add_css_class("body");
@@ -74,8 +76,12 @@ pub fn card_with_click(
         body.set_lines(4);
         body.set_ellipsize(gtk4::pango::EllipsizeMode::End);
         body.set_max_width_chars(36);
-        text.append(&body);
-    }
+        let faded = fading_body::FadingBody::new(&body);
+        text.append(&faded);
+        Some(faded)
+    } else {
+        None
+    };
 
     let buttons: Vec<_> = n.actions.iter().filter(|(key, _)| key != "default").collect();
     if !buttons.is_empty() {
@@ -102,6 +108,9 @@ pub fn card_with_click(
         actions.set_halign(gtk4::Align::End);
         actions.set_valign(gtk4::Align::End);
         actions.set_child(Some(&row));
+        if let Some(body) = &body_text {
+            body.set_actions(&actions);
+        }
         let motion = gtk4::EventControllerMotion::new();
         let a = actions.clone();
         motion.connect_enter(move |_, _, _| a.set_reveal_child(true));

@@ -290,6 +290,12 @@ each section. Read before changing any of these.
   pointer is on its card, in popups and in the center alike: most are only read. They
   float over the card's bottom-right corner (an overlay, covering some text), so hovering
   never changes the card's height; a summary-only card with buttons is a little taller.
+- While actions show, only the body text fades approaching their actual allocated
+  bounds (24 px horizontally, 10 px above). A GSK alpha mask removes text rather than
+  painting a gradient matching a guessed card colour, so translucent/hover/stacked
+  backgrounds keep their appearance. Header, icon, layout, markup and action clicks
+  stay intact; hiding the actions restores the text. Weak references and revealer
+  notifications invalidate the mask without an idle timer or continuous redraw loop.
 - While the clock menu is open, a closed notification leaves its room empty (the list
   keeps its height) instead of the menu shrinking: it jumped with every one closed, and the
   next card now moves up under the pointer, as closing tabs in Chrome. The next opening is
