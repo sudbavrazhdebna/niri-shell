@@ -31,4 +31,15 @@ at once. Page by page:
 - **Media covers from https URLs** (only file:// ones load now).
 - **Window menu checkmarks** for Maximize and Fullscreen: niri's IPC doesn't report those
   states; guessing from sizes would lie with zero gaps.
-- From DESIGN.md: docker module, our own lock screen, dock order ↔ Mod+1..9 in niri binds.
+- From DESIGN.md: docker module, our own lock screen.
+- **Shared app activation for dock and hotkeys**: move the behaviour of
+  `~/.local/bin/app-toggle` into the shell's Rust code, reusing the existing niri state,
+  app matching and launch helpers. Expose commands through `nshell-msg`, e.g.
+  `activate-app <app-id>` and `activate-slot <1..9>`; slot numbers follow the current
+  pinned-app order, so reordering the dock also updates Mod+1..9 targets without
+  rewriting the bindings. Preserve deliberate differences such as `nautilus-toggle`
+  only searching the current workspace. No immediate replacement needed.
+- **Drag to reorder pinned dock icons**: start with pinned apps only, saving the final
+  order through the existing KDL update helper after a successful drop. Distinguish
+  clicks from dragging (activation currently runs on press), keep the dock open and
+  preserve its widgets during the gesture; handle cancellation without saving changes.
