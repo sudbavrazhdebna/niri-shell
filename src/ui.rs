@@ -344,6 +344,55 @@ pub fn trailing_icon(item: &gtk4::Button, icon: &str) {
     row.append(&image);
 }
 
+/// Connected Wi-Fi/Bluetooth item: shared layout and an explicit disconnect action.
+pub struct ConnectionCard {
+    pub widget: gtk4::Box,
+    pub icon: gtk4::Image,
+    pub name: gtk4::Label,
+    pub status: gtk4::Label,
+    pub details: gtk4::Label,
+}
+
+impl ConnectionCard {
+    pub fn new(on_disconnect: impl Fn() + 'static) -> Self {
+        let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
+        widget.add_css_class("connected-card");
+        let top = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
+        let icon = gtk4::Image::new();
+        icon.add_css_class("menu-row-icon");
+        let name = gtk4::Label::new(None);
+        name.add_css_class("connected-name");
+        name.set_xalign(0.0);
+        name.set_hexpand(true);
+        name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+        name.set_max_width_chars(30);
+        top.append(&icon);
+        top.append(&name);
+        widget.append(&top);
+
+        let details = gtk4::Label::new(None);
+        details.add_css_class("connected-details");
+        details.set_xalign(0.0);
+        details.set_ellipsize(gtk4::pango::EllipsizeMode::End);
+        details.set_max_width_chars(30);
+        details.set_visible(false);
+        widget.append(&details);
+        let bottom = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+        let status = gtk4::Label::new(Some("Connected"));
+        status.add_css_class("connected-status");
+        status.add_css_class("menu-trailing");
+        status.set_xalign(0.0);
+        status.set_hexpand(true);
+        let disconnect = gtk4::Button::with_label("Disconnect");
+        disconnect.add_css_class("connection-disconnect");
+        disconnect.connect_clicked(move |_| on_disconnect());
+        bottom.append(&status);
+        bottom.append(&disconnect);
+        widget.append(&bottom);
+        Self { widget, icon, name, status, details }
+    }
+}
+
 /// Starts a program (e.g. a settings app) that outlives the shell.
 pub fn launch(command: &str) {
     crate::launch::command(command);

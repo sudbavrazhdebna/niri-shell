@@ -950,6 +950,35 @@ button.dock-button:hover {
     font-feature-settings: "tnum";
 }
 
+.connected-status {
+    margin-left: 28px;
+}
+
+button.connection-disconnect {
+    padding: 4px 8px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.10);
+    color: var(--text);
+    outline: none;
+}
+
+button.connection-disconnect:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+button.connection-disconnect:active {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+button.connection-disconnect:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.65);
+    outline-offset: 1px;
+}
+
+button.menu-item.network-unavailable {
+    opacity: 0.45;
+}
+
 /* Sound controls keep neutral interaction states instead of GTK's accent plates. */
 .sound-menu button.menu-icon-button {
     background: transparent;

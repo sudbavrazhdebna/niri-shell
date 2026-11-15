@@ -26,7 +26,13 @@ pub struct Network {
     /// A saved profile exists, so connecting needs no password.
     pub known: bool,
     pub active: bool,
-    access_point: String,
+    access_point: Option<String>,
+}
+
+impl Network {
+    pub fn available(&self) -> bool {
+        self.access_point.is_some()
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -36,7 +42,8 @@ pub struct WifiState {
     /// IPv4 address of the connection, if connected.
     pub ip: Option<String>,
     pub enabled: bool,
-    /// Strongest first, one entry per network name.
+    /// Active first, then available by strength, then unavailable saved profiles.
+    /// One entry per network name.
     pub networks: Vec<Network>,
     /// What went wrong with the last connection attempt, for the menu to show.
     pub error: Option<String>,
@@ -97,6 +104,14 @@ impl Wifi {
                 glib::spawn_future_local(async move { wifi.refresh().await });
             }
         });
+        if let Some(device) = &wifi.device_info {
+            let weak = Rc::downgrade(&wifi);
+            on_properties_changed(device, move |_| {
+                if let Some(wifi) = weak.upgrade() {
+                    glib::spawn_future_local(async move { wifi.refresh().await });
+                }
+            });
+        }
         if let Some(device) = &wifi.device {
             let weak = Rc::downgrade(&wifi);
             // New scan results arrive as AccessPoints/LastScan changes.
@@ -127,13 +142,27 @@ impl Wifi {
         });
     }
 
+    /// Disconnect this adapter without turning off Wi-Fi or deleting its profiles.
+    /// Device.Disconnect also blocks automatic reconnection until a manual activation.
+    pub fn disconnect(self: &Rc<Self>) {
+        let Some(device) = self.device_info.clone() else { return };
+        let this = self.clone();
+        glib::spawn_future_local(async move {
+            let error = call(&device, "Disconnect", None).await
+                .is_none().then(|| "Couldn't disconnect Wi-Fi".to_string());
+            this.state.update(|s| std::mem::replace(&mut s.error, error.clone()) != error);
+            this.refresh().await;
+        });
+    }
+
     /// Connects to a network: with its saved profile, or a new one with `password`.
     pub fn connect(self: &Rc<Self>, network: &Network, password: Option<&str>) {
+        let Some(access_point) = network.access_point.clone() else { return };
         let (Some(device), this) = (self.device.clone(), self.clone()) else { return };
         let (network, password) = (network.clone(), password.map(str::to_string));
         glib::spawn_future_local(async move {
             let device_path = glib::variant::ObjectPath::try_from(device.object_path().to_string());
-            let ap_path = glib::variant::ObjectPath::try_from(network.access_point.clone());
+            let ap_path = glib::variant::ObjectPath::try_from(access_point);
             let (Ok(device_path), Ok(ap_path)) = (device_path, ap_path) else { return };
             let saved = this.profiles.borrow().get(&network.ssid).cloned();
             let result = match saved {
@@ -157,6 +186,7 @@ impl Wifi {
             }
             let error = result.is_none().then(|| format!("Couldn't connect to {}", network.ssid));
             this.state.update(|s| std::mem::replace(&mut s.error, error.clone()) != error);
+            this.refresh().await;
         });
     }
 
@@ -232,7 +262,7 @@ impl Wifi {
                     ssid: ssid.clone(),
                     strength,
                     secured,
-                    access_point: path.as_str().to_string(),
+                    access_point: Some(path.as_str().to_string()),
                 };
                 // Several access points of one network: keep the strongest, or the active one.
                 let keep = networks
@@ -243,13 +273,29 @@ impl Wifi {
                 }
             }
         }
-        let mut networks: Vec<Network> = networks.into_values().collect();
-        networks.sort_by(|a, b| b.active.cmp(&a.active).then(b.strength.cmp(&a.strength)));
+        let networks = with_saved(networks, &self.profiles.borrow());
         self.state.update(|s| {
             let new = WifiState { enabled, networks, error: s.error.clone(), interface: interface.clone(), ip: ip.clone() };
             std::mem::replace(s, new.clone()) != new
         });
     }
+}
+
+/// Saved profiles remain visible when their AP disappears; never invent a live AP
+/// path for them. Available saved networks retain their scan data and active status.
+fn with_saved(mut networks: HashMap<String, Network>, profiles: &HashMap<String, String>) -> Vec<Network> {
+    for ssid in profiles.keys() {
+        networks.entry(ssid.clone()).and_modify(|network| network.known = true).or_insert_with(|| Network {
+            ssid: ssid.clone(), strength: 0, secured: false, known: true,
+            active: false, access_point: None,
+        });
+    }
+    let mut networks: Vec<_> = networks.into_values().collect();
+    networks.sort_by(|a, b| b.active.cmp(&a.active)
+        .then(b.available().cmp(&a.available()))
+        .then(b.strength.cmp(&a.strength))
+        .then(a.ssid.cmp(&b.ssid)));
+    networks
 }
 
 /// Saved Wi-Fi profiles: network name → profile path.
@@ -325,6 +371,43 @@ async fn properties_set(proxy: &gio::DBusProxy, args: glib::Variant) -> Option<g
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn seen(ssid: &str, strength: u8, active: bool) -> Network {
+        Network {
+            ssid: ssid.into(), strength, secured: true, known: false, active,
+            access_point: Some(format!("/ap/{ssid}")),
+        }
+    }
+
+    #[test]
+    fn saved_networks_survive_missing_scan_results() {
+        let profiles = HashMap::from([
+            ("Home".into(), "/profile/home".into()),
+            ("Cafe".into(), "/profile/cafe".into()),
+        ]);
+        let active = seen("Home", 30, true);
+        let networks = with_saved(HashMap::from([
+            ("Home".into(), active), ("Guest".into(), seen("Guest", 90, false)),
+        ]), &profiles);
+        assert_eq!(networks.iter().map(|n| n.ssid.as_str()).collect::<Vec<_>>(), ["Home", "Guest", "Cafe"]);
+        assert!(networks[0].active && networks[0].known && networks[0].available());
+        assert_eq!(networks[0].strength, 30);
+        assert!(!networks[1].known);
+        assert!(networks[2].known && !networks[2].available() && !networks[2].active);
+        assert!(networks[2].access_point.is_none());
+    }
+
+    #[test]
+    fn saved_network_becomes_available_without_duplicate_rows() {
+        let profiles = HashMap::from([("Cafe".into(), "/profile/cafe".into())]);
+        assert!(!with_saved(HashMap::new(), &profiles)[0].available());
+        let networks = with_saved(HashMap::from([("Cafe".into(), seen("Cafe", 65, false))]), &profiles);
+        assert_eq!(networks.len(), 1);
+        assert!(networks[0].known && networks[0].available());
+        assert_eq!(networks[0].strength, 65);
+    }
+
     #[test]
     fn profile_shape() {
         let v = super::new_profile("home", Some("secret"));

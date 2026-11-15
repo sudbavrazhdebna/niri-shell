@@ -12,7 +12,7 @@ use crate::services::network::Link;
 use crate::services::wifi::{Network, Wifi, WifiState};
 use crate::{menu, ui};
 
-/// Networks shown in the menu; the rest are usually far away.
+/// Unsaved networks shown in the menu; saved profiles are never cut off.
 const MAX_NETWORKS: usize = 10;
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
@@ -61,8 +61,8 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
     let (header, set_switch) = ui::header_switch("Wi-Fi", move |on| w.set_enabled(on));
     column.append(&header);
     column.append(&ui::separator());
-    let card = ConnectedCard::new();
-    column.append(&card.widget);
+    let card = ConnectedCard::new(&wifi);
+    column.append(&card.surface.widget);
     let list = ui::column();
     column.append(&list);
     column.append(&ui::separator());
@@ -88,20 +88,27 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
         if let Some(error) = &state.error {
             list.append(&ui::note(error));
         }
-        let others: Vec<_> = state.networks.iter().filter(|n| !n.active).take(MAX_NETWORKS).collect();
-        if others.is_empty() {
-            list.append(&ui::note("No other networks"));
-        } else {
-            list.append(&ui::title("Other networks"));
-        }
-        for network in others {
-            let row = network_row(&w, network);
-            if let Some((name, revealer)) = &kept
-                && *name == row_name(&network.ssid)
-            {
-                row.append(revealer);
+        for (title, known) in [("Known networks", true), ("Other networks", false)] {
+            let networks: Vec<_> = state.networks.iter()
+                .filter(|n| !n.active && n.known == known)
+                .take(if known { usize::MAX } else { MAX_NETWORKS })
+                .collect();
+            if networks.is_empty() {
+                continue;
             }
-            list.append(&row);
+            list.append(&ui::title(title));
+            for network in networks {
+                let row = network_row(&w, network);
+                if let Some((name, revealer)) = &kept
+                    && *name == row_name(&network.ssid)
+                {
+                    row.append(revealer);
+                }
+                list.append(&row);
+            }
+        }
+        if !state.networks.iter().any(|n| !n.active) {
+            list.append(&ui::note("No other networks"));
         }
         // The typing goes on: focus once it's in the list again, the cursor at the end
         // (a plain grab_focus selects all, and the next key replaced the password).
@@ -128,48 +135,25 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
 /// The network in use: its name, address and live traffic. Built once per menu and
 /// updated in place, so the traffic counter keeps its last sample across scan results.
 struct ConnectedCard {
-    widget: gtk4::Box,
-    icon: gtk4::Image,
-    name: gtk4::Label,
-    details: gtk4::Label,
+    surface: ui::ConnectionCard,
     address: Rc<RefCell<String>>,
     interface: Rc<RefCell<Option<String>>>,
 }
 
 impl ConnectedCard {
-    fn new() -> ConnectedCard {
-        let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
-        widget.add_css_class("connected-card");
-        widget.set_visible(false);
-        let top = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
-        let icon = gtk4::Image::new();
-        icon.add_css_class("menu-row-icon");
-        let name = gtk4::Label::new(None);
-        name.add_css_class("connected-name");
-        name.set_xalign(0.0);
-        name.set_hexpand(true);
-        name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-        let status = gtk4::Label::new(Some("Connected"));
-        status.add_css_class("menu-trailing");
-        top.append(&icon);
-        top.append(&name);
-        top.append(&status);
-        widget.append(&top);
-        let details = gtk4::Label::new(None);
-        details.add_css_class("connected-details");
-        details.set_xalign(0.0);
-        widget.append(&details);
-
+    fn new(wifi: &Rc<Wifi>) -> ConnectedCard {
+        let weak = Rc::downgrade(wifi);
+        let surface = ui::ConnectionCard::new(move || {
+            if let Some(wifi) = weak.upgrade() { wifi.disconnect(); }
+        });
+        surface.widget.set_visible(false);
         let card = ConnectedCard {
-            widget,
-            icon,
-            name,
-            details,
+            surface,
             address: Rc::default(),
             interface: Rc::default(),
         };
         // Traffic: counters read once a second, only while the menu is open.
-        let (weak, address, interface) = (card.details.downgrade(), card.address.clone(), card.interface.clone());
+        let (weak, address, interface) = (card.surface.details.downgrade(), card.address.clone(), card.interface.clone());
         let last = Cell::new(None::<(u64, u64)>);
         glib::timeout_add_seconds_local(1, move || {
             let Some(details) = weak.upgrade() else { return glib::ControlFlow::Break };
@@ -189,15 +173,16 @@ impl ConnectedCard {
     }
 
     fn update(&self, active: Option<&Network>, state: &WifiState) {
-        self.widget.set_visible(active.is_some());
+        self.surface.widget.set_visible(active.is_some());
         let Some(active) = active else { return };
-        ui::set_icon(&self.icon, wifi_icon(active.strength));
-        self.name.set_label(&active.ssid);
+        ui::set_icon(&self.surface.icon, wifi_icon(active.strength));
+        self.surface.name.set_label(&active.ssid);
         let address = state.ip.as_deref().map(|ip| format!("IP {ip}")).unwrap_or_default();
         if *self.address.borrow() != address {
-            self.details.set_label(&address);
+            self.surface.details.set_label(&address);
             self.address.replace(address);
         }
+        self.surface.details.set_visible(state.ip.is_some());
         self.interface.replace(state.interface.clone());
     }
 }
@@ -231,7 +216,9 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
     // Which network the row is, for a password field kept over a rebuild.
     holder.set_widget_name(&row_name(&network.ssid));
     let (w, n, h) = (wifi.clone(), network.clone(), holder.downgrade());
-    let row = ui::icon_item(wifi_icon(network.strength), &network.ssid, "", move || {
+    let available = network.available();
+    let row = ui::icon_item(wifi_icon(network.strength), &network.ssid,
+        if available { "" } else { "Not in range" }, move || {
         let Some(holder) = h.upgrade() else { return };
         // One password field at a time: a click on its network again closes it, a click
         // on any other network closes it too.
@@ -247,7 +234,7 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
                 }
             }
         }
-        if n.active || was_open {
+        if !n.available() || n.active || was_open {
             return;
         }
         if n.secured && !n.known {
@@ -262,8 +249,9 @@ fn network_row(wifi: &Rc<Wifi>, network: &Network) -> gtk4::Box {
         }
         w.connect(&n, None);
     });
-    if network.active {
-        row.add_css_class("active");
+    row.set_sensitive(available);
+    if !available {
+        row.add_css_class("network-unavailable");
     }
     // A password is needed: a lock at the end, dim like the other trailing details.
     if network.secured && !network.known {

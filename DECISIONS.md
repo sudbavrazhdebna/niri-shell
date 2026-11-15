@@ -205,6 +205,17 @@ each section. Read before changing any of these.
 
 ## Menus
 
+- Wi-Fi and Bluetooth use one `ui::ConnectionCard` layout: name/icon, optional Wi-Fi
+  IP/traffic, then connection status and an explicit Disconnect button. Bluetooth keeps
+  `Connected` visible alongside the battery percentage. Both menus have a 320 px minimum.
+- Wi-Fi separates non-active saved profiles (`Known networks`) from unsaved scan results
+  (`Other networks`). Saved profiles stay in the list when not detected: dimmed, labelled
+  `Not in range`, and not clickable. The scan-result limit applies only to unsaved networks.
+  Missing profiles have no AP object path, and the backend refuses to activate them too.
+  A rescan restores their normal row when the AP returns, without duplicating the SSID.
+- Wi-Fi Disconnect calls NetworkManager's device method, preserving the radio and saved
+  profile and preventing immediate auto-reconnection. A manual network activation reconnects.
+  The popup follows device state/IP changes while open; closing it drops those subscriptions.
 - **Menus are their own layer-shell windows, not GTK popovers.** niri closes a popover when its
   size changes after it's shown (confirmed: a calendar that grew 500 ms after opening closed).
   Our menus grow (scan results, devices). A transparent "catcher" window below the bar closes

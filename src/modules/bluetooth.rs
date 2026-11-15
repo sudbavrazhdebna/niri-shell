@@ -33,7 +33,7 @@ const SCAN_SECONDS: u32 = 15;
 
 fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     let column = ui::column();
-    column.set_width_request(300);
+    column.set_width_request(320);
     let s = services.clone();
     let (header, set_switch) = ui::header_switch("Bluetooth", move |on| s.bluetooth().set_powered(on));
     column.append(&header);
@@ -82,28 +82,29 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
         if !state.powered {
             return;
         }
-        devices.append(&ui::title("My devices"));
+        for device in state.devices.iter().filter(|d| d.connected) {
+            let (s, path) = (s.clone(), device.path.clone());
+            let card = ui::ConnectionCard::new(move || s.bluetooth().disconnect(&path));
+            ui::set_icon(&card.icon, &device_icon(device));
+            card.name.set_label(&device.name);
+            card.status.set_label(&match device.battery {
+                Some(battery) => format!("Connected · {battery}%"),
+                None => "Connected".to_string(),
+            });
+            devices.append(&card.widget);
+        }
+        let saved: Vec<_> = state.devices.iter().filter(|d| !d.connected).collect();
+        if !saved.is_empty() {
+            devices.append(&ui::title("My devices"));
+        }
         if state.devices.is_empty() {
             devices.append(&ui::note("No paired devices"));
         }
-        for device in &state.devices {
-            let trailing = match (device.connected, device.battery) {
-                (true, Some(battery)) => format!("{battery}%"),
-                (true, None) => "connected".into(),
-                (false, _) => String::new(),
-            };
-            let (s, path, connected) = (s.clone(), device.path.clone(), device.connected);
-            let row = ui::icon_item(&device_icon(device), &device.name, &trailing, move || {
-                if connected {
-                    s.bluetooth().disconnect(&path);
-                } else {
-                    s.bluetooth().connect(&path);
-                }
-            });
-            if device.connected {
-                row.add_css_class("active");
-            }
-            devices.append(&row);
+        for device in saved {
+            let (s, path) = (s.clone(), device.path.clone());
+            devices.append(&ui::icon_item(&device_icon(device), &device.name, "", move || {
+                s.bluetooth().connect(&path);
+            }));
         }
     });
     // A scan runs only while the menu shows.
