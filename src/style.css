@@ -154,6 +154,16 @@ window.nshell-menu {
     color: var(--text);
 }
 
+/* Keep card edges inside their rounded bounds; shadows remain independent. */
+.menu-card,
+.osd-card,
+.notification,
+.dock,
+.launcher-card {
+    outline: 1px solid var(--glass-edge);
+    outline-offset: -1px;
+}
+
 .menu-card {
     backdrop-filter: var(--blur);
     background-color: var(--glass);
@@ -161,7 +171,7 @@ window.nshell-menu {
     padding: 8px;
     /* Room for the shadow inside the window. */
     margin: 0 16px 22px;
-    box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
+    box-shadow: var(--glass-shadow);
 }
 
 /* A menu fades in, sliding a little away from the bar (up from the dock). The length
@@ -528,7 +538,7 @@ button.session-button.armed {
     margin: 10px 16px 22px;
     border-radius: 18px;
     background-color: var(--glass);
-    box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
+    box-shadow: var(--glass-shadow);
     color: var(--text);
 }
 
@@ -608,7 +618,7 @@ window.nshell-popups.bottom .popup-column {
     margin: 6px 0;
     border-radius: 12px;
     background-color: var(--glass);
-    box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
+    box-shadow: var(--glass-shadow);
     color: var(--text);
 }
 
@@ -617,7 +627,7 @@ window.nshell-popups.bottom .popup-column {
 }
 
 .notification.critical {
-    box-shadow: inset 0 0 0 1px alpha(var(--danger), 0.7), var(--glass-shadow);
+    outline-color: alpha(var(--danger), 0.7);
 }
 
 .notification-image {
@@ -686,6 +696,7 @@ button.action:hover {
 /* In the menu the cards sit on the glass card already: no own shadow, less width. */
 .notification-center .notification {
     min-width: 0;
+    outline: none;
     box-shadow: none;
     background-color: var(--inner);
 }
@@ -805,7 +816,7 @@ button.clear-all:hover {
     margin: 0 16px 6px;
     border-radius: 16px;
     background-color: var(--glass);
-    box-shadow: inset 0 0 0 1px var(--glass-edge), var(--glass-shadow);
+    box-shadow: var(--glass-shadow);
 }
 
 .dock separator {
@@ -829,8 +840,7 @@ button.clear-all:hover {
 }
 
 .dock .dots {
-    min-height: 3px;
-    margin-bottom: 1px;
+    min-height: 4px;
     /* Move the indicators without changing icon positions or the dock's height. */
     transform: translateY(2px);
 }
@@ -844,8 +854,6 @@ button.clear-all:hover {
 }
 
 .dock .dot {
-    min-width: 3px;
-    min-height: 3px;
     background-color: rgba(255, 255, 255, 0.85);
 }
 
@@ -1225,7 +1233,7 @@ button.media-control:hover {
     padding: 8px;
     border-radius: 16px;
     background-color: var(--glass);
-    box-shadow: inset 0 0 0 1px var(--glass-edge), 0 18px 40px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
     color: var(--text);
 }
 

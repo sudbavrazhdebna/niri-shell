@@ -431,9 +431,11 @@ each section. Read before changing any of these.
   Tooltips stay hidden while the module's menu is open.
 - Menus, OSD, popups and dock share one card look through CSS variables (`--glass`,
   `--glass-edge`, `--glass-shadow`, `--accent`, … at the top of style.css), so a user's
-  `:root { … }` restyles all of them. The edge is an inset 1 px shadow, never a `border`
-  (a border changes the card's size). They had four different edges before (the OSD a
-  dark border plus a light inset line).
+  `:root { … }` restyles all of them. Outer card edges use a 1 px outline with offset
+  -1 px, following the existing corner radius without changing layout. This replaces
+  the inset shadow so the edge's offset can be adjusted independently of the outer
+  shadow. Critical popups keep their danger-coloured edge; notification-center cards
+  still have no own outline. Inner controls keep their separate focus/pressed styling.
 - Shadows are drawn by the shell (CSS), not niri: niri shadows the whole layer surface,
   and the popup window holds several cards. Windows leave room for them (22 px below,
   16 px at the sides); the OSD had 10 px and its shadow was cut off.
