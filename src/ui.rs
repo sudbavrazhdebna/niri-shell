@@ -5,6 +5,9 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gtk4::glib;
+
+mod fading_content;
+pub use fading_content::FadingContent;
 use gtk4::prelude::*;
 
 /// Vertical column that holds a menu's rows.
@@ -355,40 +358,75 @@ pub struct ConnectionCard {
 
 impl ConnectionCard {
     pub fn new(on_disconnect: impl Fn() + 'static) -> Self {
-        let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 6);
+        let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         widget.add_css_class("connected-card");
-        let top = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
+        widget.set_focusable(true);
+        let overlay = gtk4::Overlay::new();
+        widget.append(&overlay);
+        let content = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
+        overlay.set_child(Some(&content));
         let icon = gtk4::Image::new();
         icon.add_css_class("menu-row-icon");
+        icon.set_valign(gtk4::Align::Start);
+        content.append(&icon);
+        let text = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
+        text.set_hexpand(true);
         let name = gtk4::Label::new(None);
         name.add_css_class("connected-name");
         name.set_xalign(0.0);
-        name.set_hexpand(true);
         name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
         name.set_max_width_chars(30);
-        top.append(&icon);
-        top.append(&name);
-        widget.append(&top);
-
+        text.append(&name);
         let details = gtk4::Label::new(None);
         details.add_css_class("connected-details");
         details.set_xalign(0.0);
         details.set_ellipsize(gtk4::pango::EllipsizeMode::End);
         details.set_max_width_chars(30);
         details.set_visible(false);
-        widget.append(&details);
-        let bottom = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+        text.append(&details);
         let status = gtk4::Label::new(Some("Connected"));
         status.add_css_class("connected-status");
         status.add_css_class("menu-trailing");
         status.set_xalign(0.0);
-        status.set_hexpand(true);
+        text.append(&status);
+        let faded = FadingContent::new(&text);
+        faded.set_hexpand(true);
+        content.append(&faded);
+
         let disconnect = gtk4::Button::with_label("Disconnect");
         disconnect.add_css_class("connection-disconnect");
         disconnect.connect_clicked(move |_| on_disconnect());
-        bottom.append(&status);
-        bottom.append(&disconnect);
-        widget.append(&bottom);
+        let actions = gtk4::Revealer::new();
+        actions.set_transition_type(gtk4::RevealerTransitionType::Crossfade);
+        actions.set_transition_duration(ANIMATION_MS);
+        actions.set_halign(gtk4::Align::End);
+        actions.set_valign(gtk4::Align::Center);
+        actions.set_child(Some(&disconnect));
+        overlay.add_overlay(&actions);
+        // The text alone determines height; showing Disconnect never adds a row.
+        overlay.set_measure_overlay(&actions, false);
+        faded.set_actions(&actions);
+
+        let pointer = gtk4::EventControllerMotion::new();
+        let focus = gtk4::EventControllerFocus::new();
+        let a = actions.clone();
+        pointer.connect_enter(move |_, _, _| a.set_reveal_child(true));
+        let (a, weak_focus) = (actions.clone(), focus.downgrade());
+        pointer.connect_leave(move |_| {
+            if !weak_focus.upgrade().is_some_and(|f| f.contains_focus()) {
+                a.set_reveal_child(false);
+            }
+        });
+        let a = actions.clone();
+        focus.connect_enter(move |_| a.set_reveal_child(true));
+        let weak_pointer = pointer.downgrade();
+        focus.connect_leave(move |_| {
+            if !weak_pointer.upgrade().is_some_and(|p| p.contains_pointer()) {
+                actions.set_reveal_child(false);
+            }
+        });
+        widget.add_controller(pointer);
+        widget.add_controller(focus);
         Self { widget, icon, name, status, details }
     }
 }

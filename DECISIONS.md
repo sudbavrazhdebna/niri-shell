@@ -206,8 +206,11 @@ each section. Read before changing any of these.
 ## Menus
 
 - Wi-Fi and Bluetooth use one `ui::ConnectionCard` layout: name/icon, optional Wi-Fi
-  IP/traffic, then connection status and an explicit Disconnect button. Bluetooth keeps
-  `Connected` visible alongside the battery percentage. Both menus have a 320 px minimum.
+  IP/traffic and connection status. Disconnect is an unmeasured overlay, right-aligned
+  and vertically centered: it appears on hover (or keyboard focus) without adding a row
+  or changing height. Only text under/near it fades, using the notification mask shared
+  as `ui::FadingContent`; the icon and glass remain intact. Bluetooth keeps `Connected`
+  visible alongside the battery percentage. Both menus have a 320 px minimum.
 - Wi-Fi separates non-active saved profiles (`Known networks`) from unsaved scan results
   (`Other networks`). Saved profiles stay in the list when not detected: dimmed, labelled
   `Not in range`, and not clickable. The scan-result limit applies only to unsaved networks.
@@ -302,7 +305,7 @@ each section. Read before changing any of these.
   float over the card's bottom-right corner (an overlay, covering some text), so hovering
   never changes the card's height; a summary-only card with buttons is a little taller.
 - While actions show, only the body text fades approaching their actual allocated
-  bounds (24 px horizontally, 10 px above). A GSK alpha mask removes text rather than
+  bounds (24 px horizontally, 10 px vertically). A shared GSK alpha mask removes text rather than
   painting a gradient matching a guessed card colour, so translucent/hover/stacked
   backgrounds keep their appearance. Header, icon, layout, markup and action clicks
   stay intact; hiding the actions restores the text. Weak references and revealer

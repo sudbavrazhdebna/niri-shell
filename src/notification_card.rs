@@ -7,8 +7,6 @@ use gtk4::{gdk, glib};
 
 use crate::services::notifications::{Image, Notification, Notifications, Reason};
 
-mod fading_body;
-
 /// Builds the card. `on_done` runs after a click or an action, e.g. to close a menu.
 /// `show_time`: the center says how old each one is; a popup is always "now".
 pub fn card(n: &Rc<Notification>, server: &Rc<Notifications>, on_done: Rc<dyn Fn()>, show_time: bool) -> gtk4::Box {
@@ -76,7 +74,7 @@ pub fn card_with_click(
         body.set_lines(4);
         body.set_ellipsize(gtk4::pango::EllipsizeMode::End);
         body.set_max_width_chars(36);
-        let faded = fading_body::FadingBody::new(&body);
+        let faded = crate::ui::FadingContent::new(&body);
         text.append(&faded);
         Some(faded)
     } else {
