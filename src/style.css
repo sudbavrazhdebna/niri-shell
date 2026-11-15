@@ -830,6 +830,8 @@ button.clear-all:hover {
 
 .dock .dots {
     min-height: 4px;
+    /* Move the indicators without changing icon positions or the dock's height. */
+    transform: translateY(2px);
 }
 
 .dock .dot,
@@ -838,6 +840,10 @@ button.clear-all:hover {
     min-height: 4px;
     border-radius: 2px;
     background-color: rgba(255, 255, 255, 0.55);
+}
+
+.dock .dot {
+    background-color: rgba(255, 255, 255, 0.85);
 }
 
 .dock-item.focused .dot {
