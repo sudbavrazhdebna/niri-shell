@@ -829,7 +829,8 @@ button.clear-all:hover {
 }
 
 .dock .dots {
-    min-height: 4px;
+    min-height: 3px;
+    margin-bottom: 1px;
     /* Move the indicators without changing icon positions or the dock's height. */
     transform: translateY(2px);
 }
@@ -843,6 +844,8 @@ button.clear-all:hover {
 }
 
 .dock .dot {
+    min-width: 3px;
+    min-height: 3px;
     background-color: rgba(255, 255, 255, 0.85);
 }
 
