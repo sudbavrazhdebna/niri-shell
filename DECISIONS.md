@@ -318,7 +318,9 @@ each section. Read before changing any of these.
   covered the cards' close buttons and edge. The fixed list height cuts through a card,
   which says there's more.
 - Every stack of two or more has a header (app icon, name, an open/fold arrow), closed or
-  open, as in GNOME: opening one doesn't move what's above it.
+  open. Toggling replaces only that stack's cards and changes the arrow in place, so the
+  same button keeps its hover and focus. Closed stacks use translucent fills over the
+  menu glass. The sheets draw only their exposed edges so they stay out of the front card.
 - Animations are CSS (150 ms, `ANIMATION_MS` in ui.rs): a menu fades in sliding 8 px away
   from the bar; popups slide in from the screen edge and back out (asked for 2026-11-04).
   niri can't fade a blur, so popups only slide (GTK moves the blur with them); the menu's

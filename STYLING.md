@@ -34,7 +34,7 @@ the top of the built-in style. Redefine any of them in your `style.css` and ever
     --glass-edge: rgba(255, 255, 255, 0.14);  /* the 1 px line along the card's edge */
     --glass-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
     --inner: rgba(255, 255, 255, 0.06);       /* panels inside a card (sliders, player) */
-    --inner-hover: rgba(255, 255, 255, 0.12);
+    --inner-hover: rgba(255, 255, 255, 0.12); /* also the base tint of closed notification stacks */
     --text: white;
     --text-dim: rgba(255, 255, 255, 0.7);
     --text-faint: rgba(255, 255, 255, 0.5);

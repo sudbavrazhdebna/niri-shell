@@ -158,8 +158,8 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::External);
     scroll.set_propagate_natural_height(true);
     scroll.set_child(Some(&list));
-    // A clicked button (a stack's arrow) goes with the old list; the focus then moves
-    // to the top, and following it scrolled the list to the top.
+    // Incoming or dismissed notifications can rebuild the list and reset focus.
+    // Keep the scroll position independent of that focus change.
     if let Some(viewport) = scroll.child().and_downcast::<gtk4::Viewport>() {
         viewport.set_scroll_to_focus(false);
     }
@@ -172,19 +172,17 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
     clear.connect_clicked(move |_| s.clear_all());
     center.append(&clear);
 
-    // Apps whose stack the user opened, kept while the menu is open.
-    let expanded: Rc<RefCell<HashSet<String>>> = Rc::default();
     let render = Rc::new(Render {
         list: list.downgrade(),
         scroll: scroll.downgrade(),
         clear: clear.downgrade(),
-        expanded,
+        expanded: RefCell::default(),
         server: server.clone(),
         restoring: Rc::default(),
     });
     let r = render.clone();
     // A change of the list (one closed, one came) keeps the list's height: see `run`.
-    server.list.bind(&list, move |_, _| r.run(true));
+    server.list.bind(&list, move |_, _| r.run());
     center
 }
 
@@ -192,33 +190,33 @@ fn center(services: &Rc<Services>) -> gtk4::Box {
 /// of a fifth, which peeks out to say there's more (there is no scrollbar).
 const LIST_HEIGHT: i32 = 340;
 
-/// Redraws the notification list (on changes, and when a stack is opened or folded).
+/// Rebuilds the list when notifications change and resizes it when a stack is toggled.
 struct Render {
     list: glib::WeakRef<gtk4::Box>,
     scroll: glib::WeakRef<gtk4::ScrolledWindow>,
     clear: glib::WeakRef<gtk4::Button>,
-    expanded: Rc<RefCell<HashSet<String>>>,
+    // Apps whose stack the user opened, kept while the menu is open.
+    expanded: RefCell<HashSet<String>>,
     server: Rc<crate::services::notifications::Notifications>,
     /// The waiting scroll restore, if the layout hasn't come yet.
     restoring: Rc<RefCell<Option<glib::SignalHandlerId>>>,
 }
 
 impl Render {
-    /// `hold`: while the menu is open, a closed notification leaves its room empty
+    /// While the menu is open, a closed notification leaves its room empty
     /// instead of the menu shrinking (it jumped with every one closed), and the next one
     /// moves up under the pointer. Folding a stack or clearing all does shrink it.
-    fn run(self: &Rc<Self>, hold: bool) {
+    fn run(self: &Rc<Self>) {
         let Some(list) = self.list.upgrade() else { return };
         let notifications: Vec<_> = self.server.list.get().iter()
             .filter(|n| !n.transient)
             .cloned()
             .collect();
         let held = match self.scroll.upgrade() {
-            Some(scroll) if hold && !notifications.is_empty() => scroll.vadjustment().page_size() as i32,
+            Some(scroll) if !notifications.is_empty() => scroll.vadjustment().page_size() as i32,
             _ => 0,
         };
-        // Rebuilt, the list keeps where it was scrolled to (opening a stack at the bottom
-        // jumped to the top).
+        // Keep the scroll position when rebuilding the list.
         let scrolled = self.scroll.upgrade().map(|s| s.vadjustment().value()).unwrap_or(0.0);
         ui::clear(&list);
         if let Some(clear) = self.clear.upgrade() {
@@ -230,19 +228,10 @@ impl Render {
             return;
         }
         for group in stacks(&notifications) {
-            let app = group[0].app_name.clone();
             if group.len() == 1 {
                 list.append(&card(&group[0], &self.server, Rc::new(menu::close), true));
-                continue;
-            }
-            let open = self.expanded.borrow().contains(&app);
-            list.append(&self.stack_header(&group[0], &app, open));
-            if open {
-                for n in &group {
-                    list.append(&card(n, &self.server, Rc::new(menu::close), true));
-                }
             } else {
-                list.append(&self.stack(&group, &app));
+                list.append(&self.stack_group(group));
             }
         }
         self.fit(&list, held);
@@ -271,51 +260,11 @@ impl Render {
         self.restoring.replace(Some(id));
     }
 
-    /// A closed stack, like iOS: the newest card in front, up to two older ones behind
-    /// it, each lower, narrower and darker. A click anywhere on it opens the stack.
-    fn stack(self: &Rc<Self>, group: &[Rc<Notification>], app: &str) -> gtk4::Overlay {
-        let depth = group.len().min(3) - 1;
-        let open: Rc<dyn Fn()> = {
-            let (this, app) = (Rc::downgrade(self), app.to_string());
-            Rc::new(move || {
-                if let Some(this) = this.upgrade() {
-                    this.set_open(&app, true);
-                }
-            })
-        };
-        // Drawn in order: the farthest sheet first, the card last, on top.
-        let sheet = |d: usize| {
-            let sheet = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
-            sheet.add_css_class("stack-sheet");
-            sheet.add_css_class(&format!("depth-{d}"));
-            sheet.set_valign(gtk4::Align::End);
-            let click = gtk4::GestureClick::new();
-            let open = open.clone();
-            click.connect_released(move |_, _, _, _| open());
-            sheet.add_controller(click);
-            sheet
-        };
-        let stack = gtk4::Overlay::new();
-        stack.add_css_class("notification-stack");
-        stack.set_child(Some(&sheet(depth)));
-        if depth == 2 {
-            stack.add_css_class("deep");
-            stack.add_overlay(&sheet(1));
-        }
-        let top = card_with_click(&group[0], &self.server, Rc::new(menu::close), true, Some(open));
-        top.add_css_class("stacked");
-        top.add_css_class(&format!("depth-{depth}"));
-        top.set_valign(gtk4::Align::Start);
-        top.set_tooltip_text(Some(&format!("{} more from {}", group.len() - 1, app_label(&group[0]))));
-        stack.add_overlay(&top);
-        stack.set_measure_overlay(&top, true);
-        stack
-    }
-
-    /// Above every stack of two or more, as in GNOME: the app's icon and name, and a
-    /// round button that opens or folds the stack. Always there, so opening one doesn't
-    /// move what's above it.
-    fn stack_header(self: &Rc<Self>, newest: &Notification, app: &str, open: bool) -> gtk4::Box {
+    /// The header and its button stay mounted while only this stack's cards change.
+    fn stack_group(self: &Rc<Self>, group: Vec<Rc<Notification>>) -> gtk4::Box {
+        let newest = &group[0];
+        let app = newest.app_name.clone();
+        let stack = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         let header = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
         header.add_css_class("stack-header");
         let icon = gtk4::Image::new();
@@ -333,26 +282,83 @@ impl Render {
         name.set_hexpand(true);
         name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
         header.append(&name);
-        let fold = gtk4::Button::from_icon_name(if open { "pan-up-symbolic" } else { "pan-down-symbolic" });
+        let fold = gtk4::ToggleButton::new();
         fold.add_css_class("stack-fold");
-        fold.set_tooltip_text(Some(if open { "Show less" } else { "Show all" }));
-        let (this, app) = (Rc::downgrade(self), app.to_string());
-        fold.connect_clicked(move |_| {
-            if let Some(this) = this.upgrade() {
-                this.set_open(&app, !open);
-            }
-        });
+        let arrow = gtk4::Image::new();
+        fold.set_child(Some(&arrow));
         header.append(&fold);
-        header
+        stack.append(&header);
+
+        let expand: Rc<dyn Fn()> = {
+            let fold = fold.downgrade();
+            Rc::new(move || {
+                if let Some(fold) = fold.upgrade() {
+                    fold.set_active(true);
+                }
+            })
+        };
+        let open = self.expanded.borrow().contains(&app);
+        fold.set_active(open);
+        update_fold(&fold, &arrow, open);
+        stack.append(&self.stack_cards(&group, open, &expand));
+
+        let (render, stack_ref) = (Rc::downgrade(self), stack.downgrade());
+        fold.connect_toggled(move |fold| {
+            let Some((render, stack)) = render.upgrade().zip(stack_ref.upgrade()) else { return };
+            let Some(list) = render.list.upgrade() else { return };
+            let Some(cards) = stack.last_child() else { return };
+            let scrolled = render.scroll.upgrade().map_or(0.0, |s| s.vadjustment().value());
+            let open = fold.is_active();
+            if open {
+                render.expanded.borrow_mut().insert(app.clone());
+            } else {
+                render.expanded.borrow_mut().remove(&app);
+            }
+            update_fold(fold, &arrow, open);
+            stack.remove(&cards);
+            stack.append(&render.stack_cards(&group, open, &expand));
+            render.fit(&list, 0);
+            // Resize in the same update as the cards to avoid a frame at the old height.
+            if let Some(window) = stack.root().and_downcast::<gtk4::Window>() {
+                ui::shrink_to_fit(&window);
+            }
+            render.restore_scroll(scrolled);
+        });
+        stack
     }
 
-    fn set_open(self: &Rc<Self>, app: &str, open: bool) {
+    fn stack_cards(&self, group: &[Rc<Notification>], open: bool, expand: &Rc<dyn Fn()>) -> gtk4::Box {
+        let stack = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         if open {
-            self.expanded.borrow_mut().insert(app.to_string());
-        } else {
-            self.expanded.borrow_mut().remove(app);
+            for n in group {
+                stack.append(&card(n, &self.server, Rc::new(menu::close), true));
+            }
+            return stack;
         }
-        self.run(false);
+
+        let depth = group.len().min(3) - 1;
+        stack.add_css_class("notification-stack");
+        if depth == 2 {
+            stack.add_css_class("deep");
+        }
+        let top = card_with_click(&group[0], &self.server, Rc::new(menu::close), true, Some(expand.clone()));
+        top.add_css_class("stacked");
+        top.add_css_class(&format!("depth-{depth}"));
+        top.set_tooltip_text(Some(&format!("{} more from {}", group.len() - 1, app_label(&group[0]))));
+        stack.append(&top);
+        // Draw just the exposed edge of each sheet so its fill cannot show through
+        // the translucent card above it. Those edges still open the stack on click.
+        for d in 1..=depth {
+            let sheet = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+            sheet.add_css_class("stack-sheet");
+            sheet.add_css_class(&format!("depth-{d}"));
+            let click = gtk4::GestureClick::new();
+            let expand = expand.clone();
+            click.connect_released(move |_, _, _, _| expand());
+            sheet.add_controller(click);
+            stack.append(&sheet);
+        }
+        stack
     }
 
     /// Caps the list at LIST_HEIGHT; the rest scrolls inside it. A fixed height, not
@@ -389,6 +395,10 @@ impl Render {
     }
 }
 
+fn update_fold(fold: &gtk4::ToggleButton, arrow: &gtk4::Image, open: bool) {
+    arrow.set_icon_name(Some(if open { "pan-up-symbolic" } else { "pan-down-symbolic" }));
+    fold.set_tooltip_text(Some(if open { "Show less" } else { "Show all" }));
+}
 
 /// Notifications grouped by app, groups ordered by their newest one.
 fn stacks(notifications: &[Rc<Notification>]) -> Vec<Vec<Rc<Notification>>> {
