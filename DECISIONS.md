@@ -78,6 +78,8 @@ each section. Read before changing any of these.
   CenterBox moved the clock aside when a side asked for more than half the bar (a long
   window title). Now the center stays in the middle and a side gets the room beside it;
   the title label shrinks to "…" there. `max-length` stays as a cap.
+- Every bar zone has a 2 px inset above and below. Modules fill the zone so hover and
+  open-menu backgrounds share the same height even when their icons and text differ.
 
 ## Dock
 

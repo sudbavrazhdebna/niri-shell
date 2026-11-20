@@ -105,7 +105,7 @@ Note: blur is asked for in CSS. Every card has `backdrop-filter: var(--blur)`, a
 
 | Part | Classes |
 |---|---|
-| bar | `window.bar` (+ `.solid`: glass over a window maximized to the edges), `.bar-content`; every module is `.module` plus its name: `.clock`, `.window-title`, `.keyboard`, `.network`, `.bluetooth`, `.volume`, `.battery`, `.control`, `.tray-item`; icon modules also `.icon`; `.problem` is the ⚠ shown when the config or style has a mistake |
+| bar | `window.bar` (+ `.solid`: glass over a window maximized to the edges), `.bar-content`, `.bar-zone` (+ `.left`, `.center` or `.right`, with a shared vertical inset for the module backgrounds); every module is `.module` plus its name: `.clock`, `.window-title`, `.keyboard`, `.network`, `.bluetooth`, `.volume`, `.battery`, `.control`, `.tray-item`; icon modules also `.icon`; `.problem` is the ⚠ shown when the config or style has a mistake |
 | tooltips | `tooltip` (dark card, 18 px text); clock calendar is one white text label with the full date above it and today bold/underlined |
 | clock extras | `.clock-dot` (unseen notifications), `.clock-dnd` |
 | control chevron | `.control-chevron` inside `.control`; rotates when the parent has `.menu-open` |

@@ -189,7 +189,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
 
     let dock = gtk4::Box::new(gtk4::Orientation::Horizontal, 2);
     dock.add_css_class("dock");
-    dock.append(&apps(config, niri));
+    dock.append(&apps(config, niri, false));
     if config.dock.overview {
         dock.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
         let overview = gtk4::Button::from_icon_name("nshell-overview-symbolic");
@@ -281,10 +281,13 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
 
 /// The apps, pinned then running, kept up to date: the dock's row, and the bar's
 /// `taskbar` module (the same items, clicks and menus).
-pub fn apps(config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
+pub fn apps(config: &Rc<Config>, niri: &Niri, in_bar: bool) -> gtk4::Box {
     // No spacing: the gap between icons is their padding in style.css alone.
     let apps = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
     apps.add_css_class("dock-apps");
+    if in_bar {
+        apps.add_css_class("taskbar");
+    }
     let (config, niri2) = (config.clone(), niri.clone());
     let last = RefCell::new(None::<Vec<Item>>);
     let serial = Cell::new(None::<u64>);
@@ -315,7 +318,7 @@ pub fn apps(config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
             if !item.pinned && items.get(i.wrapping_sub(1)).is_some_and(|prev| prev.pinned) {
                 apps.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
             }
-            apps.append(&item_widget(item, &config, &niri2));
+            apps.append(&item_widget(item, &config, &niri2, in_bar));
         }
         last.replace(Some(items));
     });
@@ -409,7 +412,7 @@ fn items(state: &State, pinned: &[String]) -> Vec<Item> {
     items
 }
 
-fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
+fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri, in_bar: bool) -> gtk4::Box {
     let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
     widget.add_css_class("dock-item");
     if item.focused.is_some() {
@@ -431,6 +434,13 @@ fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri) -> gtk4::Box {
     let dots = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
     dots.add_css_class("dots");
     dots.set_halign(gtk4::Align::Center);
+    if in_bar {
+        // Split extra row height above the icon and below the dots to center them together.
+        icon.set_vexpand(true);
+        icon.set_valign(gtk4::Align::End);
+        dots.set_vexpand(true);
+        dots.set_valign(gtk4::Align::Start);
+    }
     for _ in 0..item.windows.len().min(MAX_DOTS) {
         let dot = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
         dot.add_css_class("dot");

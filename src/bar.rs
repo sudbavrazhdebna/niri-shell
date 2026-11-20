@@ -208,11 +208,10 @@ impl Bars {
 
         let zone = |class: &str, names: &[String]| {
             let zone = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+            zone.add_css_class("bar-zone");
             zone.add_css_class(class);
-            zone.set_valign(gtk4::Align::Center);
             for name in names {
                 if let Some(widget) = modules::build(name, ctx) {
-                    widget.set_valign(gtk4::Align::Center);
                     zone.append(&widget);
                 }
             }

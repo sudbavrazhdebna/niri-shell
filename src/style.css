@@ -64,6 +64,11 @@ window.nshell-wallpaper.overview .wallpaper-blurred {
     transition: background-color 200ms ease-out;
 }
 
+/* Each zone fills the bar height inside the same inset, and its modules fill the zone. */
+.bar-content > .bar-zone {
+    margin: 2px 0;
+}
+
 /* Over a window maximized to the edges, the bar is glass (blurred). */
 window.bar.solid .bar-content {
     backdrop-filter: var(--blur);
@@ -74,7 +79,7 @@ window.bar.solid .bar-content {
 
 .bar-content .module {
     margin: 0 2px;
-    padding: 3px 9px;
+    padding: 1px 9px;
     border-radius: 9px;
     color: white;
     font-size: 16px;
@@ -851,7 +856,7 @@ button.clear-all:hover {
 
 /* The dock's apps in the bar (the `taskbar` module): smaller, to fit its height. */
 .taskbar .dock-item {
-    padding: 1px 4px 1px;
+    padding: 0 4px;
     border-radius: 8px;
 }
 
