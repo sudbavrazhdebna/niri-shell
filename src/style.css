@@ -683,15 +683,14 @@ button.close-button {
     min-height: 56px;
 }
 
-/* The buttons float over the card's bottom-right corner and cover the text under them:
-   an almost solid plate with its own shadow. */
+/* The buttons float over the card's bottom-right corner on an opaque plate. */
 button.action {
     padding: 4px 10px;
     border: none;
-    outline: none;
+    outline: 1px solid rgba(255, 255, 255, 0.1);
+    outline-offset: -1px;
     border-radius: 8px;
     background: rgb(64, 65, 69);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 button.action:hover {
