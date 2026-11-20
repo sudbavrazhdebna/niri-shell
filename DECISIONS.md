@@ -87,6 +87,7 @@ each section. Read before changing any of these.
   or focusing. Secondary press opens the context menu; while held, motion picks adjacent
   icons in dock-window coordinates (the implicit pointer grab still belongs to the first
   icon). Releasing leaves the last menu open. Ordinary hover does not switch dock menus.
+  A new secondary press on any dock icon closes the open context menu in place.
 - A menu taking keyboard focus must not rebuild dock icons just because niri reports no
   focused window: keep the last app highlight while that menu is open. Replacing the
   widgets destroyed the menu anchor and the pointer grab during a held right-click.
@@ -205,8 +206,9 @@ each section. Read before changing any of these.
 
 ## Config
 
-- The dock's pin/unpin writes the `pinned` line back into config.kdl through the `kdl` crate,
-  which keeps comments and formatting; the file watcher then reloads the shell.
+- Pin and Unpin edit the latest `pinned` line in config.kdl through the `kdl` crate,
+  preserving comments and formatting. The file watcher applies pin-only changes to the
+  dock and taskbar rows in their existing windows.
 
 ## Menus
 

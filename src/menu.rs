@@ -99,13 +99,16 @@ pub fn on_button(anchor: &impl IsA<gtk4::Widget>, button: u32) {
     anchor.as_ref().add_controller(gesture);
 }
 
-/// Context menus open on press so holding the button can browse adjacent dock icons.
-pub fn on_press(anchor: &impl IsA<gtk4::Widget>, button: u32) {
+/// The first right press opens a dock menu and lets the pointer browse while held.
+/// The next right press dismisses the menu from any dock icon.
+pub fn on_dock_press(anchor: &impl IsA<gtk4::Widget>) {
     let gesture = gtk4::GestureClick::new();
-    gesture.set_button(button);
+    gesture.set_button(gdk::BUTTON_SECONDARY);
     gesture.connect_pressed(|gesture, _, _, _| {
-        if let Some(anchor) = gesture.widget() {
-            toggle(&anchor);
+        if open_anchor().is_some_and(|current| current.has_css_class("dock-item")) {
+            close();
+        } else if let Some(anchor) = gesture.widget() {
+            open(&anchor);
         }
     });
     anchor.as_ref().add_controller(gesture);
@@ -156,6 +159,13 @@ pub fn show_for(ticket: u64, anchor: &gtk4::Widget, content: &impl IsA<gtk4::Wid
 
 pub fn is_open() -> bool {
     OPEN.with_borrow(Option::is_some)
+}
+
+/// Closes the menu whose anchor is in a row about to be replaced.
+pub fn close_in(container: &impl IsA<gtk4::Widget>) {
+    if open_anchor().is_some_and(|anchor| anchor.is_ancestor(container)) {
+        close();
+    }
 }
 
 /// Closes the open menu, if any.
@@ -569,9 +579,10 @@ pub fn watch_bar(window: &gtk4::Window) {
     let motion = gtk4::EventControllerMotion::new();
     motion.set_propagation_phase(gtk4::PropagationPhase::Capture);
     let weak = window.downgrade();
-    motion.connect_motion(move |_, x, y| {
+    motion.connect_motion(move |motion, x, y| {
         if let Some(window) = weak.upgrade() {
-            on_motion(&window, x, y);
+            let right_held = motion.current_event_state().contains(gdk::ModifierType::BUTTON3_MASK);
+            on_motion(&window, x, y, right_held);
         }
     });
     window.add_controller(motion);
@@ -632,18 +643,24 @@ fn watch_motion(menu: &gtk4::Window, bar: &gtk4::Window) {
     menu.add_controller(motion);
 }
 
-fn on_motion(window: &gtk4::Window, x: f64, y: f64) {
+fn on_motion(window: &gtk4::Window, x: f64, y: f64, right_held: bool) {
     AIM.with_borrow_mut(|aim| aim.last_pointer = Some((window.downgrade(), x, y)));
     let Some(current) = open_anchor() else {
         cancel_pending();
         return;
     };
     update_heading(window, x, y);
-
     let Some(target) = menu_owner_at(window, x, y).filter(|t| *t != current) else {
         cancel_pending();
         return;
     };
+    if current.has_css_class("dock-item") && target.has_css_class("dock-item") {
+        cancel_pending();
+        if right_held {
+            open(&target);
+        }
+        return;
+    }
     if !AIM.with_borrow(|aim| aim.heading_in) {
         cancel_pending();
         open(&target);

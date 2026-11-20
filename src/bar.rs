@@ -15,6 +15,7 @@ pub struct Bars {
     app: gtk4::Application,
     services: Rc<Services>,
     config: RefCell<Rc<Config>>,
+    pinned: crate::watch::Watch<Vec<String>>,
     /// Shown as ⚠ on the bar, with the text in the tooltip.
     problems: RefCell<Vec<String>>,
     /// Per monitor: the bar, and the dock if it is on.
@@ -28,6 +29,7 @@ impl Bars {
         let bars = Rc::new(Bars {
             app: app.clone(),
             services,
+            pinned: crate::watch::Watch::new(config.dock.pinned.clone()),
             config: RefCell::new(config),
             problems: RefCell::new(Vec::new()),
             windows: RefCell::new(Vec::new()),
@@ -45,8 +47,17 @@ impl Bars {
         bars
     }
 
-    /// Rebuilds every bar with new settings.
-    pub fn set_config(self: &Rc<Self>, config: Rc<Config>, problems: Vec<String>) {
+    /// Applies live pin changes and rebuilds the windows for other settings.
+    pub fn set_config(self: &Rc<Self>, config: Rc<Config>, problems: Vec<String>, style_changed: bool) {
+        let incremental = !style_changed
+            && config.same_except_pinned(&self.config.borrow())
+            && *self.problems.borrow() == problems;
+        self.config.replace(config.clone());
+        self.problems.replace(problems);
+        if incremental {
+            self.pinned.set(config.dock.pinned.clone());
+            return;
+        }
         self.services.idle().configure(&config.idle);
         crate::displays::configure(config.laptop_screen_auto);
         crate::wallpaper::configure(config.wallpaper.clone(), config.overview_blur);
@@ -54,8 +65,6 @@ impl Bars {
         crate::launcher::configure(&config.launcher_paths);
         crate::popups::set_bar_at_bottom(config.bar.bottom);
         crate::blur::configure(&config.blur_off);
-        self.config.replace(config);
-        self.problems.replace(problems);
         self.rebuild();
     }
 
@@ -77,6 +86,8 @@ impl Bars {
                 dock.destroy();
             }
         }
+        let pinned = self.config.borrow().dock.pinned.clone();
+        self.pinned.set(pinned);
         if let Some(display) = gdk::Display::default() {
             self.sync(&display.monitors());
         }
@@ -115,6 +126,7 @@ impl Bars {
             let ctx = modules::Context {
                 config: self.config.borrow().clone(),
                 services: self.services.clone(),
+                pinned: self.pinned.clone(),
                 output,
             };
             let bar = self.build_window(&monitor, &ctx);
@@ -122,7 +134,7 @@ impl Bars {
                 .config
                 .dock
                 .enabled
-                .then(|| crate::dock::build(&self.app, &monitor, &ctx.config, &self.services.niri));
+                .then(|| crate::dock::build(&self.app, &monitor, &ctx.config, &self.pinned, &self.services.niri));
             windows.push((monitor, bar, dock));
         }
     }

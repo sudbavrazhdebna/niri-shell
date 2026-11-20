@@ -20,11 +20,13 @@ use gtk4::prelude::*;
 
 use crate::config::Config;
 use crate::services::Services;
+use crate::watch::Watch;
 
 /// What a module gets when it is built.
 pub struct Context {
     pub config: Rc<Config>,
     pub services: Rc<Services>,
+    pub pinned: Watch<Vec<String>>,
     /// niri output name of the bar's monitor (e.g. "eDP-1").
     pub output: String,
 }
@@ -42,7 +44,7 @@ pub fn build(name: &str, ctx: &Context) -> Option<gtk4::Widget> {
         "bluetooth" => Some(bluetooth::build(ctx)),
         "tray" => Some(tray::build(ctx)),
         "control" => Some(control::build(ctx)),
-        "taskbar" => Some(crate::dock::apps(&ctx.config, &ctx.services.niri, true).upcast()),
+        "taskbar" => Some(crate::dock::apps(&ctx.pinned, &ctx.services.niri, true).upcast()),
         // Accepted by the config, not written yet.
         _ => None,
     }

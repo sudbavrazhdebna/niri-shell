@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use gtk4::{gio, prelude::*};
 use kdl::{KdlDocument, KdlNode, KdlValue};
 use regex::Regex;
 
@@ -43,6 +44,7 @@ pub struct Config {
     pub blur_off: Vec<String>,
 }
 
+#[derive(PartialEq, Eq)]
 pub struct BarConfig {
     /// Height in pixels; content is centered vertically.
     pub height: i32,
@@ -53,6 +55,7 @@ pub struct BarConfig {
     pub right: Vec<String>,
 }
 
+#[derive(PartialEq, Eq)]
 pub struct ClockConfig {
     /// strftime-like format, see `glib::DateTime::format`.
     pub format: String,
@@ -108,6 +111,7 @@ impl IdleConfig {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub struct VolumeConfig {
     /// Percent per wheel step.
     pub scroll_step: i32,
@@ -182,6 +186,39 @@ pub fn path() -> PathBuf {
 }
 
 impl Config {
+    /// Pin order is applied to the existing app rows. Other settings rebuild the bar.
+    pub fn same_except_pinned(&self, other: &Self) -> bool {
+        let Self {
+            icon_theme, bar, clock, window_title, volume, idle, dock, laptop_screen_auto,
+            wallpaper, overview_blur, layout_rename, launcher_paths, media_title, blur_off,
+        } = self;
+        let DockConfig { enabled, autohide, overview, pinned: _ } = dock;
+        let IdleConfig { lock_command, inhibit_apps, on_ac, on_battery } = idle;
+        let WindowTitleConfig { max_length, rewrite } = window_title;
+        let patterns = |a: &[Regex], b: &[Regex]| a.iter().map(Regex::as_str).eq(b.iter().map(Regex::as_str));
+
+        icon_theme == &other.icon_theme
+            && bar == &other.bar
+            && clock == &other.clock
+            && max_length == &other.window_title.max_length
+            && same_rewrites(rewrite, &other.window_title.rewrite)
+            && volume == &other.volume
+            && lock_command == &other.idle.lock_command
+            && patterns(inhibit_apps, &other.idle.inhibit_apps)
+            && on_ac == &other.idle.on_ac
+            && on_battery == &other.idle.on_battery
+            && enabled == &other.dock.enabled
+            && autohide == &other.dock.autohide
+            && overview == &other.dock.overview
+            && laptop_screen_auto == &other.laptop_screen_auto
+            && wallpaper == &other.wallpaper
+            && overview_blur == &other.overview_blur
+            && same_rewrites(layout_rename, &other.layout_rename)
+            && launcher_paths == &other.launcher_paths
+            && media_title == &other.media_title
+            && blur_off == &other.blur_off
+    }
+
     /// Reads the user's config, creating it from the example if there is none.
     pub fn load() -> Result<Config, String> {
         let path = path();
@@ -385,13 +422,37 @@ impl Config {
     }
 }
 
-/// Writes a new pinned list into the user's config file, keeping everything else as
-/// it is (comments, order, formatting). The file watcher then reloads it.
-pub fn save_pinned(pinned: &[String]) -> Result<(), String> {
+fn same_rewrites(a: &[(Regex, String)], b: &[(Regex, String)]) -> bool {
+    a.iter().map(|(pattern, replacement)| (pattern.as_str(), replacement))
+        .eq(b.iter().map(|(pattern, replacement)| (pattern.as_str(), replacement)))
+}
+
+/// Updates the latest pin list in the file while preserving its comments and layout.
+pub fn set_pinned(key: &str, pin: bool) -> Result<(), String> {
     let path = path();
-    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let updated = with_pinned(&text, pinned)?;
-    std::fs::write(&path, updated).map_err(|e| format!("{}: {e}", path.display()))
+    let file = gio::File::for_path(&path);
+    let (contents, etag) = file.load_contents(gio::Cancellable::NONE)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    let text = std::str::from_utf8(&contents).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut pinned = Config::parse(text)?.dock.pinned;
+    if pinned.iter().any(|app| app == key) == pin {
+        return Ok(());
+    }
+    if pin {
+        pinned.push(key.to_string());
+    } else {
+        pinned.retain(|app| app != key);
+    }
+    let updated = with_pinned(text, &pinned)?;
+    file.replace_contents(
+        updated.as_bytes(),
+        etag.as_deref(),
+        false,
+        gio::FileCreateFlags::NONE,
+        gio::Cancellable::NONE,
+    )
+    .map(|_| ())
+    .map_err(|e| format!("{}: {e}", path.display()))
 }
 
 fn with_pinned(text: &str, pinned: &[String]) -> Result<String, String> {
@@ -400,14 +461,14 @@ fn with_pinned(text: &str, pinned: &[String]) -> Result<String, String> {
     if !nodes.iter().any(|n| n.name().value() == "dock") {
         nodes.push(KdlNode::new("dock"));
     }
-    let Some(dock) = nodes.iter_mut().find(|n| n.name().value() == "dock") else {
+    let Some(dock) = nodes.iter_mut().rev().find(|n| n.name().value() == "dock") else {
         return Err("no dock section".into());
     };
     let children = dock.ensure_children().nodes_mut();
     if !children.iter().any(|n| n.name().value() == "pinned") {
         children.push(KdlNode::new("pinned"));
     }
-    if let Some(node) = children.iter_mut().find(|n| n.name().value() == "pinned") {
+    if let Some(node) = children.iter_mut().rev().find(|n| n.name().value() == "pinned") {
         let entries = node.entries_mut();
         entries.clear();
         entries.extend(pinned.iter().map(|app| kdl::KdlEntry::new(app.as_str())));
@@ -627,6 +688,20 @@ mod tests {
         assert_eq!(config.bar.height, 30);
         let added = with_pinned("bar { height 30; }\n", &["x".into()]).unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(Config::parse(&added).map(|c| c.dock.pinned).unwrap_or_default(), ["x"]);
+
+        let repeated = "dock { pinned \"a\"; pinned \"b\"; }\ndock { autohide; }\n";
+        let out = with_pinned(repeated, &["c".into()]).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(Config::parse(&out).map(|c| c.dock.pinned).unwrap_or_default(), ["c"]);
+    }
+
+    #[test]
+    fn pin_changes_keep_other_settings_equivalent() {
+        let parse = |text: &str| Config::parse(text).unwrap_or_else(|e| panic!("{e}"));
+        let original = parse(DEFAULT_KDL);
+        let edited = with_pinned(DEFAULT_KDL, &["firefox".into()]).unwrap_or_else(|e| panic!("{e}"));
+        assert!(original.same_except_pinned(&parse(&edited)));
+        assert!(!original.same_except_pinned(&parse(&edited.replace("height 34", "height 40"))));
+        assert!(!original.same_except_pinned(&parse(&edited.replace("    autohide\n", ""))));
     }
 
     #[test]

@@ -16,6 +16,7 @@ const SETTLE: Duration = Duration::from_millis(150);
 pub struct Settings {
     bars: Rc<Bars>,
     user_css: gtk4::CssProvider,
+    css_source: RefCell<Option<String>>,
     config_problem: RefCell<Option<String>>,
     style_problem: RefCell<Option<String>>,
     reload_pending: Cell<bool>,
@@ -57,6 +58,7 @@ impl Settings {
         let settings = Rc::new(Settings {
             bars,
             user_css,
+            css_source: RefCell::default(),
             config_problem: RefCell::new(config_problem),
             style_problem: RefCell::new(None),
             reload_pending: Cell::new(false),
@@ -104,14 +106,14 @@ impl Settings {
     }
 
     fn reload(&self) {
-        self.load_style();
+        let style_changed = self.load_style();
         match Config::load() {
             Ok(config) => {
                 tracing::info!("config reloaded");
                 self.config_problem.replace(None);
                 apply_icon_theme(&config);
                 apply_week_start(&config);
-                self.bars.set_config(Rc::new(config), self.problems());
+                self.bars.set_config(Rc::new(config), self.problems(), style_changed);
             }
             Err(err) => {
                 tracing::error!("config: {err}");
@@ -121,15 +123,20 @@ impl Settings {
         }
     }
 
-    fn load_style(&self) {
-        self.style_problem.replace(None);
+    fn load_style(&self) -> bool {
         let path = config::dir().join("style.css");
         let css = std::fs::read_to_string(&path).unwrap_or_default();
+        if self.css_source.borrow().as_deref() == Some(css.as_str()) {
+            return false;
+        }
+        self.style_problem.replace(None);
         // Parsing errors arrive through connect_parsing_error during this call.
         self.user_css.load_from_string(&css);
         if let Some(err) = &*self.style_problem.borrow() {
             tracing::error!("{err}");
         }
+        self.css_source.replace(Some(css));
+        true
     }
 
     fn problems(&self) -> Vec<String> {

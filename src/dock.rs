@@ -15,6 +15,7 @@ use niri_ipc::Action;
 
 use crate::config::{self, Config};
 use crate::niri::{Niri, State};
+use crate::watch::Watch;
 use crate::{blur, menu, ui};
 
 const MAX_DOTS: usize = 3;
@@ -176,7 +177,7 @@ pub fn peek(niri: &Niri, seconds: u32) {
     }
 }
 
-pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config>, niri: &Niri) -> gtk4::ApplicationWindow {
+pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Config, pinned: &Watch<Vec<String>>, niri: &Niri) -> gtk4::ApplicationWindow {
     let window = gtk4::ApplicationWindow::new(app);
     window.add_css_class("nshell-dock");
     window.init_layer_shell();
@@ -190,7 +191,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
 
     let dock = gtk4::Box::new(gtk4::Orientation::Horizontal, 2);
     dock.add_css_class("dock");
-    dock.append(&apps(config, niri, false));
+    dock.append(&apps(pinned, niri, false));
     if config.dock.overview {
         dock.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
         let overview = gtk4::Button::from_icon_name("nshell-overview-symbolic");
@@ -282,22 +283,17 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Rc<Config
 
 /// The apps, pinned then running, kept up to date: the dock's row, and the bar's
 /// `taskbar` module (the same items, clicks and menus).
-pub fn apps(config: &Rc<Config>, niri: &Niri, in_bar: bool) -> gtk4::Box {
+pub fn apps(pinned: &Watch<Vec<String>>, niri: &Niri, in_bar: bool) -> gtk4::Box {
     // No spacing: the gap between icons is their padding in style.css alone.
     let apps = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
     apps.add_css_class("dock-apps");
     if in_bar {
         apps.add_css_class("taskbar");
     }
-    let (config, niri2) = (config.clone(), niri.clone());
+    let niri2 = niri.clone();
     let last = RefCell::new(None::<Vec<Item>>);
-    let serial = Cell::new(None::<u64>);
-    niri.state.bind(&apps, move |apps, state| {
-        // Title changes don't show in the dock.
-        if serial.replace(Some(state.layout_serial)) == Some(state.layout_serial) {
-            return;
-        }
-        let mut items = items(state, &config.dock.pinned);
+    let render = Rc::new(move |apps: &gtk4::Box, state: &State, pinned: &[String]| {
+        let mut items = items(state, pinned);
         if menu::is_open() && !state.windows.values().any(|window| window.is_focused) {
             // Our menu takes keyboard focus. Keep the last app highlight and its
             // widgets: rebuilding here destroys the anchor and a held pointer grab.
@@ -319,9 +315,27 @@ pub fn apps(config: &Rc<Config>, niri: &Niri, in_bar: bool) -> gtk4::Box {
             if !item.pinned && items.get(i.wrapping_sub(1)).is_some_and(|prev| prev.pinned) {
                 apps.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
             }
-            apps.append(&item_widget(item, &config, &niri2, in_bar));
+            apps.append(&item_widget(item, &niri2, in_bar));
         }
         last.replace(Some(items));
+    });
+    let pins = Rc::new(RefCell::new(pinned.get().clone()));
+    let (snapshot, draw) = (pins.clone(), render.clone());
+    let serial = Cell::new(None::<u64>);
+    niri.state.bind(&apps, move |apps, state| {
+        // Title changes don't show in the dock.
+        if serial.replace(Some(state.layout_serial)) != Some(state.layout_serial) {
+            draw(apps, state, &snapshot.borrow());
+        }
+    });
+    let niri = niri.clone();
+    pinned.bind(&apps, move |apps, pinned| {
+        if *pins.borrow() == *pinned {
+            return;
+        }
+        pins.replace(pinned.clone());
+        menu::close_in(apps);
+        render(apps, &niri.state.get(), pinned);
     });
     apps
 }
@@ -413,7 +427,7 @@ fn items(state: &State, pinned: &[String]) -> Vec<Item> {
     items
 }
 
-fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri, in_bar: bool) -> gtk4::Box {
+fn item_widget(item: &Item, niri: &Niri, in_bar: bool) -> gtk4::Box {
     let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
     widget.add_css_class("dock-item");
     if item.focused.is_some() {
@@ -478,9 +492,9 @@ fn item_widget(item: &Item, config: &Rc<Config>, niri: &Niri, in_bar: bool) -> g
     });
     widget.add_controller(scroll);
 
-    let (it, c, n) = (item.clone(), config.clone(), niri.clone());
-    menu::register(&widget, move |anchor| menu::show(anchor, &item_menu(&it, &c, &n, entry.as_ref())));
-    menu::on_press(&widget, gdk::BUTTON_SECONDARY);
+    let (it, n) = (item.clone(), niri.clone());
+    menu::register(&widget, move |anchor| menu::show(anchor, &item_menu(&it, &n, entry.as_ref())));
+    menu::on_dock_press(&widget);
     widget
 }
 
@@ -511,7 +525,7 @@ fn cycle(item: &Item, niri: &Niri, step: isize) {
     niri.action(Action::FocusWindow { id: item.windows[next] });
 }
 
-fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&DesktopAppInfo>) -> gtk4::Box {
+fn item_menu(item: &Item, niri: &Niri, entry: Option<&DesktopAppInfo>) -> gtk4::Box {
     let column = ui::column();
     // A running app's window choices reserve a check column for the whole menu.
     let reserve_check = !item.windows.is_empty();
@@ -553,15 +567,9 @@ fn item_menu(item: &Item, config: &Rc<Config>, niri: &Niri, entry: Option<&Deskt
             menu::close();
         })));
     }
-    let (key, pinned, list) = (item.key.clone(), item.pinned, config.dock.pinned.clone());
+    let (key, pinned) = (item.key.clone(), item.pinned);
     column.append(&command(if pinned { "Unpin" } else { "Pin" }, Box::new(move || {
-        let mut list = list.clone();
-        if pinned {
-            list.retain(|k| *k != key);
-        } else {
-            list.push(key.clone());
-        }
-        if let Err(err) = config::save_pinned(&list) {
+        if let Err(err) = config::set_pinned(&key, !pinned) {
             tracing::warn!("can't save the dock: {err}");
         }
         menu::close();
