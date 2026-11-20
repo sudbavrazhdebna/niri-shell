@@ -121,6 +121,7 @@ impl Autohide {
             }
             let offset = ((1.0 - next) * f64::from(hidden_offset(this.height.get()))).round() as i32;
             window.set_margin(Edge::Bottom, -offset);
+            menu::dock_geometry_changed(window.upcast_ref());
             if !done {
                 return glib::ControlFlow::Continue;
             }

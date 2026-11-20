@@ -90,6 +90,9 @@ each section. Read before changing any of these.
 - A menu taking keyboard focus must not rebuild dock icons just because niri reports no
   focused window: keep the last app highlight while that menu is open. Replacing the
   widgets destroyed the menu anchor and the pointer grab during a held right-click.
+- A dock menu highlights its anchor until it closes. The outside-click catcher and the
+  menu's transparent shadow margin leave the dock's input area reachable, so neighbouring
+  icons still respond to hover after the right button is released.
 - `dock { no-overview; }` hides the overview button together with its preceding
   separator. The button remains enabled by default and can be restored through hot
   reload; niri overview bindings and the pinned/running-app separator are independent.
@@ -239,7 +242,7 @@ each section. Read before changing any of these.
   it — the first version did and closed every menu right after opening.
 - A second click on a module closes its menu: the press already closes it (focus goes back to
   the app), so `toggle` doesn't reopen a menu of the same anchor that closed under 300 ms ago.
-- Switching menus (same monitor, same direction) keeps the menu window and swaps the card's
+- Switching menus on the same bar or dock keeps the window and swaps the card's
   content. Recreating the window handed the keyboard to the app for a moment, which closed the
   new menu (focus-change rule) and made the app's focus blink. A menu is placed at its measured
   width before it shows, so it doesn't jump sideways. The window is sized right when the

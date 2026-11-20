@@ -16,7 +16,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gtk4::prelude::*;
-use gtk4::{gdk, glib, graphene};
+use gtk4::{cairo, gdk, glib, graphene};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use crate::{blur, ui};
@@ -200,12 +200,13 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
     let upward = bar.is_anchor(Edge::Bottom) && !bar.is_anchor(Edge::Top);
     cancel_pending();
 
-    // Switching between menus keeps the window and swaps the content: the keyboard
+    // Switching between menus on the same bar or dock keeps the window and swaps the content: the keyboard
     // focus stays with the menu (recreating it handed the focus to the app for a moment,
     // which closed the new menu and made the app's focus blink).
     let reusable = OPEN.with_borrow(|open| {
         open.as_ref()
             .filter(|o| o.monitor == monitor && o.upward == upward)
+            .filter(|o| o.anchor.upgrade().and_then(|a| a.root()).as_ref() == Some(bar.upcast_ref()))
             .map(|o| (o.window.clone(), o.card.clone(), o.anchor.upgrade(), o.placed_under.clone()))
     });
     if let Some((window, card, old, placed_under)) = reusable {
@@ -250,6 +251,7 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
         }
         None => catcher(&monitor),
     };
+    set_catcher_input(&catcher, Some(&bar));
 
     let window = gtk4::Window::new();
     window.add_css_class("nshell-menu");
@@ -297,6 +299,11 @@ pub fn show(anchor: &gtk4::Widget, content: &impl IsA<gtk4::Widget>) {
                     let margin = clear + GAP - room;
                     if window.margin(Edge::Bottom) != margin {
                         window.set_margin(Edge::Bottom, margin);
+                    }
+                    if let Some(dock) = anchor.root().and_downcast::<gtk4::Window>()
+                        && dock.has_css_class("nshell-dock")
+                    {
+                        set_dock_menu_input(&window, &dock);
                     }
                 }
             }
@@ -397,8 +404,73 @@ fn catcher(monitor: &gdk::Monitor) -> gtk4::Window {
         close();
     });
     catcher.add_controller(click);
+    watch_surface_layout(&catcher, |catcher| {
+        let anchor = OPEN.with_borrow(|open| {
+            open.as_ref().filter(|open| open.catcher == *catcher)?.anchor.upgrade()
+        });
+        let owner = anchor.and_then(|anchor| anchor.root()).and_downcast::<gtk4::Window>();
+        set_catcher_input(catcher, owner.as_ref());
+    });
     catcher.set_visible(true);
     catcher
+}
+
+/// The dock reserves no space, so the click catcher would otherwise cover it.
+fn set_catcher_input(catcher: &gtk4::Window, owner: Option<&gtk4::Window>) {
+    let Some(surface) = catcher.surface() else { return };
+    let Some(dock) = owner.filter(|owner| owner.has_css_class("nshell-dock")) else {
+        surface.set_input_region(None);
+        return;
+    };
+    let Some(dock_surface) = dock.surface() else { return };
+    // The catcher and dock are both placed inside the same exclusive zones. The
+    // dock is centered horizontally and moves with its bottom margin on autohide.
+    let (width, height) = (surface.width(), surface.height());
+    let (dock_width, dock_height) = (dock_surface.width(), dock_surface.height());
+    let region = cairo::Region::create_rectangle(&cairo::RectangleInt::new(0, 0, width, height));
+    let hole = cairo::RectangleInt::new(
+        (width - dock_width) / 2,
+        height - dock_height - dock.margin(Edge::Bottom),
+        dock_width,
+        dock_height,
+    );
+    if region.subtract_rectangle(&hole).is_ok() {
+        surface.set_input_region(Some(&region));
+    }
+}
+
+/// The upward menu's transparent shadow margin can also overlap the dock.
+fn set_dock_menu_input(menu: &gtk4::Window, dock: &gtk4::Window) {
+    let Some(surface) = menu.surface() else { return };
+    let overlap = (clearance(dock) - menu.margin(Edge::Bottom)).max(0);
+    let height = (surface.height() - overlap).max(0);
+    let region = cairo::Region::create_rectangle(&cairo::RectangleInt::new(0, 0, surface.width(), height));
+    surface.set_input_region(Some(&region));
+}
+
+/// Moves the catcher's dock cutout as the dock changes size or slides.
+pub fn dock_geometry_changed(dock: &gtk4::Window) {
+    let windows = OPEN.with_borrow(|open| {
+        let open = open.as_ref()?;
+        let owner = open.anchor.upgrade()?.root().and_downcast::<gtk4::Window>()?;
+        (owner == *dock).then(|| (open.catcher.clone(), open.window.clone()))
+    });
+    if let Some((catcher, menu)) = windows {
+        set_catcher_input(&catcher, Some(dock));
+        set_dock_menu_input(&menu, dock);
+    }
+}
+
+fn watch_surface_layout(window: &gtk4::Window, update: fn(&gtk4::Window)) {
+    window.connect_realize(move |window| {
+        let Some(surface) = window.surface() else { return };
+        let weak = window.downgrade();
+        surface.connect_layout(move |_, _, _| {
+            if let Some(window) = weak.upgrade() {
+                update(&window);
+            }
+        });
+    });
 }
 
 /// Centers the menu (`width` wide) under its module, keeping it on the screen.
@@ -503,7 +575,11 @@ pub fn watch_bar(window: &gtk4::Window) {
         }
     });
     window.add_controller(motion);
+    watch_outside_click(window);
+}
 
+/// The catcher leaves the owner window reachable, including its gaps between modules.
+fn watch_outside_click(window: &gtk4::Window) {
     let click = gtk4::GestureClick::new();
     click.set_button(0);
     click.set_propagation_phase(gtk4::PropagationPhase::Capture);
@@ -520,6 +596,8 @@ pub fn watch_bar(window: &gtk4::Window) {
 /// While right-click is held, the dock's implicit pointer grab stays on its original
 /// icon. Pick in window coordinates so motion can still reach neighbouring icons.
 pub fn watch_dock(window: &gtk4::Window) {
+    watch_surface_layout(window, dock_geometry_changed);
+    watch_outside_click(window);
     let motion = gtk4::EventControllerMotion::new();
     motion.set_propagation_phase(gtk4::PropagationPhase::Capture);
     let weak = window.downgrade();

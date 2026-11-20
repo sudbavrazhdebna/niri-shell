@@ -864,6 +864,11 @@ button.clear-all:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
+.dock-item.menu-open,
+.dock-item.menu-open:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
 .taskbar .dock-icon {
     -gtk-icon-size: 24px;
 }
