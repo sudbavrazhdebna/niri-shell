@@ -687,10 +687,10 @@ button.close-button {
 button.action {
     padding: 4px 10px;
     border: none;
-    outline: 1px solid rgba(255, 255, 255, 0.1);
-    outline-offset: -1px;
+    outline: none;
     border-radius: 8px;
     background: rgb(64, 65, 69);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 button.action:hover {

@@ -318,7 +318,7 @@ each section. Read before changing any of these.
   pointer is on its card, in popups and in the center alike: most are only read. They
   float over the card's bottom-right corner (an overlay, covering some text), so hovering
   never changes the card's height. A summary-only card with buttons is a little taller.
-  The buttons keep a thin inner outline and use no outer shadow.
+  The buttons cast a soft outer shadow with no visible border.
 - While actions show, only the body text fades approaching their actual allocated
   bounds (24 px horizontally, 10 px vertically). A shared GSK alpha mask removes text rather than
   painting a gradient matching a guessed card colour, so translucent/hover/stacked
