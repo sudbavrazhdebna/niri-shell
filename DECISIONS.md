@@ -305,6 +305,8 @@ each section. Read before changing any of these.
   icon updates in place in both the bar and the menu.
 - Keep the last known MPRIS duration when an update omits it for the same player and
   track. A different track or D-Bus owner starts with its own duration.
+- With `media { title "off"; }`, both horizontal paddings match so the play/pause
+  icon sits in the center of the bar's hover plate.
 
 ## Notifications
 

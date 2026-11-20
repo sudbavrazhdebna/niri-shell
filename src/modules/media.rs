@@ -36,6 +36,9 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     root.append(&title);
     // `media { title "off" }`: only the play button.
     title.set_visible(ctx.config.media_title);
+    if !ctx.config.media_title {
+        root.add_css_class("icon-only");
+    }
     let anchor = root.downgrade();
     on_click(&title, LEFT, move || {
         if let Some(anchor) = anchor.upgrade() {

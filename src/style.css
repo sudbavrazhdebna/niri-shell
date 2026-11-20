@@ -1156,6 +1156,11 @@ scale.dimmed trough highlight {
     padding-left: 4px;
 }
 
+.bar-content .media.icon-only {
+    padding-left: 6.5px;
+    padding-right: 6.5px;
+}
+
 .bar-content button.media-play {
     min-width: 0;
     min-height: 0;
