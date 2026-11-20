@@ -210,12 +210,11 @@ each section. Read before changing any of these.
 
 ## Menus
 
-- Wi-Fi and Bluetooth use one `ui::ConnectionCard` layout: name/icon, optional Wi-Fi
-  IP/traffic and connection status. Disconnect is an unmeasured overlay, right-aligned
-  and vertically centered: it appears on hover (or keyboard focus) without adding a row
-  or changing height. Only text under/near it fades, using the notification mask shared
-  as `ui::FadingContent`; the icon and glass remain intact. Bluetooth keeps `Connected`
-  visible alongside the battery percentage. Both menus have a 320 px minimum.
+- Wi-Fi and Bluetooth share `ui::ConnectionCard`. The blue card marks the connection,
+  and it exposes `Connected` as an accessible description. Its optional second line
+  shows Wi-Fi IP/traffic or Bluetooth battery percentage. Disconnect is a right-aligned,
+  vertically centered overlay that appears on hover or keyboard focus at the same
+  card height. Nearby text fades through `ui::FadingContent`. Both menus have a 320 px minimum.
 - Wi-Fi separates non-active saved profiles (`Known networks`) from unsaved scan results
   (`Other networks`). Saved profiles stay in the list when not detected: dimmed, labelled
   `Not in range`, and not clickable. The scan-result limit applies only to unsaved networks.

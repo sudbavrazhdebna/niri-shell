@@ -352,13 +352,15 @@ pub struct ConnectionCard {
     pub widget: gtk4::Box,
     pub icon: gtk4::Image,
     pub name: gtk4::Label,
-    pub status: gtk4::Label,
     pub details: gtk4::Label,
 }
 
 impl ConnectionCard {
     pub fn new(on_disconnect: impl Fn() + 'static) -> Self {
-        let widget = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        let widget = gtk4::Box::builder()
+            .orientation(gtk4::Orientation::Vertical)
+            .accessible_role(gtk4::AccessibleRole::Group)
+            .build();
         widget.add_css_class("connected-card");
         widget.set_focusable(true);
         let overlay = gtk4::Overlay::new();
@@ -377,6 +379,8 @@ impl ConnectionCard {
         name.set_ellipsize(gtk4::pango::EllipsizeMode::End);
         name.set_max_width_chars(30);
         text.append(&name);
+        widget.update_relation(&[gtk4::accessible::Relation::LabelledBy(&[name.upcast_ref()])]);
+        widget.update_property(&[gtk4::accessible::Property::Description("Connected")]);
         let details = gtk4::Label::new(None);
         details.add_css_class("connected-details");
         details.set_xalign(0.0);
@@ -384,11 +388,6 @@ impl ConnectionCard {
         details.set_max_width_chars(30);
         details.set_visible(false);
         text.append(&details);
-        let status = gtk4::Label::new(Some("Connected"));
-        status.add_css_class("connected-status");
-        status.add_css_class("menu-trailing");
-        status.set_xalign(0.0);
-        text.append(&status);
         let faded = FadingContent::new(&text);
         faded.set_hexpand(true);
         content.append(&faded);
@@ -427,7 +426,7 @@ impl ConnectionCard {
         });
         widget.add_controller(pointer);
         widget.add_controller(focus);
-        Self { widget, icon, name, status, details }
+        Self { widget, icon, name, details }
     }
 }
 

@@ -87,10 +87,10 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
             let card = ui::ConnectionCard::new(move || s.bluetooth().disconnect(&path));
             ui::set_icon(&card.icon, &device_icon(device));
             card.name.set_label(&device.name);
-            card.status.set_label(&match device.battery {
-                Some(battery) => format!("Connected · {battery}%"),
-                None => "Connected".to_string(),
-            });
+            if let Some(battery) = device.battery {
+                card.details.set_label(&format!("{battery}%"));
+                card.details.set_visible(true);
+            }
             devices.append(&card.widget);
         }
         let saved: Vec<_> = state.devices.iter().filter(|d| !d.connected).collect();
