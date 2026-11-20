@@ -9,7 +9,7 @@ use std::rc::Rc;
 use gtk4::glib;
 use gtk4::prelude::*;
 
-use super::Context;
+use super::{Context, LEFT, on_click};
 use crate::services::Services;
 use crate::services::media::{self, Track};
 use crate::{menu, ui};
@@ -21,8 +21,11 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     let root = gtk4::Box::new(gtk4::Orientation::Horizontal, 4);
     root.add_css_class("module");
     root.add_css_class("media");
-    let play = gtk4::Button::from_icon_name("media-playback-start-symbolic");
+    let play = gtk4::Button::new();
+    let play_image = gtk4::Image::from_icon_name("media-playback-start-symbolic");
+    play.set_child(Some(&play_image));
     play.add_css_class("flat");
+    play.add_css_class("image-button");
     play.add_css_class("media-play");
     let title = gtk4::Label::new(None);
     title.add_css_class("media-title");
@@ -33,6 +36,12 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     root.append(&title);
     // `media { title "off" }`: only the play button.
     title.set_visible(ctx.config.media_title);
+    let anchor = root.downgrade();
+    on_click(&title, LEFT, move || {
+        if let Some(anchor) = anchor.upgrade() {
+            menu::toggle(anchor.upcast_ref());
+        }
+    });
 
     let services = ctx.services.clone();
     let s = services.clone();
@@ -47,12 +56,12 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     services.media().current.bind(&root, move |root, track| {
         root.set_visible(track.is_some());
         let Some(track) = track else { return };
-        play.set_icon_name(play_icon(track));
+        ui::set_icon(&play_image, play_icon(track));
         title.set_label(&display_title(track));
     });
-    // The button takes its own clicks; the rest of the module opens the menu, and a
-    // right click anywhere does (the only way when the title is hidden).
-    menu::attach(&root, move |anchor| menu::show(anchor, &menu_content(&services)));
+    // Anchor the menu to the whole module. Only the title has a primary-click menu
+    // gesture, so it can't compete with the button for the same click.
+    menu::register(&root, move |anchor| menu::show(anchor, &menu_content(&services)));
     menu::on_button(&root, gtk4::gdk::BUTTON_SECONDARY);
     root.upcast()
 }
@@ -119,17 +128,20 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     controls.add_css_class("media-controls");
     controls.set_halign(gtk4::Align::Center);
     let button = |icon: &str, action: fn(&media::Media), s: &Rc<Services>| {
-        let b = gtk4::Button::from_icon_name(icon);
+        let b = gtk4::Button::new();
+        let image = gtk4::Image::from_icon_name(icon);
+        b.set_child(Some(&image));
         b.add_css_class("flat");
+        b.add_css_class("image-button");
         b.add_css_class("media-control");
         let s = s.clone();
         b.connect_clicked(move |_| action(s.media()));
         controls.append(&b);
-        b
+        (b, image)
     };
-    let previous = button("media-skip-backward-symbolic", |m| m.previous(), services);
-    let play = button("media-playback-start-symbolic", |m| m.play_pause(), services);
-    let next = button("media-skip-forward-symbolic", |m| m.next(), services);
+    let (previous, _) = button("media-skip-backward-symbolic", |m| m.previous(), services);
+    let (_, play_image) = button("media-playback-start-symbolic", |m| m.play_pause(), services);
+    let (next, _) = button("media-skip-forward-symbolic", |m| m.next(), services);
     column.append(&controls);
 
     let media = services.media();
@@ -183,7 +195,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
                 None => cover.set_icon_name(Some("audio-x-generic-symbolic")),
             }
         });
-        play.set_icon_name(play_icon(track));
+        ui::set_icon(&play_image, play_icon(track));
         previous.set_sensitive(track.can_previous);
         next.set_sensitive(track.can_next);
         if let Some(position_box) = position_weak.upgrade() {

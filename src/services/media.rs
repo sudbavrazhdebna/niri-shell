@@ -21,6 +21,7 @@ const SKIP: &str = "org.mpris.MediaPlayer2.playerctld";
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Track {
+    source: Option<(glib::GString, glib::GString)>,
     pub title: String,
     pub artist: String,
     pub album: String,
@@ -34,6 +35,22 @@ pub struct Track {
     pub can_next: bool,
     pub can_previous: bool,
     pub can_seek: bool,
+}
+
+impl Track {
+    /// A player can briefly omit the duration during playback changes. Keep the
+    /// known duration only while both the player and the track still match.
+    fn keep_length_from(&mut self, old: &Track) {
+        if self.length == 0
+            && self.source.is_some() && self.source == old.source
+            && (!self.track_id.is_empty() || !self.title.is_empty())
+            && self.track_id != "/org/mpris/MediaPlayer2/TrackList/NoTrack"
+            && self.track_id == old.track_id
+            && self.title == old.title && self.artist == old.artist && self.album == old.album
+        {
+            self.length = old.length;
+        }
+    }
 }
 
 /// Where the track was at a moment; it moves on from there while playing.
@@ -195,9 +212,8 @@ async fn add(
     current: Watch<Option<Track>>,
     position: Watch<Option<Position>>,
 ) {
-    let proxy =
-        gio::DBusProxy::new_future(&bus, gio::DBusProxyFlags::DO_NOT_AUTO_START, None, Some(&name), PATH, PLAYER)
-            .await;
+    let flags = gio::DBusProxyFlags::DO_NOT_AUTO_START | gio::DBusProxyFlags::GET_INVALIDATED_PROPERTIES;
+    let proxy = gio::DBusProxy::new_future(&bus, flags, None, Some(&name), PATH, PLAYER).await;
     let Ok(proxy) = proxy else { return };
     // A player that quit while the proxy was made: its NameOwnerChanged came before it
     // was in the list, and an empty "Untitled" player stayed for good.
@@ -233,7 +249,10 @@ async fn add(
 /// Moves the player to show to the front: a playing one wins, then the one that just
 /// changed.
 fn pick(players: &RefCell<Vec<gio::DBusProxy>>, current: &Watch<Option<Track>>, changed: Option<gio::DBusProxy>) {
-    let track = reorder(&mut players.borrow_mut(), changed);
+    let mut track = reorder(&mut players.borrow_mut(), changed);
+    if let (Some(track), Some(old)) = (track.as_mut(), current.get().as_ref()) {
+        track.keep_length_from(old);
+    }
     // Not while the list is borrowed: listeners may call the players.
     current.set(track);
 }
@@ -296,6 +315,7 @@ fn read(proxy: &gio::DBusProxy) -> Track {
     let field = |key: &str| metadata.as_ref().and_then(|m| lookup(m, key));
     let text = |key: &str| field(key).and_then(|v| v.get::<String>()).unwrap_or_default();
     Track {
+        source: proxy.name().zip(proxy.name_owner()),
         title: text("xesam:title"),
         artist: field("xesam:artist")
             .and_then(|v| v.get::<Vec<String>>())
@@ -315,5 +335,37 @@ fn read(proxy: &gio::DBusProxy) -> Track {
         can_next: prop(proxy, "CanGoNext").unwrap_or(false),
         can_previous: prop(proxy, "CanGoPrevious").unwrap_or(false),
         can_seek: prop(proxy, "CanSeek").unwrap_or(false),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Track;
+
+    #[test]
+    fn a_pause_keeps_the_duration_of_the_same_track() {
+        let playing = Track {
+            source: Some(("org.mpris.MediaPlayer2.test".into(), ":1.10".into())),
+            track_id: "/test/track".into(),
+            title: "First track".into(),
+            length: 120_000_000,
+            playing: true,
+            ..Track::default()
+        };
+        let paused = Track { length: 0, playing: false, ..playing.clone() };
+        let mut same_track = paused.clone();
+        same_track.keep_length_from(&playing);
+        assert_eq!(same_track.length, playing.length);
+
+        let mut new_track = Track { title: "Another track".into(), ..paused.clone() };
+        new_track.keep_length_from(&playing);
+        assert_eq!(new_track.length, 0);
+
+        let mut new_player = Track {
+            source: Some(("org.mpris.MediaPlayer2.test".into(), ":1.11".into())),
+            ..paused
+        };
+        new_player.keep_length_from(&playing);
+        assert_eq!(new_player.length, 0);
     }
 }

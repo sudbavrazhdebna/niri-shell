@@ -298,6 +298,14 @@ each section. Read before changing any of these.
   user declined): GTK's Popover would bring its own surface without our blur and menu
   switching, and a drawn arrow needs its own blur shape.
 
+## Media
+
+- The bar's play/pause button handles primary clicks itself. A primary click on the
+  title or a secondary click anywhere on the module opens its menu. The play/pause
+  icon updates in place in both the bar and the menu.
+- Keep the last known MPRIS duration when an update omits it for the same player and
+  track. A different track or D-Bus owner starts with its own duration.
+
 ## Notifications
 
 - A notification's action buttons ("Mark as read", "Reply") slide out only while the
