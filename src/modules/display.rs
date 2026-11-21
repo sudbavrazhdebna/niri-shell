@@ -1,6 +1,7 @@
-//! Displays: a brightness icon; the wheel changes the built-in screen's brightness. Left
-//! click: every connected display, on or off, with an on/off switch and a brightness
-//! slider. The built-in screen's brightness can be set while it is off. A display whose
+//! Displays: an icon for one or multiple connected outputs. The wheel changes the
+//! built-in screen's brightness. Left click: every connected display, on or off, with
+//! an on/off switch and a brightness slider. The built-in screen's brightness can be
+//! set while it is off. A display whose
 //! brightness the shell can't set (an external monitor: that needs DDC/CI) shows its
 //! slider greyed out. The last display that is on can't be turned off.
 
@@ -18,7 +19,10 @@ const STEP: i32 = 5;
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("display");
-    image.set_icon_name(Some("display-brightness-symbolic"));
+    crate::displays::multiple().bind(&image, |image, multiple| {
+        let name = if *multiple { "nshell-displays-symbolic" } else { "video-display-symbolic" };
+        ui::set_icon(image, name);
+    });
     super::tooltips::text(&image, || Some("Displays and brightness".into()));
     let s = ctx.services.clone();
     on_scroll(&image, move |steps| {

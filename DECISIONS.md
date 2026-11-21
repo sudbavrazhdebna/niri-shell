@@ -140,6 +140,9 @@ each section. Read before changing any of these.
   "an external monitor is on" changes, so a screen turned on or off by hand in the
   displays menu stays so; that menu lists niri's outputs (off ones too) and never lets
   the last one that is on be turned off.
+- The Display module shows one monitor for one connected screen and two monitors for
+  multiple screens. The count includes disabled outputs. DRM hotplug events cover
+  changes to connected outputs that GDK's list of enabled monitors misses.
 
 ## Wallpaper
 

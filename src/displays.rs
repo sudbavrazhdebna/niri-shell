@@ -4,17 +4,24 @@
 //! changes whenever niri enables, disables or loses an output; it acts only when an
 //! external monitor comes or goes, so turning a screen on or off by hand sticks.
 
-use std::cell::Cell;
+use std::cell::{Cell, OnceCell};
+use std::fs::File;
+use std::io::Read;
+use std::os::fd::{AsRawFd, FromRawFd};
+use std::time::Duration;
 
-use gtk4::gdk;
 use gtk4::prelude::*;
+use gtk4::{gdk, glib};
 use niri_ipc::{OutputAction, Request, Response};
+
+use crate::watch::Watch;
 
 thread_local! {
     static AUTO: Cell<bool> = const { Cell::new(false) };
     static FOLLOWING: Cell<bool> = const { Cell::new(false) };
     /// Whether an external monitor was on when the rule last looked.
     static EXTERNAL_ON: Cell<Option<bool>> = const { Cell::new(None) };
+    static MULTIPLE: OnceCell<Watch<bool>> = const { OnceCell::new() };
 }
 
 /// A connected display.
@@ -38,6 +45,11 @@ pub async fn outputs() -> Vec<Output> {
             return Vec::new();
         }
     };
+    MULTIPLE.with(|multiple| {
+        if let Some(multiple) = multiple.get() {
+            multiple.set(outputs.len() > 1);
+        }
+    });
     let mut list: Vec<Output> = outputs
         .into_values()
         .map(|o| {
@@ -53,6 +65,72 @@ pub async fn outputs() -> Vec<Output> {
         .collect();
     list.sort_by(|a, b| b.internal.cmp(&a.internal).then(a.name.cmp(&b.name)));
     list
+}
+
+/// Whether niri lists multiple connected displays, including disabled ones.
+pub fn multiple() -> Watch<bool> {
+    MULTIPLE.with(|state| {
+        state.get_or_init(|| {
+            if let Some(display) = gdk::Display::default() {
+                display.monitors().connect_items_changed(|_, _, _, _| refresh_count());
+            }
+            if let Err(err) = watch_hotplug() {
+                tracing::debug!(%err, "displays: DRM hotplug unavailable");
+            }
+            refresh_count();
+            Watch::new(false)
+        }).clone()
+    })
+}
+
+fn refresh_count() {
+    glib::spawn_future_local(async { outputs().await });
+}
+
+/// GDK only sees enabled outputs. A disabled monitor can be unplugged without a
+/// change to its monitor list, so also listen for DRM hotplug events from Linux.
+fn watch_hotplug() -> std::io::Result<()> {
+    // SAFETY: socket creates a new descriptor, owned by File on success.
+    let fd = unsafe {
+        libc::socket(libc::AF_NETLINK, libc::SOCK_DGRAM | libc::SOCK_NONBLOCK | libc::SOCK_CLOEXEC, libc::NETLINK_KOBJECT_UEVENT)
+    };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    // SAFETY: the descriptor is valid and has no other owner.
+    let mut socket = unsafe { File::from_raw_fd(fd) };
+    // SAFETY: zero describes an unspecified netlink address, including its padding.
+    let mut address: libc::sockaddr_nl = unsafe { std::mem::zeroed() };
+    address.nl_family = libc::AF_NETLINK as libc::sa_family_t;
+    address.nl_groups = 1; // Kernel uevents.
+    // SAFETY: address is initialized and the length matches its type.
+    let bound = unsafe {
+        libc::bind(socket.as_raw_fd(), (&raw const address).cast(), size_of_val(&address) as libc::socklen_t)
+    };
+    if bound < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    glib_unix::unix_fd_add_local(fd, glib::IOCondition::IN, move |_, condition| {
+        if condition.intersects(glib::IOCondition::HUP | glib::IOCondition::NVAL) {
+            return glib::ControlFlow::Break;
+        }
+        let mut buffer = [0; 4096];
+        let mut changed = false;
+        while let Ok(length) = socket.read(&mut buffer) {
+            if length == 0 {
+                break;
+            }
+            let fields = &buffer[..length];
+            let has = |key: &[u8]| fields.split(|b| *b == 0).any(|field| field == key);
+            changed |= has(b"SUBSYSTEM=drm") && has(b"HOTPLUG=1");
+        }
+        if changed {
+            // Let niri process the same hotplug before asking for its output list.
+            glib::timeout_add_local_once(Duration::from_millis(150), refresh_count);
+        }
+        glib::ControlFlow::Continue
+    });
+    Ok(())
 }
 
 /// Turns a display on or off.
