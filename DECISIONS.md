@@ -80,8 +80,9 @@ each section. Read before changing any of these.
   the title label shrinks to "…" there. `max-length` stays as a cap.
 - Every bar zone has a 2 px inset above and below. Modules fill the zone so hover and
   open-menu backgrounds share the same height even when their icons and text differ.
-- Taskbar app icons scale with the configured bar height. They reserve 9 px for the zone
-  insets, running indicator and gap. Their icon size can be set in the user's stylesheet.
+- Taskbar app icons scale with the configured bar height. They reserve 11 px for the
+  zone insets, running indicator, gap and 2 px of extra room along the workspace edge.
+  Their icon size can be set in the user's stylesheet.
 
 ## Dock
 

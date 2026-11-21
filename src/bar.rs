@@ -81,9 +81,9 @@ impl Bars {
     }
 
     fn set_taskbar_icon_size(&self, bar_height: i32) {
-        // The bar zone leaves 4 px of outer inset. Each item reserves 3 px for its
-        // running indicator and 2 px between the indicator and the icon.
-        let size = bar_height - 9;
+        // The zone leaves 4 px of inset, and the taskbar adds 2 px at the workspace
+        // edge. The running indicator and its gap need another 5 px.
+        let size = bar_height - 11;
         self.taskbar_css.load_from_string(&format!(".taskbar {{ --taskbar-icon-size: {size}px; }}"));
     }
 

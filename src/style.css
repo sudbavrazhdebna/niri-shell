@@ -855,8 +855,12 @@ button.clear-all:hover {
 
 /* The dock's apps in the bar (the `taskbar` module): smaller, to fit its height. */
 .taskbar .dock-item {
-    padding: 0 4px;
+    padding: 0 4px 2px;
     border-radius: 8px;
+}
+
+window.bar.bottom .taskbar .dock-item {
+    padding: 2px 4px 0;
 }
 
 .taskbar .dock-item:hover {
@@ -869,7 +873,7 @@ button.clear-all:hover {
 }
 
 .taskbar .dock-icon {
-    -gtk-icon-size: var(--taskbar-icon-size, 25px);
+    -gtk-icon-size: var(--taskbar-icon-size, 23px);
 }
 
 .taskbar .dots {
