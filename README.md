@@ -45,9 +45,11 @@ binds {
 }
 ```
 
-Blur needs niri 26.04 or newer and GTK 4.24 or newer. Use `xray`, `saturation` and `noise`
-to tune nshell's blur in the layer rule. GTK requests the area of each glass card. A
-forced `blur true` on `^nshell-` also blurs the full-screen click catcher behind menus.
+Blur needs niri 26.04 or newer and GTK 4.24 or newer. GTK requests blur for each glass
+card. The layer rule selects what to sample with `xray false`. Use niri's top-level
+`blur` block to tune `saturation` and `noise` for blurred regions. On a broad
+`^nshell-` layer rule, `blur true`, `saturation` and `noise` can affect the full-screen
+click catcher behind menus.
 
 Take out other bars, notification daemons, idle daemons and wallpaper tools from niri's
 autostart: nshell does their jobs.
