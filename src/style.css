@@ -429,7 +429,8 @@ button.tile.keyboard-light:not(.active) .tile-icon {
 }
 
 .control-slider scale trough highlight,
-.sound-menu scale trough highlight {
+.sound-menu scale trough highlight,
+.display-menu scale trough highlight {
     background: var(--text);
 }
 

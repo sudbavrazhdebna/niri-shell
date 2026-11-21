@@ -38,6 +38,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         let (anchor, ticket, services) = (anchor.clone(), menu::ticket(), services.clone());
         glib::spawn_future_local(async move {
             let column = ui::column();
+            column.add_css_class("display-menu");
             column.set_width_request(300);
             column.append(&ui::title("Displays"));
             column.append(&ui::separator());
