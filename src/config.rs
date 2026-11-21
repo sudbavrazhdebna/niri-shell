@@ -17,7 +17,7 @@ pub const MODULES: &[&str] = &[
 ];
 pub const PLANNED: &[&str] = &["docker"];
 
-/// Top-level sections of later steps, accepted and ignored for now.
+/// Reserved configuration sections, accepted without applying settings.
 const LATER: &[&str] = &["osd", "notifications"];
 
 pub struct Config {

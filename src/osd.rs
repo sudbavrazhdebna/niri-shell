@@ -1,6 +1,6 @@
-//! On-screen display for volume, brightness, keyboard backlight and Caps Lock: a glass
-//! card low on the focused monitor that fades after a moment. The window exists only
-//! while shown, and clicks pass through it.
+//! On-screen display for volume, brightness, keyboard backlight, Caps Lock and layout
+//! changes. Its glass card appears low on the focused monitor and lets clicks pass
+//! through. The window exists only while shown.
 
 use std::cell::RefCell;
 use std::rc::Rc;
