@@ -42,7 +42,8 @@ pub fn network(state: &NetworkState, details: &WifiDetails) -> String {
     match &state.link {
         Link::Offline => "Disconnected".into(),
         Link::Wired => "Wired connection".into(),
-        Link::Wifi { ssid, .. } => {
+        Link::Wifi => {
+            let ssid = state.wifi.as_ref().map_or("", |wifi| wifi.ssid.as_str());
             let signal = details.strength.map_or_else(|| "—".into(), |s| format!("{s}%"));
             let frequency = details.frequency.filter(|f| *f > 0)
                 .map_or_else(|| "—".into(), |f| format!("{f}MHz"));
@@ -133,8 +134,10 @@ mod tests {
     #[test]
     fn wifi_uses_exact_strength_not_the_icon_step_and_keeps_names_literal() {
         let mut state = NetworkState {
-            link: Link::Wifi { ssid: "Office <5G> & guests".into(), strength: 66 },
+            link: Link::Wifi,
             wifi_enabled: true,
+            wifi: Some(crate::services::network::WifiLink { ssid: "Office <5G> & guests".into(), strength: 66 }),
+            ..NetworkState::default()
         };
         let details = WifiDetails { strength: Some(87), frequency: Some(5180) };
         assert_eq!(network(&state, &details), "SSID: Office <5G> & guests\nSignal: 87%\nFrequency: 5180MHz");

@@ -347,7 +347,7 @@ pub fn trailing_icon(item: &gtk4::Button, icon: &str) {
     row.append(&image);
 }
 
-/// Connected Wi-Fi/Bluetooth item: shared layout and an explicit disconnect action.
+/// A connected device or network, with an optional disconnect action.
 pub struct ConnectionCard {
     pub widget: gtk4::Box,
     pub icon: gtk4::Image,
@@ -357,12 +357,20 @@ pub struct ConnectionCard {
 
 impl ConnectionCard {
     pub fn new(on_disconnect: impl Fn() + 'static) -> Self {
+        Self::build(Some(on_disconnect))
+    }
+
+    pub fn status() -> Self {
+        Self::build(None::<fn()>)
+    }
+
+    fn build(on_disconnect: Option<impl Fn() + 'static>) -> Self {
         let widget = gtk4::Box::builder()
             .orientation(gtk4::Orientation::Vertical)
             .accessible_role(gtk4::AccessibleRole::Group)
             .build();
         widget.add_css_class("connected-card");
-        widget.set_focusable(true);
+        widget.set_focusable(on_disconnect.is_some());
         let overlay = gtk4::Overlay::new();
         widget.append(&overlay);
         let content = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
@@ -388,6 +396,10 @@ impl ConnectionCard {
         details.set_max_width_chars(30);
         details.set_visible(false);
         text.append(&details);
+        let Some(on_disconnect) = on_disconnect else {
+            content.append(&text);
+            return Self { widget, icon, name, details };
+        };
         let faded = FadingContent::new(&text);
         faded.set_hexpand(true);
         content.append(&faded);

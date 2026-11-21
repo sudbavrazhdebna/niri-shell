@@ -1,5 +1,4 @@
-//! Network icon: Wi-Fi by signal strength, wired, or off. Left click: Wi-Fi menu with
-//! the networks around, connecting (asking for a password when needed).
+//! Network icon and menu: Ethernet status and Wi-Fi networks with connection controls.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -8,12 +7,13 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use super::{Context, icon_module, tooltips};
-use crate::services::network::Link;
+use crate::services::network::{self, Link};
 use crate::services::wifi::{Network, Wifi, WifiState};
 use crate::{menu, ui};
 
 /// Unsaved networks shown in the menu; saved profiles are never cut off.
 const MAX_NETWORKS: usize = 10;
+const ETHERNET_ICON: &str = "network-wired-symbolic";
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("network");
@@ -24,20 +24,20 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
     });
     ctx.services.network().state.bind(&image, |image, state| {
         let icon = match state.link {
-            Link::Wifi { strength, .. } => wifi_icon(strength),
+            Link::Wifi => wifi_icon(state.wifi.as_ref().map_or(0, |wifi| wifi.strength)),
             Link::Offline => "nshell-wifi-off",
-            Link::Wired => "network-wired-symbolic",
+            Link::Wired => ETHERNET_ICON,
         };
         ui::set_icon(image, icon);
         image.trigger_tooltip_query();
     });
-    menu::attach(&image, |anchor| {
+    let services = ctx.services.clone();
+    menu::attach(&image, move |anchor| {
         // Shown once the known networks are read (~0.05 s), so it doesn't build up in pieces.
-        let (anchor, ticket) = (anchor.clone(), menu::ticket());
+        let (anchor, ticket, services) = (anchor.clone(), menu::ticket(), services.clone());
         glib::spawn_future_local(async move {
-            if let Some(wifi) = Wifi::open().await {
-                menu::show_for(ticket, &anchor, &menu_content(wifi));
-            }
+            let wifi = Wifi::open().await;
+            menu::show_for(ticket, &anchor, &menu_content(services.network(), wifi));
         });
     });
     image.upcast()
@@ -53,9 +53,50 @@ fn wifi_icon(strength: u8) -> &'static str {
     }
 }
 
-fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
+fn menu_content(network: &network::Network, wifi: Option<Rc<Wifi>>) -> gtk4::Box {
     let column = ui::column();
     column.set_width_request(320);
+    append_ethernet(&column, network);
+    if let Some(wifi) = wifi {
+        append_wifi(&column, wifi);
+        column.append(&ui::separator());
+    } else {
+        let note = ui::note("Disconnected");
+        network.state.bind(&note, |note, state| note.set_visible(state.wired.is_none()));
+        column.append(&note);
+    }
+    column.append(&ui::action_item("Network Settings…", || {
+        menu::close();
+        ui::launch("nm-connection-editor");
+    }));
+    column
+}
+
+fn append_ethernet(column: &gtk4::Box, network: &network::Network) {
+    let section = ui::column();
+    let card = ui::ConnectionCard::status();
+    card.name.set_label("Ethernet");
+    ui::set_icon(&card.icon, ETHERNET_ICON);
+    card.details.set_ellipsize(gtk4::pango::EllipsizeMode::None);
+    card.details.set_wrap(true);
+    card.details.set_wrap_mode(gtk4::pango::WrapMode::WordChar);
+    section.append(&card.widget);
+    section.append(&ui::separator());
+    network.state.bind(&section, move |section, state| {
+        section.set_visible(state.wired.is_some());
+        let Some(wired) = &state.wired else { return };
+        let details = match (&wired.interface, &wired.ip) {
+            (Some(interface), Some(ip)) => format!("{interface} · IP {ip}"),
+            (None, Some(ip)) => format!("IP {ip}"),
+            (interface, None) => interface.clone().unwrap_or_default(),
+        };
+        card.details.set_visible(!details.is_empty());
+        card.details.set_label(&details);
+    });
+    column.append(&section);
+}
+
+fn append_wifi(column: &gtk4::Box, wifi: Rc<Wifi>) {
     // The switch's handler keeps the Wi-Fi session alive for as long as the menu shows.
     let w = wifi.clone();
     let (header, set_switch) = ui::header_switch("Wi-Fi", move |on| w.set_enabled(on));
@@ -65,11 +106,6 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
     column.append(&card.surface.widget);
     let list = ui::column();
     column.append(&list);
-    column.append(&ui::separator());
-    column.append(&ui::action_item("Network Settings…", || {
-        menu::close();
-        ui::launch("nm-connection-editor");
-    }));
 
     // Weak: the session's own state holds this listener, and a strong reference here
     // kept the session (and its NetworkManager signals) after the menu closed.
@@ -129,7 +165,6 @@ fn menu_content(wifi: Rc<Wifi>) -> gtk4::Box {
             }
         }
     });
-    column
 }
 
 /// The network in use: its name, address and live traffic. Built once per menu and

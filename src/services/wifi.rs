@@ -87,6 +87,10 @@ impl Wifi {
                 break;
             }
         }
+        if device_info.is_none() {
+            profiles.abort();
+            return None;
+        }
 
         let wifi = Rc::new(Wifi {
             state: Watch::new(WifiState::default()),
@@ -198,9 +202,7 @@ impl Wifi {
             .and_then(|d| prop::<glib::variant::ObjectPath>(d, "Ip4Config"))
             .filter(|p| p.as_str() != "/")?;
         let proxy = system_proxy(NM, config.as_str(), "org.freedesktop.NetworkManager.IP4Config").await?;
-        let addresses = proxy.cached_property("AddressData")?;
-        let first = child(&addresses, 0)?;
-        lookup(&first, "address").and_then(|v| v.get::<String>())
+        super::network::first_address(&proxy)
     }
 
     /// Re-reads the list. Change signals come in bursts during a scan; overlapping

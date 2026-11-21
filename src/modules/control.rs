@@ -10,7 +10,7 @@ use gtk4::prelude::*;
 
 use super::{Context, power_profiles};
 use crate::services::Services;
-use crate::services::network::{Link, NetworkState};
+use crate::services::network::NetworkState;
 use crate::services::audio::MAX_PERCENT;
 use crate::{menu, ui};
 
@@ -72,12 +72,12 @@ fn tiles(services: &Rc<Services>) -> gtk4::Box {
         move |button, state| {
             set(state.wifi_enabled);
             ui::set_icon(&image, wifi_icon(state));
-            state_label.set_label(&match &state.link {
-                _ if !state.wifi_enabled => "Off".into(),
-                Link::Wifi { ssid, .. } => ssid.clone(),
-                Link::Wired => "Wired".into(),
-                Link::Offline => "Not connected".into(),
-            });
+            let label = if state.wifi_enabled {
+                state.wifi.as_ref().map_or("Not connected", |wifi| wifi.ssid.as_str())
+            } else {
+                "Off"
+            };
+            state_label.set_label(label);
             button.set_tooltip_text(Some(&format!("Wi-Fi\n{}", state_label.text())));
         }
     });
@@ -198,12 +198,11 @@ fn wifi_icon(state: &NetworkState) -> &'static str {
     if !state.wifi_enabled {
         return "network-wireless-disabled-symbolic";
     }
-    match state.link {
-        Link::Wifi { strength: 66.., .. } => "network-wireless-signal-excellent-symbolic",
-        Link::Wifi { strength: 33.., .. } => "network-wireless-signal-ok-symbolic",
-        Link::Wifi { .. } => "network-wireless-signal-weak-symbolic",
-        Link::Offline => "network-wireless-offline-symbolic",
-        Link::Wired => "network-wireless-symbolic",
+    match state.wifi.as_ref().map(|wifi| wifi.strength) {
+        Some(66..) => "network-wireless-signal-excellent-symbolic",
+        Some(33..) => "network-wireless-signal-ok-symbolic",
+        Some(_) => "network-wireless-signal-weak-symbolic",
+        None => "network-wireless-offline-symbolic",
     }
 }
 

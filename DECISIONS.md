@@ -225,11 +225,16 @@ each section. Read before changing any of these.
 
 ## Menus
 
-- Wi-Fi and Bluetooth share `ui::ConnectionCard`. The blue card marks the connection,
-  and it exposes `Connected` as an accessible description. Its optional second line
-  shows Wi-Fi IP/traffic or Bluetooth battery percentage. Disconnect is a right-aligned,
-  vertically centered overlay that appears on hover or keyboard focus at the same
-  card height. Nearby text fades through `ui::FadingContent`. Both menus have a 320 px minimum.
+- The network icon follows NetworkManager's primary Ethernet or Wi-Fi connection. The menu
+  shows a connected Ethernet card with its interface and IP address when available. The Wi-Fi
+  section follows the wireless device separately, and the control center's Wi-Fi tile still
+  reports the wireless connection when Ethernet is primary.
+- Ethernet, Wi-Fi and Bluetooth share `ui::ConnectionCard`. The blue card marks the
+  connection and exposes `Connected` as an accessible description. The detail line
+  shows Ethernet interface/IP, Wi-Fi IP/traffic or Bluetooth battery percentage.
+  On Wi-Fi and Bluetooth cards, Disconnect is a right-aligned, vertically centered
+  overlay that appears on hover or keyboard focus at the same card height. Nearby
+  text fades through `ui::FadingContent`. Both menus have a 320 px minimum.
 - Wi-Fi separates non-active saved profiles (`Known networks`) from unsaved scan results
   (`Other networks`). Saved profiles stay in the list when not detected: dimmed, labelled
   `Not in range`, and not clickable. The scan-result limit applies only to unsaved networks.
