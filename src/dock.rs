@@ -54,6 +54,8 @@ struct Autohide {
     on_edge: Cell<bool>,
     /// The monitor's workspace has no windows: nothing to cover, the dock stays up.
     empty: Cell<bool>,
+    /// The overview holds the dock open until niri closes it.
+    overview: Cell<bool>,
     hide: Cell<Option<glib::SourceId>>,
     /// How far out the dock is: 0 hidden below the screen edge, 1 fully up.
     position: Cell<f64>,
@@ -134,9 +136,23 @@ impl Autohide {
         });
     }
 
-    /// Hides after `delay`, unless hovered or a dock menu is open then.
+    fn hide_if_idle(self: &Rc<Self>) {
+        if self.overview.get() || self.hovered.get() || self.on_edge.get() || self.empty.get() {
+            return;
+        }
+        if self.target.get() == 0.0 {
+            return;
+        }
+        if menu::is_open() {
+            self.hide_after(HIDE_DELAY);
+        } else {
+            self.slide_to(0.0);
+        }
+    }
+
+    /// Hides after `delay` unless the dock is still in use.
     fn hide_after(self: &Rc<Self>, delay: Duration) {
-        if !self.enabled {
+        if !self.enabled || self.overview.get() || self.target.get() == 0.0 {
             return;
         }
         self.cancel_hide();
@@ -144,14 +160,7 @@ impl Autohide {
         let source = glib::timeout_add_local_once(delay, move || {
             let Some(this) = weak.upgrade() else { return };
             this.hide.set(None);
-            if this.hovered.get() || this.on_edge.get() || this.empty.get() {
-                return;
-            }
-            if menu::is_open() {
-                this.hide_after(HIDE_DELAY);
-                return;
-            }
-            this.slide_to(0.0);
+            this.hide_if_idle();
         });
         self.hide.set(Some(source));
     }
@@ -216,6 +225,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Config, p
         hovered: Cell::new(false),
         on_edge: Cell::new(false),
         empty: Cell::new(false),
+        overview: Cell::new(false),
         hide: Cell::new(None),
         position: Cell::new(if autohide { 0.0 } else { 1.0 }),
         target: Cell::new(if autohide { 0.0 } else { 1.0 }),
@@ -264,7 +274,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Config, p
         });
     }
     if autohide && let Some(output) = monitor.connector().map(String::from) {
-        follow_empty_workspace(&state, niri, output);
+        follow_visibility(&state, niri, output, config.dock.show_in_overview);
     }
 
     // The handlers hold only weak references; this one keeps the state as long as the
@@ -340,9 +350,8 @@ pub fn apps(pinned: &Watch<Vec<String>>, niri: &Niri, in_bar: bool) -> gtk4::Box
     apps
 }
 
-/// With autohide: the dock comes up on an empty workspace (as if hovered) and goes once
-/// a window opens there.
-fn follow_empty_workspace(state: &Rc<Autohide>, niri: &Niri, output: String) {
+/// An empty workspace or the overview can hold an autohiding dock open.
+fn follow_visibility(state: &Rc<Autohide>, niri: &Niri, output: String, show_in_overview: bool) {
     let (weak, serial) = (Rc::downgrade(state), Cell::new(None::<u64>));
     niri.state.subscribe(move |niri_state| {
         let Some(state) = weak.upgrade() else { return false };
@@ -350,18 +359,27 @@ fn follow_empty_workspace(state: &Rc<Autohide>, niri: &Niri, output: String) {
         if serial.replace(Some(niri_state.layout_serial)) == Some(niri_state.layout_serial) {
             return true;
         }
-        let workspace = niri_state
+        let overview = show_in_overview && niri_state.overview_open;
+        let overview_changed = state.overview.replace(overview) != overview;
+        let empty_changed = niri_state
             .workspaces
             .values()
-            .find(|ws| ws.is_active && ws.output.as_deref() == Some(output.as_str()));
-        // Unknown yet (niri hasn't told): leave the dock as it is.
-        let Some(workspace) = workspace else { return true };
-        let empty = !niri_state.windows.values().any(|w| w.workspace_id == Some(workspace.id));
-        if state.empty.replace(empty) != empty {
-            // Not from inside niri's notification: sliding touches the window.
+            .find(|ws| ws.is_active && ws.output.as_deref() == Some(output.as_str()))
+            .is_some_and(|workspace| {
+                let empty = !niri_state.windows.values().any(|w| w.workspace_id == Some(workspace.id));
+                state.empty.replace(empty) != empty
+            });
+        if overview_changed || empty_changed {
+            // Read both holds after niri's notification. Closing the overview can
+            // change the active workspace in the same batch of events.
+            let weak = Rc::downgrade(&state);
             glib::idle_add_local_once(move || {
-                if empty {
+                let Some(state) = weak.upgrade() else { return };
+                if state.overview.get() || state.empty.get() {
                     state.show();
+                } else if overview_changed {
+                    state.cancel_hide();
+                    state.hide_if_idle();
                 } else {
                     state.hide_after(HIDE_DELAY);
                 }

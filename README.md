@@ -64,6 +64,8 @@ wallpaper tools from niri's autostart: nshell does their jobs.
   settings stay.
 - Add `no-overview` inside `dock { … }` to hide its overview button and the separator
   before it. Remove that line to restore them. niri's overview itself is unaffected.
+- With `autohide`, the dock stays visible in the overview and starts hiding as soon as
+  the overview closes. Set `show-in-overview "off"` inside `dock { … }` to disable this.
 - **`~/.config/nshell/style.css`**: the look. It goes on top of the built-in style;
   [STYLING.md](STYLING.md) explains how and lists every class.
 

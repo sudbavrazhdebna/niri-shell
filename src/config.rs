@@ -67,6 +67,8 @@ pub struct DockConfig {
     pub enabled: bool,
     /// Hidden until the pointer touches the bottom edge (or `nshell msg show-dock`).
     pub autohide: bool,
+    /// Keep an autohiding dock visible in niri's overview.
+    pub show_in_overview: bool,
     /// Show the overview button and its separator after the apps.
     pub overview: bool,
     /// App ids (as niri reports them) or desktop entry ids, in dock order.
@@ -170,6 +172,7 @@ impl Default for Config {
             dock: DockConfig {
                 enabled: true,
                 autohide: false,
+                show_in_overview: true,
                 overview: true,
                 pinned: Vec::new(),
             },
@@ -192,7 +195,7 @@ impl Config {
             icon_theme, bar, clock, window_title, volume, idle, dock, laptop_screen_auto,
             wallpaper, overview_blur, layout_rename, launcher_paths, media_title, blur_off,
         } = self;
-        let DockConfig { enabled, autohide, overview, pinned: _ } = dock;
+        let DockConfig { enabled, autohide, show_in_overview, overview, pinned: _ } = dock;
         let IdleConfig { lock_command, inhibit_apps, on_ac, on_battery } = idle;
         let WindowTitleConfig { max_length, rewrite } = window_title;
         let patterns = |a: &[Regex], b: &[Regex]| a.iter().map(Regex::as_str).eq(b.iter().map(Regex::as_str));
@@ -209,6 +212,7 @@ impl Config {
             && on_battery == &other.idle.on_battery
             && enabled == &other.dock.enabled
             && autohide == &other.dock.autohide
+            && show_in_overview == &other.dock.show_in_overview
             && overview == &other.dock.overview
             && laptop_screen_auto == &other.laptop_screen_auto
             && wallpaper == &other.wallpaper
@@ -390,6 +394,13 @@ impl Config {
                         match child.name().value() {
                             "off" => config.dock.enabled = false,
                             "autohide" => config.dock.autohide = true,
+                            "show-in-overview" => {
+                                config.dock.show_in_overview = match string_arg(child).map_err(|e| at(child, e))?.as_str() {
+                                    "on" => true,
+                                    "off" => false,
+                                    _ => return Err(at(child, "needs \"on\" or \"off\"".into())),
+                                }
+                            }
                             "no-overview" => config.dock.overview = false,
                             "pinned" => {
                                 config.dock.pinned = strings(child).map_err(|e| at(child, e))?
@@ -707,11 +718,24 @@ mod tests {
     #[test]
     fn dock_overview_setting_survives_pin_changes() {
         assert!(Config::default().dock.overview);
-        let text = "dock { no-overview; pinned \"a\"; }\n";
+        let text = "dock { no-overview; show-in-overview \"off\"; pinned \"a\"; }\n";
         let out = with_pinned(text, &["b".into()]).unwrap_or_else(|e| panic!("{e}"));
         let config = Config::parse(&out).unwrap_or_else(|e| panic!("{e}"));
         assert!(!config.dock.overview);
+        assert!(!config.dock.show_in_overview);
         assert_eq!(config.dock.pinned, ["b"]);
+    }
+
+    #[test]
+    fn showing_the_dock_in_overview_is_independent_of_its_button() {
+        assert!(Config::default().dock.show_in_overview);
+        let parse = |text: &str| Config::parse(text).unwrap_or_else(|e| panic!("{e}"));
+        let on = parse("dock { no-overview; show-in-overview \"on\"; }");
+        let off = parse("dock { no-overview; show-in-overview \"off\"; }");
+        assert!(!on.dock.overview && on.dock.show_in_overview);
+        assert!(!off.dock.overview && !off.dock.show_in_overview);
+        assert!(!on.same_except_pinned(&off));
+        assert!(Config::parse("dock { show-in-overview \"no\"; }").is_err());
     }
 
     #[test]

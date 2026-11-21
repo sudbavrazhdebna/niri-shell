@@ -112,6 +112,9 @@ each section. Read before changing any of these.
   a strip inside the dock window, which had zero width until the dock had been shown once (a
   never-revealed revealer doesn't know its child's width), so hovering did nothing after a
   restart.
+- An autohiding dock stays visible during niri's overview by default. Closing the overview
+  starts the slide immediately when the dock is idle. Hover, a menu and an empty workspace
+  retain their normal holds. `show-in-overview "off"` disables the overview hold.
 
 ## Tray
 
