@@ -13,7 +13,7 @@ use gtk4::{gdk, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use niri_ipc::Action;
 
-use crate::config::{self, Config};
+use crate::config::{self, Config, DockMode};
 use crate::niri::{Niri, State};
 use crate::watch::Watch;
 use crate::{blur, menu, ui};
@@ -195,8 +195,9 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Config, p
     window.set_monitor(Some(monitor));
     window.set_keyboard_mode(KeyboardMode::None);
     window.set_anchor(Edge::Bottom, true);
-    // Over windows, reserving no space.
-    window.set_exclusive_zone(0);
+    if config.dock.mode == DockMode::Reserved {
+        window.auto_exclusive_zone_enable();
+    }
 
     let dock = gtk4::Box::new(gtk4::Orientation::Horizontal, 2);
     dock.add_css_class("dock");
@@ -213,7 +214,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Config, p
 
     // With autohide the dock slides below the screen edge and its window goes away
     // entirely; a separate two-pixel strip along the bottom edge brings it back.
-    let autohide = config.dock.autohide;
+    let autohide = config.dock.autohides();
     blur::part(&window, "dock");
     window.set_child(Some(&dock));
     menu::watch_dock(window.upcast_ref());

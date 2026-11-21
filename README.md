@@ -70,6 +70,8 @@ autostart: nshell does their jobs.
   settings stay.
 - Adding `taskbar` to any bar zone hides the standalone dock. The taskbar still uses
   the `dock` section's pinned apps.
+- In `dock { … }`, `mode "reserved"` keeps the dock visible and reserves a bottom
+  strip for it in the workspace. `mode "overlay"` is the default and allows `autohide`.
 - Add `no-overview` inside `dock { … }` to hide its overview button and the separator
   before it. Remove that line to restore them. niri's overview itself is unaffected.
 - With `autohide`, the dock stays visible in the overview and starts hiding as soon as

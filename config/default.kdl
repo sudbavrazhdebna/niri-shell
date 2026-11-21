@@ -126,10 +126,14 @@ dock {
     // Uncomment the next line to hide the dock.
     // off
 
+    // "overlay" draws over windows. "reserved" keeps the dock visible and leaves
+    // space for it at the bottom of the workspace.
+    mode "overlay"
+
     // Hide the overview button and the separator before it. Remove to show them again.
     // no-overview
 
-    // Slides away until the pointer touches the bottom edge of the screen.
+    // In overlay mode, slides away until the pointer touches the bottom edge.
     // `nshell-msg show-dock` shows it for 3 seconds: bind it in niri, e.g.
     //   Mod+A { spawn "nshell-msg" "show-dock"; }
     autohide

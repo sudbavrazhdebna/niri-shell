@@ -65,6 +65,7 @@ pub struct ClockConfig {
 
 pub struct DockConfig {
     pub enabled: bool,
+    pub mode: DockMode,
     /// Hidden until the pointer touches the bottom edge (or `nshell msg show-dock`).
     pub autohide: bool,
     /// Keep an autohiding dock visible in niri's overview.
@@ -73,6 +74,18 @@ pub struct DockConfig {
     pub overview: bool,
     /// App ids (as niri reports them) or desktop entry ids, in dock order.
     pub pinned: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DockMode {
+    Overlay,
+    Reserved,
+}
+
+impl DockConfig {
+    pub fn autohides(&self) -> bool {
+        self.autohide && self.mode == DockMode::Overlay
+    }
 }
 
 #[derive(Clone)]
@@ -171,6 +184,7 @@ impl Default for Config {
             overview_blur: 24,
             dock: DockConfig {
                 enabled: true,
+                mode: DockMode::Overlay,
                 autohide: false,
                 show_in_overview: true,
                 overview: true,
@@ -203,7 +217,7 @@ impl Config {
             icon_theme, bar, clock, window_title, volume, idle, dock, laptop_screen_auto,
             wallpaper, overview_blur, layout_rename, launcher_paths, media_title, blur_off,
         } = self;
-        let DockConfig { enabled, autohide, show_in_overview, overview, pinned: _ } = dock;
+        let DockConfig { enabled, mode, autohide, show_in_overview, overview, pinned: _ } = dock;
         let IdleConfig { lock_command, inhibit_apps, on_ac, on_battery } = idle;
         let WindowTitleConfig { max_length, rewrite } = window_title;
         let patterns = |a: &[Regex], b: &[Regex]| a.iter().map(Regex::as_str).eq(b.iter().map(Regex::as_str));
@@ -219,6 +233,7 @@ impl Config {
             && on_ac == &other.idle.on_ac
             && on_battery == &other.idle.on_battery
             && enabled == &other.dock.enabled
+            && mode == &other.dock.mode
             && autohide == &other.dock.autohide
             && show_in_overview == &other.dock.show_in_overview
             && overview == &other.dock.overview
@@ -401,6 +416,13 @@ impl Config {
                     for child in children(node) {
                         match child.name().value() {
                             "off" => config.dock.enabled = false,
+                            "mode" => {
+                                config.dock.mode = match string_arg(child).map_err(|e| at(child, e))?.as_str() {
+                                    "overlay" => DockMode::Overlay,
+                                    "reserved" => DockMode::Reserved,
+                                    _ => return Err(at(child, "needs \"overlay\" or \"reserved\"".into())),
+                                }
+                            }
                             "autohide" => config.dock.autohide = true,
                             "show-in-overview" => {
                                 config.dock.show_in_overview = match string_arg(child).map_err(|e| at(child, e))?.as_str() {
@@ -744,6 +766,22 @@ mod tests {
         assert!(!off.dock.overview && !off.dock.show_in_overview);
         assert!(!on.same_except_pinned(&off));
         assert!(Config::parse("dock { show-in-overview \"no\"; }").is_err());
+    }
+
+    #[test]
+    fn reserved_dock_keeps_its_space_with_autohide_configured() {
+        let parse = |text: &str| Config::parse(text).unwrap_or_else(|e| panic!("{e}"));
+        let legacy = parse("dock { autohide; pinned \"a\"; }");
+        let text = "dock { mode \"reserved\"; autohide; pinned \"a\"; }";
+        let reserved = parse(text);
+        assert_eq!(legacy.dock.mode, DockMode::Overlay);
+        assert!(legacy.dock.autohides());
+        assert_eq!(reserved.dock.mode, DockMode::Reserved);
+        assert!(!reserved.dock.autohides());
+        assert!(!legacy.same_except_pinned(&reserved));
+        let edited = with_pinned(text, &["b".into()]).unwrap_or_else(|e| panic!("{e}"));
+        assert!(reserved.same_except_pinned(&parse(&edited)));
+        assert!(Config::parse("dock { mode \"unknown\"; }").is_err());
     }
 
     #[test]

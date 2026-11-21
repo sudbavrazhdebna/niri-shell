@@ -86,6 +86,10 @@ each section. Read before changing any of these.
 
 ## Dock
 
+- `dock { mode "reserved"; }` reserves the dock's measured height at the bottom of each
+  workspace. It stays visible even when the config includes `autohide`. `mode "overlay"`
+  keeps the existing behavior and is the default for older configs. The menu catcher
+  already stops at the reserved dock, so only an overlay dock needs an input cutout.
 - App activation runs on primary press, so holding the button does not delay launching
   or focusing. Secondary press opens the context menu; while held, motion picks adjacent
   icons in dock-window coordinates (the implicit pointer grab still belongs to the first

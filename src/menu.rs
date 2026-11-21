@@ -425,10 +425,10 @@ fn catcher(monitor: &gdk::Monitor) -> gtk4::Window {
     catcher
 }
 
-/// The dock reserves no space, so the click catcher would otherwise cover it.
+/// The overlay dock needs a cutout because it shares the catcher's available area.
 fn set_catcher_input(catcher: &gtk4::Window, owner: Option<&gtk4::Window>) {
     let Some(surface) = catcher.surface() else { return };
-    let Some(dock) = owner.filter(|owner| owner.has_css_class("nshell-dock")) else {
+    let Some(dock) = owner.filter(|owner| owner.has_css_class("nshell-dock") && !reserves_space(owner)) else {
         surface.set_input_region(None);
         return;
     };
@@ -509,12 +509,13 @@ fn open_anchor() -> Option<gtk4::Widget> {
     OPEN.with_borrow(|open| open.as_ref().and_then(|o| o.anchor.upgrade()))
 }
 
-/// How far above the screen's bottom edge an upward menu starts: a bar at the bottom
-/// reserves its room, so the menu already sits above it; the dock reserves none, so the
-/// menu clears it by its height.
-fn clearance(bar: &gtk4::Window) -> i32 {
-    let reserved = bar.auto_exclusive_zone_is_enabled() || bar.exclusive_zone() > 0;
-    if reserved { 0 } else { bar.margin(Edge::Bottom) + bar.height() }
+fn reserves_space(window: &gtk4::Window) -> bool {
+    window.auto_exclusive_zone_is_enabled() || window.exclusive_zone() > 0
+}
+
+/// A bottom layer that reserves space already moves its upward menu clear of itself.
+fn clearance(owner: &gtk4::Window) -> i32 {
+    if reserves_space(owner) { 0 } else { owner.margin(Edge::Bottom) + owner.height() }
 }
 
 /// Where the menu's top edge is, in its bar's coordinates: below the bar, or above it
