@@ -62,6 +62,8 @@ wallpaper tools from niri's autostart: nshell does their jobs.
   [`config/default.kdl`](config/default.kdl), which explains every option. Saved changes
   apply at once; a mistake shows ⚠ on the bar (hover it for the reason) and the previous
   settings stay.
+- Adding `taskbar` to any bar zone hides the standalone dock. The taskbar still uses
+  the `dock` section's pinned apps.
 - Add `no-overview` inside `dock { … }` to hide its overview button and the separator
   before it. Remove that line to restore them. niri's overview itself is unaffected.
 - With `autohide`, the dock stays visible in the overview and starts hiding as soon as

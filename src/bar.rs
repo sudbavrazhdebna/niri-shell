@@ -151,8 +151,7 @@ impl Bars {
             let bar = self.build_window(&monitor, &ctx);
             let dock = ctx
                 .config
-                .dock
-                .enabled
+                .show_separate_dock()
                 .then(|| crate::dock::build(&self.app, &monitor, &ctx.config, &self.pinned, &self.services.niri));
             windows.push((monitor, bar, dock));
         }

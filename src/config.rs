@@ -189,6 +189,14 @@ pub fn path() -> PathBuf {
 }
 
 impl Config {
+    pub fn show_separate_dock(&self) -> bool {
+        self.dock.enabled
+            && ![&self.bar.left, &self.bar.center, &self.bar.right]
+                .into_iter()
+                .flatten()
+                .any(|name| name == "taskbar")
+    }
+
     /// Pin order is applied to the existing app rows. Other settings rebuild the bar.
     pub fn same_except_pinned(&self, other: &Self) -> bool {
         let Self {
@@ -736,6 +744,17 @@ mod tests {
         assert!(!off.dock.overview && !off.dock.show_in_overview);
         assert!(!on.same_except_pinned(&off));
         assert!(Config::parse("dock { show-in-overview \"no\"; }").is_err());
+    }
+
+    #[test]
+    fn taskbar_replaces_the_separate_dock_in_every_zone() {
+        assert!(Config::default().show_separate_dock());
+        let parse = |text: &str| Config::parse(text).unwrap_or_else(|e| panic!("{e}"));
+        for zone in ["left", "center", "right"] {
+            let config = parse(&format!("bar {{ {zone} \"taskbar\"; }}"));
+            assert!(!config.show_separate_dock(), "{zone}");
+        }
+        assert!(!parse("dock { off; }").show_separate_dock());
     }
 
     #[test]

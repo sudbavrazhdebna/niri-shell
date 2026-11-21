@@ -20,9 +20,9 @@ bar {
     // bluetooth, volume, display (brightness), battery, control, taskbar (the dock's
     // apps in the bar).
     //
-    // One bar, as in Windows: position "bottom", "taskbar" in left or center, "clock"
-    // at the end of right, `off` in the dock section below. A zone with no names
-    // (a bare `center`) stays empty.
+    // The taskbar module replaces the standalone dock. For one bar along the bottom,
+    // use position "bottom", "taskbar" in left or center, and "clock" at the end of
+    // right. A zone with no names (a bare `center`) stays empty.
     left "window-title"
     center "clock"
     right "media" "tray" "keyboard" "network" "bluetooth" "volume" "battery" "control"

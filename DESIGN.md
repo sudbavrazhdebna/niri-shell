@@ -148,8 +148,8 @@ keeping the rest of the file as it is. A line between pinned and running apps.
 edge; `nshell msg show-dock` shows it for 3 s on the focused monitor (bind it, e.g. Mod+A). On an
 empty workspace it stays up (nothing to cover) and goes once a window opens there.
 Later: an integration with niri binds (dock order ↔ Mod+1..9 in binds.kdl).
-**In the bar** (2026-11-04): the `taskbar` module puts the same apps row into the bar (left or
-center), for one Windows-like bar at the bottom with the dock `off`.
+**In the bar:** the `taskbar` module replaces the separate dock with the same app row in
+any bar zone. The dock config still supplies its pinned apps.
 
 ## 10. Config
 

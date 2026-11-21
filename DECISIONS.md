@@ -291,10 +291,9 @@ each section. Read before changing any of these.
   so no extra margin, unlike the dock), notification popups show bottom-right above it
   with the newest lowest, and its glass turns solid when the shown window is tiled full
   width (niri doesn't say which tile of a column is lowest, so any tile counts).
-- The single bar is put together from config (bar at the bottom, `taskbar` module, dock
-  `off`), not a separate mode: each part is useful alone, and one switch would hide what
-  it changes. The `taskbar` is the dock's own apps row (`dock::apps`), so pins, dots,
-  clicks and menus stay one code; only its CSS is smaller to fit the bar.
+- The `taskbar` module puts the dock's app row in the bar and suppresses the standalone
+  dock. Pins, dots, clicks and menus share `dock::apps`. Bar position and the standalone
+  dock's settings apply independently.
 
 - Selection rows keep the check mark's column on the left even when unchecked, so
   choices stay aligned. Settings commands in Sound, Bluetooth and Wi-Fi use the shared
