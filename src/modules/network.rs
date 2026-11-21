@@ -13,7 +13,7 @@ use crate::{menu, ui};
 
 /// Unsaved networks shown in the menu; saved profiles are never cut off.
 const MAX_NETWORKS: usize = 10;
-const ETHERNET_ICON: &str = "network-wired-symbolic";
+const ETHERNET_ICON: &str = "nshell-ethernet-symbolic";
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("network");

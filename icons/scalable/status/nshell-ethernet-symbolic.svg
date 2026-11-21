@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+  <g fill="#bebebe">
+    <path d="M9.25 7h1.5v2.75H15a.75.75 0 0 1 .75.75V13h-1.5v-1.75h-8.5V13h-1.5v-2.5A.75.75 0 0 1 5 9.75h4.25Z"/>
+    <rect x="7.5" y="3" width="5" height="4.5" rx="1"/>
+    <rect x="2.5" y="12.5" width="5" height="4.5" rx="1"/>
+    <rect x="12.5" y="12.5" width="5" height="4.5" rx="1"/>
+  </g>
+</svg>
