@@ -869,7 +869,7 @@ button.clear-all:hover {
 }
 
 .taskbar .dock-icon {
-    -gtk-icon-size: 24px;
+    -gtk-icon-size: var(--taskbar-icon-size, 25px);
 }
 
 .taskbar .dots {

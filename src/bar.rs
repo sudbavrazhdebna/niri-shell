@@ -16,6 +16,7 @@ pub struct Bars {
     services: Rc<Services>,
     config: RefCell<Rc<Config>>,
     pinned: crate::watch::Watch<Vec<String>>,
+    taskbar_css: gtk4::CssProvider,
     /// Shown as ⚠ on the bar, with the text in the tooltip.
     problems: RefCell<Vec<String>>,
     /// Per monitor: the bar, and the dock if it is on.
@@ -30,6 +31,7 @@ impl Bars {
             app: app.clone(),
             services,
             pinned: crate::watch::Watch::new(config.dock.pinned.clone()),
+            taskbar_css: gtk4::CssProvider::new(),
             config: RefCell::new(config),
             problems: RefCell::new(Vec::new()),
             windows: RefCell::new(Vec::new()),
@@ -37,6 +39,12 @@ impl Bars {
         });
 
         if let Some(display) = gdk::Display::default() {
+            bars.set_taskbar_icon_size(bars.config.borrow().bar.height);
+            gtk4::style_context_add_provider_for_display(
+                &display,
+                &bars.taskbar_css,
+                gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            );
             let monitors = display.monitors();
             bars.sync(&monitors);
             let this = bars.clone();
@@ -49,11 +57,15 @@ impl Bars {
 
     /// Applies live pin changes and rebuilds the windows for other settings.
     pub fn set_config(self: &Rc<Self>, config: Rc<Config>, problems: Vec<String>, style_changed: bool) {
+        let height_changed = config.bar.height != self.config.borrow().bar.height;
         let incremental = !style_changed
             && config.same_except_pinned(&self.config.borrow())
             && *self.problems.borrow() == problems;
         self.config.replace(config.clone());
         self.problems.replace(problems);
+        if height_changed {
+            self.set_taskbar_icon_size(config.bar.height);
+        }
         if incremental {
             self.pinned.set(config.dock.pinned.clone());
             return;
@@ -66,6 +78,13 @@ impl Bars {
         crate::popups::set_bar_at_bottom(config.bar.bottom);
         crate::blur::configure(&config.blur_off);
         self.rebuild();
+    }
+
+    fn set_taskbar_icon_size(&self, bar_height: i32) {
+        // The bar zone leaves 4 px of outer inset. Each item reserves 3 px for its
+        // running indicator and 2 px between the indicator and the icon.
+        let size = bar_height - 9;
+        self.taskbar_css.load_from_string(&format!(".taskbar {{ --taskbar-icon-size: {size}px; }}"));
     }
 
     /// Updates the ⚠ indicator; an empty list hides it.
