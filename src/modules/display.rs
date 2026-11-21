@@ -20,7 +20,7 @@ const STEP: i32 = 5;
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("display");
     crate::displays::multiple().bind(&image, |image, multiple| {
-        let name = if *multiple { "nshell-displays-symbolic" } else { "video-display-symbolic" };
+        let name = if *multiple { "nshell-displays-symbolic" } else { "nshell-display-symbolic" };
         ui::set_icon(image, name);
     });
     super::tooltips::text(&image, || Some("Displays and brightness".into()));
