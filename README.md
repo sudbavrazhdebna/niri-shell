@@ -1,8 +1,8 @@
 # nshell
 
-A shell for the [niri](https://github.com/YaLTeR/niri) compositor: bar, menus, control
-center, notifications, OSD, dock, launcher, wallpaper and idle handling, in one program
-(Rust, GTK4, no libadwaita). It looks the same whatever theme apps use.
+A lightweight desktop shell for the [niri](https://github.com/YaLTeR/niri) compositor,
+with a bar, dock, launcher, control center, OSD, notifications, wallpaper, and an idle
+manager. Built in Rust with GTK4. It looks the same whatever theme apps use.
 
 ## Install
 

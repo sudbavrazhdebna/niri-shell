@@ -2,7 +2,7 @@
 name = "nshell"
 version = "0.1.0"
 edition = "2024"
-description = "A small desktop shell for niri: bar, menus, OSD, notifications, idle, dock"
+description = "A lightweight desktop shell for niri with a bar, dock, launcher, control center, OSD, notifications, wallpaper, and an idle manager."
 license = "MIT"
 publish = false
 
