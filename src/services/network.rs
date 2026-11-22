@@ -11,8 +11,13 @@ use super::dbus::{child, lookup, on_properties_changed, prop, system_proxy};
 use crate::watch::Watch;
 
 const NM: &str = "org.freedesktop.NetworkManager";
+const NM_PATH: &str = "/org/freedesktop/NetworkManager";
 const WIFI: &str = "802-11-wireless";
 const WIRED: &str = "802-3-ethernet";
+/// NM_RADIO_FLAG_WLAN_AVAILABLE.
+const WLAN_AVAILABLE: u32 = 1;
+/// NM_DEVICE_TYPE_WIFI.
+const DEVICE_WIFI: u32 = 2;
 /// NM_ACTIVE_CONNECTION_STATE_ACTIVATED.
 const ACTIVATED: u32 = 2;
 
@@ -40,6 +45,7 @@ pub struct WiredLink {
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct NetworkState {
     pub link: Link,
+    pub has_wifi_adapter: bool,
     pub wifi_enabled: bool,
     pub wifi: Option<WifiLink>,
     pub wired: Option<WiredLink>,
@@ -84,7 +90,7 @@ impl Network {
         };
         let (state, inner) = (network.state.clone(), network.inner.clone());
         glib::spawn_future_local(async move {
-            let Some(nm) = system_proxy(NM, "/org/freedesktop/NetworkManager", NM).await else {
+            let Some(nm) = system_proxy(NM, NM_PATH, NM).await else {
                 return;
             };
             // VPN tunnels, new devices and (dis)connects all show up here; rescanning is a
@@ -105,7 +111,7 @@ impl Network {
                 .connection()
                 .call_future(
                     Some(NM),
-                    "/org/freedesktop/NetworkManager",
+                    NM_PATH,
                     "org.freedesktop.DBus.Properties",
                     "Set",
                     Some(&(NM, "WirelessEnabled", on.to_variant()).to_variant()),
@@ -176,6 +182,10 @@ async fn rescan(inner: Rc<Inner>, state: Watch<NetworkState>) {
         Some(active) => Some(wired_details(active, &inner, &state, &mut observed).await),
         None => None,
     };
+    let has_wifi_adapter = match prop::<u32>(&nm, "RadioFlags") {
+        Some(flags) => flags & WLAN_AVAILABLE != 0,
+        None => wifi.is_some() || wifi_device(&nm).await.is_some(),
+    };
     if inner.generation.get() != generation {
         return;
     }
@@ -192,7 +202,21 @@ async fn rescan(inner: Rc<Inner>, state: Watch<NetworkState>) {
     let wifi = wifi.map(|_| ap.as_ref().map_or_else(WifiLink::default, wifi_status));
     inner.access_point.replace(ap);
     inner.observed.replace(observed);
-    state.set(NetworkState { link, wifi_enabled, wifi, wired });
+    state.set(NetworkState { link, has_wifi_adapter, wifi_enabled, wifi, wired });
+}
+
+pub(super) async fn wifi_device(nm: &gio::DBusProxy) -> Option<gio::DBusProxy> {
+    let devices = nm.call_future("GetDevices", None, gio::DBusCallFlags::NONE, -1).await
+        .inspect_err(|err| tracing::debug!("NetworkManager GetDevices: {err}"))
+        .ok().and_then(|result| result.get::<(Vec<glib::variant::ObjectPath>,)>())?.0;
+    for path in devices {
+        if let Some(device) = system_proxy(NM, path.as_str(), "org.freedesktop.NetworkManager.Device").await
+            && prop::<u32>(&device, "DeviceType") == Some(DEVICE_WIFI)
+        {
+            return Some(device);
+        }
+    }
+    None
 }
 
 // Fall back to Wi-Fi, then Ethernet, when NetworkManager has no physical primary.

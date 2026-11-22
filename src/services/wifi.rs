@@ -9,13 +9,12 @@ use gtk4::prelude::*;
 use gtk4::{gio, glib};
 
 use super::dbus::{child, lookup, on_properties_changed, prop, system_proxy};
+use super::network::wifi_device;
 use crate::watch::Watch;
 
 const NM: &str = "org.freedesktop.NetworkManager";
 const NM_PATH: &str = "/org/freedesktop/NetworkManager";
 const WIRELESS: &str = "org.freedesktop.NetworkManager.Device.Wireless";
-/// NM_DEVICE_TYPE_WIFI.
-const DEVICE_WIFI: u32 = 2;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Network {
@@ -72,31 +71,17 @@ impl Wifi {
         // The saved profiles are read alongside the device lookup, not after it.
         let profiles = glib::spawn_future_local(saved_profiles());
         let nm = system_proxy(NM, NM_PATH, NM).await?;
-        let mut device = None;
-        let mut device_info = None;
-        let devices = call(&nm, "GetDevices", None).await.and_then(|r| child(&r, 0));
-        for path in devices.iter().flat_map(|d| d.iter()) {
-            let Some(path) = path.get::<glib::variant::ObjectPath>() else { continue };
-            let Some(dev) = system_proxy(NM, path.as_str(), "org.freedesktop.NetworkManager.Device").await
-            else {
-                continue;
-            };
-            if prop::<u32>(&dev, "DeviceType") == Some(DEVICE_WIFI) {
-                device = system_proxy(NM, path.as_str(), WIRELESS).await;
-                device_info = Some(dev);
-                break;
-            }
-        }
-        if device_info.is_none() {
+        let Some(device_info) = wifi_device(&nm).await else {
             profiles.abort();
             return None;
-        }
+        };
+        let device = system_proxy(NM, &device_info.object_path(), WIRELESS).await;
 
         let wifi = Rc::new(Wifi {
             state: Watch::new(WifiState::default()),
             nm: nm.clone(),
             device,
-            device_info,
+            device_info: Some(device_info),
             profiles: RefCell::new(profiles.await.unwrap_or_default()),
             access_points: RefCell::default(),
             refreshing: Cell::new(false),

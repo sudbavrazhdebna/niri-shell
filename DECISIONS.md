@@ -145,8 +145,8 @@ each section. Read before changing any of these.
   displays menu stays so; that menu lists niri's outputs (off ones too) and never lets
   the last one that is on be turned off.
 - The Display module shows one monitor for one connected screen and two monitors for
-  multiple screens. The count includes disabled outputs. DRM hotplug events cover
-  changes to connected outputs that GDK's list of enabled monitors misses.
+  multiple screens. The icon and open menu follow the same list, including disabled
+  outputs. DRM hotplug events cover changes that GDK's list of enabled monitors misses.
 
 ## Wallpaper
 
@@ -288,6 +288,9 @@ each section. Read before changing any of these.
   adapter's `Powered`: the laptop's USB adapter is reset on every resume, and BlueZ
   (AutoEnable) powered the new one on. A block also covers adapters that appear later and
   systemd-rfkill keeps it over a reboot. On is an unblock (BlueZ powers it) plus `Powered`.
+- The Control Center hides Wi-Fi and Bluetooth tiles when their adapters are absent.
+  Switching a radio off keeps its tile available. Bluetooth rows show pending and
+  failed connection attempts per device. A failed row can be selected again to retry.
 
 - The Wi-Fi list is rebuilt on every scan (every few seconds). An open password field, with
   what's typed and the focus (cursor at the end, nothing selected), moves to its network's

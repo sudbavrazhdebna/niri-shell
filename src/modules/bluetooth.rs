@@ -7,6 +7,7 @@ use gtk4::prelude::*;
 
 use super::{Context, icon_module, tooltips};
 use crate::services::Services;
+use crate::services::bluetooth::{BluetoothState, ConnectionAttempt, Device};
 use crate::{menu, ui};
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
@@ -73,10 +74,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
         if let Some(nearby) = nearby_weak.upgrade() {
             ui::clear(&nearby);
             for device in state.nearby.iter().filter(|_| state.powered) {
-                let (s, path) = (s.clone(), device.path.clone());
-                nearby.append(&ui::icon_item(&device_icon(device), &device.name, "", move || {
-                    s.bluetooth().pair(&path);
-                }));
+                nearby.append(&connection_row(&s, state, device, true));
             }
         }
         if !state.powered {
@@ -101,10 +99,7 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
             devices.append(&ui::note("No paired devices"));
         }
         for device in saved {
-            let (s, path) = (s.clone(), device.path.clone());
-            devices.append(&ui::icon_item(&device_icon(device), &device.name, "", move || {
-                s.bluetooth().connect(&path);
-            }));
+            devices.append(&connection_row(&s, state, device, false));
         }
     });
     // A scan runs only while the menu shows.
@@ -118,7 +113,26 @@ fn menu_content(services: &Rc<Services>) -> gtk4::Box {
     column
 }
 
-fn device_icon(device: &crate::services::bluetooth::Device) -> String {
+fn connection_row(services: &Rc<Services>, state: &BluetoothState, device: &Device, pair: bool) -> gtk4::Button {
+    let attempt = state.connection_attempt(&device.path);
+    let status = match attempt {
+        Some(ConnectionAttempt::Connecting(_)) => "Connecting…",
+        Some(ConnectionAttempt::Failed) => "Couldn't connect",
+        None => "",
+    };
+    let (services, path) = (services.clone(), device.path.clone());
+    let row = ui::icon_item(&device_icon(device), &device.name, status, move || {
+        if pair {
+            services.bluetooth().pair(&path);
+        } else {
+            services.bluetooth().connect(&path);
+        }
+    });
+    row.set_sensitive(!matches!(attempt, Some(ConnectionAttempt::Connecting(_))));
+    row
+}
+
+fn device_icon(device: &Device) -> String {
     if device.icon.is_empty() {
         "bluetooth-symbolic".to_string()
     } else {

@@ -70,6 +70,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Box {
     services.network().state.bind(&wifi.button, {
         let (state_label, set, image) = (wifi.subtitle.clone(), wifi.set.clone(), wifi.image.clone());
         move |button, state| {
+            button.set_visible(state.has_wifi_adapter);
             set(state.wifi_enabled);
             ui::set_icon(&image, wifi_icon(state));
             let label = if state.wifi_enabled {
@@ -87,6 +88,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Box {
     services.bluetooth().state.bind(&bt.button, {
         let (state_label, set, image) = (bt.subtitle.clone(), bt.set.clone(), bt.image.clone());
         move |button, state| {
+            button.set_visible(state.has_adapter);
             set(state.powered);
             let connected: Vec<_> = state.devices.iter().filter(|d| d.connected).map(|d| d.name.clone()).collect();
             ui::set_icon(&image, if state.powered { "bluetooth-symbolic" } else { "bluetooth-disabled-symbolic" });

@@ -11,6 +11,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use super::{Context, icon_module, on_scroll};
+use crate::displays::{self, Output};
 use crate::services::Services;
 use crate::{menu, ui};
 
@@ -19,8 +20,8 @@ const STEP: i32 = 5;
 
 pub fn build(ctx: &Context) -> gtk4::Widget {
     let image = icon_module("display");
-    crate::displays::multiple().bind(&image, |image, multiple| {
-        let name = if *multiple { "nshell-displays-symbolic" } else { "nshell-display-symbolic" };
+    displays::watch_outputs().bind(&image, |image, outputs| {
+        let name = if outputs.len() > 1 { "nshell-displays-symbolic" } else { "nshell-display-symbolic" };
         ui::set_icon(image, name);
     });
     super::tooltips::text(&image, || Some("Displays and brightness".into()));
@@ -37,6 +38,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         // Shown once niri has listed the displays (a few ms).
         let (anchor, ticket, services) = (anchor.clone(), menu::ticket(), services.clone());
         glib::spawn_future_local(async move {
+            displays::refresh().await;
             let column = ui::column();
             column.add_css_class("display-menu");
             column.set_width_request(300);
@@ -44,7 +46,7 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
             column.append(&ui::separator());
             let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 2);
             column.append(&rows);
-            fill(&rows, &services).await;
+            displays::watch_outputs().bind(&rows, move |rows, outputs| fill(rows, &services, outputs));
             menu::show_for(ticket, &anchor, &column);
         });
     });
@@ -52,12 +54,11 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
 }
 
 /// The rows: one block per connected display.
-async fn fill(rows: &gtk4::Box, services: &Rc<Services>) {
-    let outputs = crate::displays::outputs().await;
+fn fill(rows: &gtk4::Box, services: &Rc<Services>, outputs: &[Output]) {
     ui::clear(rows);
     let lit = outputs.iter().filter(|o| o.on).count();
     let brightness = services.brightness();
-    for output in &outputs {
+    for output in outputs {
         // The backlight belongs to the screen sysfs names, or to the built-in one.
         let has_backlight = brightness.percent.get().is_some()
             && match &brightness.connector {
@@ -83,9 +84,10 @@ async fn fill(rows: &gtk4::Box, services: &Rc<Services>) {
         switch.connect_state_set(move |_, on| {
             let (connector, weak, s) = (connector.clone(), weak.clone(), s.clone());
             glib::spawn_future_local(async move {
-                crate::displays::set_on(&connector, on).await;
-                if let Some(rows) = weak.upgrade() {
-                    fill(&rows, &s).await;
+                displays::set_on(&connector, on).await;
+                // A refused change leaves the snapshot equal, but the switch must go back.
+                if !displays::refresh().await && let Some(rows) = weak.upgrade() {
+                    fill(&rows, &s, &displays::watch_outputs().get());
                 }
             });
             glib::Propagation::Proceed

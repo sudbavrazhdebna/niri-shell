@@ -1,6 +1,7 @@
 //! Bluetooth from BlueZ: adapter power and the paired devices.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use gtk4::prelude::*;
@@ -20,6 +21,12 @@ pub struct Device {
     pub icon: String,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ConnectionAttempt {
+    Connecting(u64),
+    Failed,
+}
+
 #[derive(Clone, Default, PartialEq, Debug)]
 pub struct BluetoothState {
     /// Some adapter exists and is powered on.
@@ -31,17 +38,23 @@ pub struct BluetoothState {
     pub devices: Vec<Device>,
     /// Unpaired devices in range that have a name, nearest first.
     pub nearby: Vec<Device>,
+    attempts: HashMap<String, ConnectionAttempt>,
 }
 
 impl BluetoothState {
     pub fn any_connected(&self) -> bool {
         self.devices.iter().any(|d| d.connected)
     }
+
+    pub fn connection_attempt(&self, path: &str) -> Option<ConnectionAttempt> {
+        self.attempts.get(path).copied()
+    }
 }
 
 pub struct Bluetooth {
     pub state: Watch<BluetoothState>,
     manager: Rc<RefCell<Option<gio::DBusObjectManagerClient>>>,
+    attempt_serial: Cell<u64>,
 }
 
 impl Bluetooth {
@@ -49,6 +62,7 @@ impl Bluetooth {
         let bluetooth = Bluetooth {
             state: Watch::new(BluetoothState::default()),
             manager: Rc::default(),
+            attempt_serial: Cell::default(),
         };
         let (watch, slot) = (bluetooth.state.clone(), bluetooth.manager.clone());
         glib::spawn_future_local(async move {
@@ -66,20 +80,20 @@ impl Bluetooth {
                     return;
                 }
             };
-            watch.set(read(&manager));
+            refresh(&watch, &manager);
 
             let w = watch.clone();
-            manager.connect_object_added(move |m, _| w.set(read(m)));
+            manager.connect_object_added(move |m, _| refresh(&w, m));
             let w = watch.clone();
-            manager.connect_object_removed(move |m, _| w.set(read(m)));
+            manager.connect_object_removed(move |m, _| refresh(&w, m));
             let w = watch.clone();
-            manager.connect_interface_added(move |m, _, _| w.set(read(m)));
+            manager.connect_interface_added(move |m, _, _| refresh(&w, m));
             let w = watch.clone();
-            manager.connect_interface_removed(move |m, _, _| w.set(read(m)));
+            manager.connect_interface_removed(move |m, _, _| refresh(&w, m));
             // The typed connect wants a Send closure; this one stays on the main thread.
             manager.connect_local("interface-proxy-properties-changed", false, move |args| {
                 if let Some(m) = args.first().and_then(|v| v.get::<gio::DBusObjectManagerClient>().ok()) {
-                    watch.set(read(&m));
+                    refresh(&watch, &m);
                 }
                 None
             });
@@ -99,7 +113,7 @@ impl Bluetooth {
     }
 
     pub fn connect(&self, path: &str) {
-        self.device_call(path, "Connect");
+        self.connect_device(path, false);
     }
 
     /// Looks for devices for `seconds`, then stops.
@@ -124,52 +138,50 @@ impl Bluetooth {
 
     /// Pairs with a nearby device, trusts it (so it reconnects by itself) and connects.
     pub fn pair(&self, path: &str) {
-        let Some(device) = self
-            .proxies("org.bluez.Device1")
-            .into_iter()
-            .find(|p| p.object_path() == path)
-        else {
+        self.connect_device(path, true);
+    }
+
+    fn connect_device(&self, path: &str, pair: bool) {
+        if matches!(self.state.get().connection_attempt(path), Some(ConnectionAttempt::Connecting(_))) {
             return;
-        };
+        }
+        let Some(device) = self.device(path) else { return };
+        let serial = self.attempt_serial.get() + 1;
+        self.attempt_serial.set(serial);
+        let attempt = ConnectionAttempt::Connecting(serial);
+        let path = path.to_owned();
+        self.state.update(|state| {
+            state.attempts.insert(path.clone(), attempt);
+            true
+        });
+        let watch = self.state.clone();
         glib::spawn_future_local(async move {
-            // BlueZ asks an agent to confirm the pairing; the shell answers yes.
-            agent::register(&device.connection()).await;
-            let call = |method: &'static str, args: Option<glib::Variant>, iface: &'static str| {
-                device.connection().call_future(
-                    device.name().as_deref(),
-                    &device.object_path(),
-                    iface,
-                    method,
-                    args.as_ref(),
-                    None,
-                    gio::DBusCallFlags::NONE,
-                    60_000,
-                )
-            };
-            if let Err(err) = call("Pair", None, "org.bluez.Device1").await {
-                tracing::warn!("BlueZ Pair: {err}");
-                return;
-            }
-            let trusted = ("org.bluez.Device1", "Trusted", true.to_variant()).to_variant();
-            let _ = call("Set", Some(trusted), "org.freedesktop.DBus.Properties").await;
-            if let Err(err) = call("Connect", None, "org.bluez.Device1").await {
-                tracing::warn!("BlueZ Connect: {err}");
-            }
+            let connected = pair_and_connect(&device, pair).await;
+            watch.update(|state| {
+                // A property change can finish the attempt first or remove this device.
+                if state.connection_attempt(&path) != Some(attempt) {
+                    return false;
+                }
+                if connected {
+                    state.attempts.remove(&path);
+                } else {
+                    state.attempts.insert(path, ConnectionAttempt::Failed);
+                }
+                true
+            });
         });
     }
 
     pub fn disconnect(&self, path: &str) {
-        self.device_call(path, "Disconnect");
+        if let Some(device) = self.device(path) {
+            spawn_call(device, "org.bluez.Device1", "Disconnect", None);
+        }
     }
 
-    fn device_call(&self, path: &str, method: &'static str) {
-        let device = self
-            .proxies("org.bluez.Device1")
+    fn device(&self, path: &str) -> Option<gio::DBusProxy> {
+        self.proxies("org.bluez.Device1")
             .into_iter()
-            .find(|p| p.object_path() == path);
-        if let Some(device) = device {
-            spawn_call(device, "org.bluez.Device1", method, None);
-        }
+            .find(|p| p.object_path() == path)
     }
 
     fn proxies(&self, iface: &str) -> Vec<gio::DBusProxy> {
@@ -183,26 +195,35 @@ impl Bluetooth {
     }
 }
 
-fn spawn_call(proxy: gio::DBusProxy, iface: &'static str, method: &'static str, args: Option<glib::Variant>) {
-    glib::spawn_future_local(async move {
-        let result = proxy
-            .connection()
-            .call_future(
-                proxy.name().as_deref(),
-                &proxy.object_path(),
-                iface,
-                method,
-                args.as_ref(),
-                None,
-                gio::DBusCallFlags::NONE,
-                // Connecting to a device can take a while.
-                30_000,
-            )
-            .await;
-        if let Err(err) = result {
-            tracing::warn!("BlueZ {method}: {err}");
+async fn pair_and_connect(device: &gio::DBusProxy, pair: bool) -> bool {
+    const DEVICE: &str = "org.bluez.Device1";
+    if pair {
+        agent::register(&device.connection()).await;
+        if !call(device, DEVICE, "Pair", None, 60_000).await {
+            return false;
         }
-    });
+        let trusted = (DEVICE, "Trusted", true.to_variant()).to_variant();
+        call(device, "org.freedesktop.DBus.Properties", "Set", Some(trusted), 60_000).await;
+    }
+    let timeout = if pair { 60_000 } else { 30_000 };
+    call(device, DEVICE, "Connect", None, timeout).await
+}
+
+fn spawn_call(proxy: gio::DBusProxy, iface: &'static str, method: &'static str, args: Option<glib::Variant>) {
+    glib::spawn_future_local(async move { call(&proxy, iface, method, args, 30_000).await });
+}
+
+async fn call(proxy: &gio::DBusProxy, iface: &str, method: &str, args: Option<glib::Variant>, timeout: i32) -> bool {
+    proxy.connection().call_future(
+        proxy.name().as_deref(),
+        &proxy.object_path(),
+        iface,
+        method,
+        args.as_ref(),
+        None,
+        gio::DBusCallFlags::NONE,
+        timeout,
+    ).await.inspect_err(|err| tracing::warn!("BlueZ {method}: {err}")).is_ok()
 }
 
 /// Sets the adapter's power. Right after an unblock BlueZ may not have heard of it yet
@@ -257,6 +278,19 @@ mod rfkill {
             tracing::warn!("rfkill: {err}");
         }
     }
+}
+
+fn refresh(watch: &Watch<BluetoothState>, manager: &impl IsA<gio::DBusObjectManager>) {
+    let mut state = read(manager);
+    if state.powered {
+        let previous = watch.get();
+        for device in state.devices.iter().chain(&state.nearby).filter(|device| !device.connected) {
+            if let Some(attempt) = previous.connection_attempt(&device.path) {
+                state.attempts.insert(device.path.clone(), attempt);
+            }
+        }
+    }
+    watch.set(state);
 }
 
 fn read(manager: &impl IsA<gio::DBusObjectManager>) -> BluetoothState {

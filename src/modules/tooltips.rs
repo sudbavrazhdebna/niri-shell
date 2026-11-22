@@ -160,15 +160,13 @@ mod tests {
 
     #[test]
     fn bluetooth_lists_connected_devices_without_inventing_missing_charge() {
-        let state = BluetoothState {
-            powered: true,
-            devices: vec![
-                Device { name: "Headphones".into(), connected: true, battery: Some(0), ..Device::default() },
-                Device { name: "Mouse".into(), connected: true, ..Device::default() },
-                Device { name: "Offline keyboard".into(), battery: Some(80), ..Device::default() },
-            ],
-            ..BluetoothState::default()
-        };
+        let mut state = BluetoothState::default();
+        state.powered = true;
+        state.devices = vec![
+            Device { name: "Headphones".into(), connected: true, battery: Some(0), ..Device::default() },
+            Device { name: "Mouse".into(), connected: true, ..Device::default() },
+            Device { name: "Offline keyboard".into(), battery: Some(80), ..Device::default() },
+        ];
         assert_eq!(bluetooth(&state), "Headphones — 0%\nMouse");
     }
 

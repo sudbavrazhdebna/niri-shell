@@ -21,11 +21,12 @@ thread_local! {
     static FOLLOWING: Cell<bool> = const { Cell::new(false) };
     /// Whether an external monitor was on when the rule last looked.
     static EXTERNAL_ON: Cell<Option<bool>> = const { Cell::new(None) };
-    static MULTIPLE: OnceCell<Watch<bool>> = const { OnceCell::new() };
+    static OUTPUTS: OnceCell<Watch<Vec<Output>>> = const { OnceCell::new() };
+    static REFRESH_GENERATION: Cell<u64> = const { Cell::new(0) };
 }
 
 /// A connected display.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Output {
     /// Connector, e.g. "eDP-1".
     pub name: String,
@@ -35,21 +36,21 @@ pub struct Output {
     pub internal: bool,
 }
 
-/// Every connected display, on or off, built-in ones first.
-pub async fn outputs() -> Vec<Output> {
+/// Refreshes the shared list, returning whether the change rebuilt the menu rows.
+pub async fn refresh() -> bool {
+    let generation = REFRESH_GENERATION.get() + 1;
+    REFRESH_GENERATION.set(generation);
     let outputs = match crate::niri::request(Request::Outputs).await {
         Ok(Response::Outputs(outputs)) => outputs,
-        Ok(_) => return Vec::new(),
+        Ok(_) => return false,
         Err(err) => {
             tracing::warn!("displays: {err}");
-            return Vec::new();
+            return false;
         }
     };
-    MULTIPLE.with(|multiple| {
-        if let Some(multiple) = multiple.get() {
-            multiple.set(outputs.len() > 1);
-        }
-    });
+    if REFRESH_GENERATION.get() != generation {
+        return false;
+    }
     let mut list: Vec<Output> = outputs
         .into_values()
         .map(|o| {
@@ -64,27 +65,32 @@ pub async fn outputs() -> Vec<Output> {
         })
         .collect();
     list.sort_by(|a, b| b.internal.cmp(&a.internal).then(a.name.cmp(&b.name)));
-    list
+    let watch = watch_outputs();
+    if *watch.get() == list {
+        return false;
+    }
+    watch.set(list);
+    true
 }
 
-/// Whether niri lists multiple connected displays, including disabled ones.
-pub fn multiple() -> Watch<bool> {
-    MULTIPLE.with(|state| {
+/// Every connected display, on or off, built-in ones first.
+pub fn watch_outputs() -> Watch<Vec<Output>> {
+    OUTPUTS.with(|state| {
         state.get_or_init(|| {
             if let Some(display) = gdk::Display::default() {
-                display.monitors().connect_items_changed(|_, _, _, _| refresh_count());
+                display.monitors().connect_items_changed(|_, _, _, _| schedule_refresh());
             }
             if let Err(err) = watch_hotplug() {
                 tracing::debug!(%err, "displays: DRM hotplug unavailable");
             }
-            refresh_count();
-            Watch::new(false)
+            schedule_refresh();
+            Watch::new(Vec::new())
         }).clone()
     })
 }
 
-fn refresh_count() {
-    glib::spawn_future_local(async { outputs().await });
+fn schedule_refresh() {
+    glib::spawn_future_local(refresh());
 }
 
 /// GDK only sees enabled outputs. A disabled monitor can be unplugged without a
@@ -126,7 +132,7 @@ fn watch_hotplug() -> std::io::Result<()> {
         }
         if changed {
             // Let niri process the same hotplug before asking for its output list.
-            glib::timeout_add_local_once(Duration::from_millis(150), refresh_count);
+            glib::timeout_add_local_once(Duration::from_millis(150), schedule_refresh);
         }
         glib::ControlFlow::Continue
     });
