@@ -104,6 +104,10 @@ each section. Read before changing any of these.
 - `dock { no-overview; }` hides the overview button together with its preceding
   separator. The button remains enabled by default and can be restored through hot
   reload; niri overview bindings and the pinned/running-app separator are independent.
+- The standalone dock remembers apps when niri reports a new window or focus. It
+  stores desktop IDs in `nshell/dock-recents` under the user state directory. Up to
+  three launchable entries that are neither pinned nor running appear after the
+  app rows. `dock { recent-apps "off"; }` hides the section and stops recording.
 - **A fully transparent GTK window never reaches the compositor**: with nothing to draw, GTK
   attaches no buffer, the layer surface stays unmapped and gets no pointer (seen with
   WAYLAND_DEBUG: no `wl_surface.attach`). The dock's hot edge and the menu catcher therefore

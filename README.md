@@ -78,6 +78,8 @@ autostart: nshell does their jobs.
   before it. Remove that line to restore them. niri's overview itself is unaffected.
 - With `autohide`, the dock stays visible in the overview and starts hiding as soon as
   the overview closes. Set `show-in-overview "off"` inside `dock { … }` to disable this.
+- The standalone dock shows up to three recently used closed apps. Set
+  `recent-apps "off"` inside `dock { … }` to hide the section and stop recording.
 - **`~/.config/nshell/style.css`**: the look. It goes on top of the built-in style;
   [STYLING.md](STYLING.md) explains how and lists every class.
 

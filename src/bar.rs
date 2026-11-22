@@ -16,6 +16,7 @@ pub struct Bars {
     services: Rc<Services>,
     config: RefCell<Rc<Config>>,
     pinned: crate::watch::Watch<Vec<String>>,
+    recent_apps: Rc<crate::dock::RecentApps>,
     taskbar_css: gtk4::CssProvider,
     /// Shown as ⚠ on the bar, with the text in the tooltip.
     problems: RefCell<Vec<String>>,
@@ -27,10 +28,12 @@ pub struct Bars {
 
 impl Bars {
     pub fn start(app: &gtk4::Application, config: Rc<Config>, services: Rc<Services>) -> Rc<Bars> {
+        let recent_apps = crate::dock::RecentApps::track(&services.niri, config.show_separate_dock() && config.dock.recent_apps);
         let bars = Rc::new(Bars {
             app: app.clone(),
             services,
             pinned: crate::watch::Watch::new(config.dock.pinned.clone()),
+            recent_apps,
             taskbar_css: gtk4::CssProvider::new(),
             config: RefCell::new(config),
             problems: RefCell::new(Vec::new()),
@@ -70,6 +73,7 @@ impl Bars {
             self.pinned.set(config.dock.pinned.clone());
             return;
         }
+        self.recent_apps.configure(config.show_separate_dock() && config.dock.recent_apps, &self.services.niri.state.get());
         self.services.idle().configure(&config.idle);
         crate::displays::configure(config.laptop_screen_auto);
         crate::wallpaper::configure(config.wallpaper.clone(), config.overview_blur);
@@ -152,7 +156,7 @@ impl Bars {
             let dock = ctx
                 .config
                 .show_separate_dock()
-                .then(|| crate::dock::build(&self.app, &monitor, &ctx.config, &self.pinned, &self.services.niri));
+                .then(|| crate::dock::build(&self.app, &monitor, &ctx.config, &self.pinned, &self.services.niri, &self.recent_apps));
             windows.push((monitor, bar, dock));
         }
     }

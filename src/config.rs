@@ -73,6 +73,8 @@ pub struct DockConfig {
     pub show_in_overview: bool,
     /// Show the overview button and its separator after the apps.
     pub overview: bool,
+    /// Keep up to three recently used closed apps in the standalone dock.
+    pub recent_apps: bool,
     /// App ids (as niri reports them) or desktop entry ids, in dock order.
     pub pinned: Vec<String>,
 }
@@ -196,6 +198,7 @@ impl Default for Config {
                 autohide: false,
                 show_in_overview: true,
                 overview: true,
+                recent_apps: true,
                 pinned: Vec::new(),
             },
         }
@@ -225,7 +228,7 @@ impl Config {
             icon_theme, bar, clock, window_title, volume, idle, dock, laptop_screen_auto,
             wallpaper, overview_blur, layout_rename, launcher_paths, media_title, control_layout, blur_off,
         } = self;
-        let DockConfig { enabled, mode, autohide, show_in_overview, overview, pinned: _ } = dock;
+        let DockConfig { enabled, mode, autohide, show_in_overview, overview, recent_apps, pinned: _ } = dock;
         let IdleConfig { lock_command, inhibit_apps, on_ac, on_battery } = idle;
         let WindowTitleConfig { max_length, rewrite } = window_title;
         let patterns = |a: &[Regex], b: &[Regex]| a.iter().map(Regex::as_str).eq(b.iter().map(Regex::as_str));
@@ -245,6 +248,7 @@ impl Config {
             && autohide == &other.dock.autohide
             && show_in_overview == &other.dock.show_in_overview
             && overview == &other.dock.overview
+            && recent_apps == &other.dock.recent_apps
             && laptop_screen_auto == &other.laptop_screen_auto
             && wallpaper == &other.wallpaper
             && overview_blur == &other.overview_blur
@@ -455,6 +459,13 @@ impl Config {
                                 }
                             }
                             "no-overview" => config.dock.overview = false,
+                            "recent-apps" => {
+                                config.dock.recent_apps = match string_arg(child).map_err(|e| at(child, e))?.as_str() {
+                                    "on" => true,
+                                    "off" => false,
+                                    _ => return Err(at(child, "needs \"on\" or \"off\"".into())),
+                                }
+                            }
                             "pinned" => {
                                 config.dock.pinned = strings(child).map_err(|e| at(child, e))?
                             }

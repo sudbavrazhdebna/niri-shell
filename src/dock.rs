@@ -1,4 +1,4 @@
-//! Dock: pinned apps and running ones, with a dot per open window (up to three).
+//! Dock: pinned, running and recently used apps, with a dot per open window (up to three).
 //! Left click starts the app, brings up its last window, or cycles through its
 //! windows; middle click opens a new window; the wheel steps through windows; right
 //! click opens a menu (windows, new window, pin, close).
@@ -17,6 +17,9 @@ use crate::config::{self, Config, DockMode};
 use crate::niri::{Niri, State};
 use crate::watch::Watch;
 use crate::{blur, menu, ui};
+
+mod recents;
+pub use recents::RecentApps;
 
 const MAX_DOTS: usize = 3;
 
@@ -186,7 +189,14 @@ pub fn peek(niri: &Niri, seconds: u32) {
     }
 }
 
-pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Config, pinned: &Watch<Vec<String>>, niri: &Niri) -> gtk4::ApplicationWindow {
+pub fn build(
+    app: &gtk4::Application,
+    monitor: &gdk::Monitor,
+    config: &Config,
+    pinned: &Watch<Vec<String>>,
+    niri: &Niri,
+    recent_apps: &Rc<RecentApps>,
+) -> gtk4::ApplicationWindow {
     let window = gtk4::ApplicationWindow::new(app);
     window.add_css_class("nshell-dock");
     window.init_layer_shell();
@@ -201,7 +211,7 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Config, p
 
     let dock = gtk4::Box::new(gtk4::Orientation::Horizontal, 2);
     dock.add_css_class("dock");
-    dock.append(&apps(pinned, niri, false));
+    dock.append(&app_row(pinned, niri, false, Some(recent_apps.clone())));
     if config.dock.overview {
         dock.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
         let overview = gtk4::Button::from_icon_name("nshell-overview-symbolic");
@@ -295,6 +305,10 @@ pub fn build(app: &gtk4::Application, monitor: &gdk::Monitor, config: &Config, p
 /// The apps, pinned then running, kept up to date: the dock's row, and the bar's
 /// `taskbar` module (the same items, clicks and menus).
 pub fn apps(pinned: &Watch<Vec<String>>, niri: &Niri, in_bar: bool) -> gtk4::Box {
+    app_row(pinned, niri, in_bar, None)
+}
+
+fn app_row(pinned: &Watch<Vec<String>>, niri: &Niri, in_bar: bool, recent_apps: Option<Rc<RecentApps>>) -> gtk4::Box {
     // No spacing: the gap between icons is their padding in style.css alone.
     let apps = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
     apps.add_css_class("dock-apps");
@@ -305,6 +319,12 @@ pub fn apps(pinned: &Watch<Vec<String>>, niri: &Niri, in_bar: bool) -> gtk4::Box
     let last = RefCell::new(None::<Vec<Item>>);
     let render = Rc::new(move |apps: &gtk4::Box, state: &State, pinned: &[String]| {
         let mut items = items(state, pinned);
+        if let Some(recents) = &recent_apps {
+            let keys = recents.visible(|key| !items.iter().any(|item| crate::apps::same_app(&item.key, key)));
+            items.extend(keys.into_iter().map(|key| Item {
+                key, pinned: false, windows: Vec::new(), recent: None, focused: None, urgent: false,
+            }));
+        }
         if menu::is_open() && !state.windows.values().any(|window| window.is_focused) {
             // Our menu takes keyboard focus. Keep the last app highlight and its
             // widgets: rebuilding here destroys the anchor and a held pointer grab.
@@ -320,10 +340,13 @@ pub fn apps(pinned: &Watch<Vec<String>>, niri: &Niri, in_bar: bool) -> gtk4::Box
         if last.borrow().as_ref() == Some(&items) {
             return;
         }
+        menu::close_in(apps);
         ui::clear(apps);
         for (i, item) in items.iter().enumerate() {
-            // Running apps that aren't pinned come after a line.
-            if !item.pinned && items.get(i.wrapping_sub(1)).is_some_and(|prev| prev.pinned) {
+            // Draw a line when entering the running or recently closed section.
+            if !item.pinned && items.get(i.wrapping_sub(1)).is_some_and(|prev| {
+                prev.pinned || (!prev.windows.is_empty() && item.windows.is_empty())
+            }) {
                 apps.append(&gtk4::Separator::new(gtk4::Orientation::Vertical));
             }
             apps.append(&item_widget(item, &niri2, in_bar));
@@ -345,7 +368,6 @@ pub fn apps(pinned: &Watch<Vec<String>>, niri: &Niri, in_bar: bool) -> gtk4::Box
             return;
         }
         pins.replace(pinned.clone());
-        menu::close_in(apps);
         render(apps, &niri.state.get(), pinned);
     });
     apps
