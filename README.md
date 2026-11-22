@@ -70,6 +70,8 @@ autostart: nshell does their jobs.
   settings stay.
 - Adding `taskbar` to any bar zone hides the standalone dock. The taskbar still uses
   the `dock` section's pinned apps.
+- In `control { … }`, `layout "grid"` gives the quick switches two columns (the default).
+  Set `layout "row"` to put them in a single row.
 - In `dock { … }`, `mode "reserved"` keeps the dock visible and reserves a bottom
   strip for it in the workspace. `mode "overlay"` is the default and allows `autohide`.
 - Add `no-overview` inside `dock { … }` to hide its overview button and the separator

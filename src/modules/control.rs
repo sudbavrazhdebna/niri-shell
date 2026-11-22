@@ -9,6 +9,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use super::{Context, power_profiles};
+use crate::config::ControlLayout;
 use crate::services::Services;
 use crate::services::network::NetworkState;
 use crate::services::audio::MAX_PERCENT;
@@ -42,15 +43,16 @@ pub fn build(ctx: &Context) -> gtk4::Widget {
         ctx.services.session().set_awake(true);
     }
     let services = ctx.services.clone();
-    menu::attach(&root, move |anchor| menu::show(anchor, &content(&services)));
+    let layout = ctx.config.control_layout;
+    menu::attach(&root, move |anchor| menu::show(anchor, &content(&services, layout)));
     root.upcast()
 }
 
-fn content(services: &Rc<Services>) -> gtk4::Box {
+fn content(services: &Rc<Services>, layout: ControlLayout) -> gtk4::Box {
     let column = ui::column();
     column.add_css_class("control-center");
     column.set_width_request(340);
-    column.append(&tiles(services));
+    column.append(&tiles(services, layout));
     append_sliders(&column, services);
     column.append(&system_stats());
     column.append(&player(services));
@@ -59,14 +61,9 @@ fn content(services: &Rc<Services>) -> gtk4::Box {
     column
 }
 
-fn tiles(services: &Rc<Services>) -> gtk4::Box {
-    // Hidden hardware controls leave no empty column in the homogeneous row.
-    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
-    row.add_css_class("tiles");
-    row.set_homogeneous(true);
-
+fn tiles(services: &Rc<Services>, layout: ControlLayout) -> gtk4::Widget {
     let s = services.clone();
-    let wifi = tile("network-wireless-symbolic", "Wi-Fi", move |on| s.network().set_wifi_enabled(on));
+    let wifi = tile(layout, "network-wireless-symbolic", "Wi-Fi", move |on| s.network().set_wifi_enabled(on));
     services.network().state.bind(&wifi.button, {
         let (state_label, set, image) = (wifi.subtitle.clone(), wifi.set.clone(), wifi.image.clone());
         move |button, state| {
@@ -84,7 +81,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Box {
     });
 
     let s = services.clone();
-    let bt = tile("bluetooth-symbolic", "Bluetooth", move |on| s.bluetooth().set_powered(on));
+    let bt = tile(layout, "bluetooth-symbolic", "Bluetooth", move |on| s.bluetooth().set_powered(on));
     services.bluetooth().state.bind(&bt.button, {
         let (state_label, set, image) = (bt.subtitle.clone(), bt.set.clone(), bt.image.clone());
         move |button, state| {
@@ -102,7 +99,7 @@ fn tiles(services: &Rc<Services>) -> gtk4::Box {
     });
 
     let s = services.clone();
-    let awake = tile("weather-clear-night-symbolic", "Stay awake", move |on| s.session().set_awake(on));
+    let awake = tile(layout, "weather-clear-night-symbolic", "Stay awake", move |on| s.session().set_awake(on));
     services.session().awake.bind(&awake.button, {
         let (state_label, set) = (awake.subtitle.clone(), awake.set.clone());
         move |button, on| {
@@ -112,19 +109,64 @@ fn tiles(services: &Rc<Services>) -> gtk4::Box {
         }
     });
 
-    row.append(&wifi.button);
-    row.append(&bt.button);
-    row.append(&keyboard_light_tile(services));
-    row.append(&awake.button);
-    row
+    let buttons = [wifi.button, bt.button, keyboard_light_tile(services, layout), awake.button];
+    match layout {
+        ControlLayout::Grid => tile_grid(&buttons).upcast(),
+        ControlLayout::Row => {
+            let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+            row.add_css_class("tiles");
+            row.set_homogeneous(true);
+            for button in buttons {
+                row.append(&button);
+            }
+            row.upcast()
+        }
+    }
+}
+
+fn tile_grid(buttons: &[gtk4::Button]) -> gtk4::Grid {
+    let grid = gtk4::Grid::builder()
+        .column_spacing(8)
+        .row_spacing(8)
+        .column_homogeneous(true)
+        .build();
+    grid.add_css_class("tiles");
+    grid.add_css_class("tiles-grid");
+    for (index, button) in buttons.iter().enumerate() {
+        grid.attach(button, (index % 2) as i32, (index / 2) as i32, 1, 1);
+        let weak = grid.downgrade();
+        button.connect_visible_notify(move |_| {
+            if let Some(grid) = weak.upgrade() {
+                arrange_tiles(&grid);
+            }
+        });
+    }
+    arrange_tiles(&grid);
+    grid
+}
+
+/// Pack the visible tiles without replacing their widgets. A lone tile fills its row.
+fn arrange_tiles(grid: &gtk4::Grid) {
+    let Some(manager) = grid.layout_manager() else { return };
+    let tiles: Vec<_> = std::iter::successors(grid.first_child(), |child| child.next_sibling())
+        .filter(|child| child.get_visible())
+        .collect();
+    let count = tiles.len();
+    for (index, tile) in tiles.iter().enumerate() {
+        let Some(cell) = manager.layout_child(tile).downcast::<gtk4::GridLayoutChild>().ok() else { continue };
+        let last_incomplete_row = index % 2 == 0 && index + 1 == count;
+        cell.set_column((index % 2) as i32);
+        cell.set_row((index / 2) as i32);
+        cell.set_column_span(if last_incomplete_row { 2 } else { 1 });
+    }
 }
 
 /// Keyboard backlight: a click steps through the hardware levels (Off → 50% → 100%).
-fn keyboard_light_tile(services: &Rc<Services>) -> gtk4::Button {
+fn keyboard_light_tile(services: &Rc<Services>, layout: ControlLayout) -> gtk4::Button {
     let light = services.keyboard_light();
     // Hidden until UPower answers, and for good on machines without a backlight.
     let s = services.clone();
-    let tile = tile("keyboard-brightness-symbolic", "Key light", move |_| {
+    let tile = tile(layout, "keyboard-brightness-symbolic", "Key light", move |_| {
         let light = s.keyboard_light();
         if let Some((now, max)) = *light.level.get() {
             light.set(if now >= max { 0 } else { now + 1 });
@@ -156,27 +198,45 @@ struct Tile {
     set: Rc<dyn Fn(bool)>,
 }
 
-/// One compact tile: an icon circle above its name and state.
-fn tile(icon: &str, name: &str, on_toggle: impl Fn(bool) + 'static) -> Tile {
+fn tile(layout: ControlLayout, icon: &str, name: &str, on_toggle: impl Fn(bool) + 'static) -> Tile {
     let button = gtk4::Button::new();
     button.add_css_class("tile");
-    let column = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
-    column.set_valign(gtk4::Align::Center);
     let image = gtk4::Image::from_icon_name(icon);
     image.add_css_class("tile-icon");
     image.set_halign(gtk4::Align::Center);
+    image.set_valign(gtk4::Align::Center);
     let title = gtk4::Label::new(Some(name));
     title.add_css_class("tile-title");
     title.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-    title.set_max_width_chars(10);
     let subtitle = gtk4::Label::new(None);
     subtitle.add_css_class("tile-subtitle");
     subtitle.set_ellipsize(gtk4::pango::EllipsizeMode::End);
-    subtitle.set_max_width_chars(10);
-    column.append(&image);
-    column.append(&title);
-    column.append(&subtitle);
-    button.set_child(Some(&column));
+    match layout {
+        ControlLayout::Grid => {
+            title.set_xalign(0.0);
+            subtitle.set_xalign(0.0);
+            subtitle.set_max_width_chars(18);
+            let labels = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
+            labels.set_hexpand(true);
+            labels.append(&title);
+            labels.append(&subtitle);
+            let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
+            row.set_valign(gtk4::Align::Center);
+            row.append(&image);
+            row.append(&labels);
+            button.set_child(Some(&row));
+        }
+        ControlLayout::Row => {
+            title.set_max_width_chars(10);
+            subtitle.set_max_width_chars(10);
+            let column = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
+            column.set_valign(gtk4::Align::Center);
+            column.append(&image);
+            column.append(&title);
+            column.append(&subtitle);
+            button.set_child(Some(&column));
+        }
+    }
 
     let on = Rc::new(Cell::new(false));
     let o = on.clone();

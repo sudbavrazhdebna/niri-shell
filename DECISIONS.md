@@ -413,10 +413,11 @@ each section. Read before changing any of these.
   behaviour stay the same. The chevron rotates upward in 150 ms while its menu is open,
   and returns downward when it closes or another menu takes over. Only the inner image
   rotates, keeping the asymmetric padding, hover plate and hit area stationary.
-- Control center is being refined from the original layout. Wi-Fi, Bluetooth,
-  keyboard light and Stay awake form one homogeneous row; the keyboard button is
-  hidden without an empty slot on unsupported hardware. Each tile has its icon above
-  the label/state; only the icon circle turns blue. Keyboard light shows percentages
+- The Control Center arranges Wi-Fi, Bluetooth, keyboard light and Stay awake in
+  two columns by default. Wider tiles put the icon beside the text, giving device
+  and network names room. Visible tiles pack in order when hardware changes, and
+  a lone tile fills its row. `control { layout "row"; }` uses the previous single
+  row with icons above the text. Only the icon circle turns blue. Keyboard light shows percentages
   (Off / 50% / 100% on the two-level keyboard), and tooltips retain truncated names.
   Tile icons follow their service state: Wi-Fi disabled / disconnected / connected
   signal, Bluetooth disabled / on, and keyboard light off / low / high.
@@ -442,8 +443,8 @@ each section. Read before changing any of these.
   other menus and media seeking keep their existing update behaviour.
   The original stats/player/power layout remains. Four
   round session buttons share one `--inner` surface with the stats/player padding
-  and radius. All inner surfaces have a small soft shadow without a border or inset
-  edge. The full grouped-popup study remains a reference only. The bar chevron's
+  and radius. Inner surfaces have a small soft shadow, while the grid tiles use a
+  subdued fill. The full grouped-popup study remains a reference only. The bar chevron's
   open/close animation stays enabled independently.
   The last control-center child has no bottom margin: the row's old 8 px margin
   stacked with the popup padding, making its bottom field wider than its other edges.

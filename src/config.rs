@@ -40,6 +40,7 @@ pub struct Config {
     pub launcher_paths: Vec<PathBuf>,
     /// The media module shows the track's title next to its play button.
     pub media_title: bool,
+    pub control_layout: ControlLayout,
     /// Parts of the shell that don't blur what's behind them (`blur::PARTS`).
     pub blur_off: Vec<String>,
 }
@@ -80,6 +81,12 @@ pub struct DockConfig {
 pub enum DockMode {
     Overlay,
     Reserved,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ControlLayout {
+    Grid,
+    Row,
 }
 
 impl DockConfig {
@@ -179,6 +186,7 @@ impl Default for Config {
             layout_rename: Vec::new(),
             launcher_paths: Vec::new(),
             media_title: true,
+            control_layout: ControlLayout::Grid,
             blur_off: Vec::new(),
             wallpaper: Some(gtk4::glib::home_dir().join(".config/wallpapers/m.jpg")),
             overview_blur: 24,
@@ -215,7 +223,7 @@ impl Config {
     pub fn same_except_pinned(&self, other: &Self) -> bool {
         let Self {
             icon_theme, bar, clock, window_title, volume, idle, dock, laptop_screen_auto,
-            wallpaper, overview_blur, layout_rename, launcher_paths, media_title, blur_off,
+            wallpaper, overview_blur, layout_rename, launcher_paths, media_title, control_layout, blur_off,
         } = self;
         let DockConfig { enabled, mode, autohide, show_in_overview, overview, pinned: _ } = dock;
         let IdleConfig { lock_command, inhibit_apps, on_ac, on_battery } = idle;
@@ -243,6 +251,7 @@ impl Config {
             && same_rewrites(layout_rename, &other.layout_rename)
             && launcher_paths == &other.launcher_paths
             && media_title == &other.media_title
+            && control_layout == &other.control_layout
             && blur_off == &other.blur_off
     }
 
@@ -339,6 +348,20 @@ impl Config {
                                     "on" => true,
                                     "off" => false,
                                     _ => return Err(at(child, "needs \"on\" or \"off\"".into())),
+                                }
+                            }
+                            other => return Err(at(child, unknown(other))),
+                        }
+                    }
+                }
+                "control" => {
+                    for child in children(node) {
+                        match child.name().value() {
+                            "layout" => {
+                                config.control_layout = match string_arg(child).map_err(|e| at(child, e))?.as_str() {
+                                    "grid" => ControlLayout::Grid,
+                                    "row" => ControlLayout::Row,
+                                    _ => return Err(at(child, "needs \"grid\" or \"row\"".into())),
                                 }
                             }
                             other => return Err(at(child, unknown(other))),
@@ -793,6 +816,19 @@ mod tests {
             assert!(!config.show_separate_dock(), "{zone}");
         }
         assert!(!parse("dock { off; }").show_separate_dock());
+    }
+
+    #[test]
+    fn changing_control_layout_reloads_the_bar() {
+        let parse = |text: &str| Config::parse(text).unwrap_or_else(|e| panic!("{e}"));
+        let default = parse("");
+        let grid = parse("control { layout \"grid\"; }");
+        let row = parse("control { layout \"row\"; }");
+        assert_eq!(default.control_layout, ControlLayout::Grid);
+        assert_eq!(row.control_layout, ControlLayout::Row);
+        assert!(default.same_except_pinned(&grid));
+        assert!(!grid.same_except_pinned(&row));
+        assert!(Config::parse("control { layout \"list\"; }").is_err());
     }
 
     #[test]

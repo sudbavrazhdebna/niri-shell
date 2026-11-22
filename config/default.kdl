@@ -86,6 +86,11 @@ media {
     title "on"
 }
 
+control {
+    // Quick switches in the Control Center: "grid" for two columns, "row" for one row.
+    layout "grid"
+}
+
 launcher {
     // `nshell-msg launcher` opens it; bind it in niri, e.g.
     //   Mod+D { spawn "nshell-msg" "launcher"; }

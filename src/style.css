@@ -387,6 +387,22 @@ button.tile:hover {
     background: rgba(255, 255, 255, 0.13);
 }
 
+.control-center .tiles-grid button.tile {
+    min-height: 32px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.045);
+    box-shadow: none;
+}
+
+.control-center .tiles-grid button.tile:hover {
+    background: var(--inner-hover);
+}
+
+.tiles-grid button.tile:not(.active) .tile-icon {
+    background: transparent;
+}
+
 .tile-icon {
     -gtk-icon-size: 20px;
     padding: 4px;
