@@ -368,8 +368,7 @@ entry.menu-password image {
 .control-center button.tile,
 .control-center .control-slider,
 .control-center .system-stats,
-.control-center .player,
-.control-center .session-buttons {
+.control-center .player {
     border: none;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
 }
@@ -523,31 +522,29 @@ button.player-button:disabled {
     color: var(--text);
 }
 
-.session-buttons {
-    padding: 8px 10px;
-    border-radius: 12px;
-    background-color: var(--inner);
+.session-menu .menu-separator {
+    margin: 4px 4px;
 }
 
-button.session-button {
-    min-width: 40px;
-    min-height: 40px;
-    padding: 0;
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.1);
+.control-center button.session-row {
+    min-height: 24px;
 }
 
-button.session-button:hover {
-    background: rgba(255, 255, 255, 0.18);
+.control-center button.session-row:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.35);
+    outline-offset: -2px;
 }
 
-button.session-button.armed {
-    background: alpha(var(--danger), 0.9);
+.control-center button.session-row.armed {
+    background: alpha(var(--danger), 0.35);
 }
 
-.session-caption {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.75);
+.session-row .menu-trailing-icon {
+    transition: transform 150ms ease-out;
+}
+
+.session-row.expanded .menu-trailing-icon {
+    transform: rotate(180deg);
 }
 
 /* ---- OSD (looks like the swayosd setup it replaces) ---- */

@@ -316,6 +316,13 @@ pub fn header_switch(
 
 /// A clickable row with an icon in front and optional dim text at the end.
 pub fn icon_item(icon: &str, text: &str, trailing: &str, on_click: impl Fn() + 'static) -> gtk4::Button {
+    let (button, _) = icon_row(icon, text, trailing);
+    button.connect_clicked(move |_| on_click());
+    button
+}
+
+/// Builds an icon row with a label the caller can update.
+pub fn icon_row(icon: &str, text: &str, trailing: &str) -> (gtk4::Button, gtk4::Label) {
     let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
     let image = gtk4::Image::from_icon_name(icon);
     image.add_css_class("menu-row-icon");
@@ -335,8 +342,7 @@ pub fn icon_item(icon: &str, text: &str, trailing: &str, on_click: impl Fn() + '
     button.set_child(Some(&row));
     button.add_css_class("menu-item");
     button.add_css_class("flat");
-    button.connect_clicked(move |_| on_click());
-    button
+    (button, label)
 }
 
 /// Adds a dim icon at the end of an [`icon_item`] row.

@@ -449,16 +449,17 @@ each section. Read before changing any of these.
   cancels the animation and retains the slider's existing feedback grace period.
   The tick is removed at rest or on unmap. Smoothing is opt-in for these two sliders;
   other menus and media seeking keep their existing update behaviour.
-  The original stats/player/power layout remains. Four
-  round session buttons share one `--inner` surface with the stats/player padding
-  and radius. The grid tiles share the other inner surfaces' `--inner` fill.
+  The grid tiles share the other inner surfaces' `--inner` fill. The Session row
+  reveals Lock, Sleep, Restart and Shut down inside the same popup. Restart and
+  Shut down ask for a second click within three seconds. Collapsing the list or
+  choosing another action clears the pending confirmation.
   The full grouped-popup study remains a reference only. The bar chevron's
   open/close animation stays enabled independently.
   The last control-center child has no bottom margin: the row's old 8 px margin
   stacked with the popup padding, making its bottom field wider than its other edges.
   Typography inherits the system family but uses only two sizes inside this panel:
   12 px regular for names, values and power profiles; 11 px regular for
-  device/state lines, artists and session captions. CPU/Memory no longer inherit the
+  device/state lines and artists. CPU/Memory no longer inherit the
   larger system size or a bold weight. Secondary text is distinguished by colour.
   The playing track's title stays 12 px but uses semibold (600) to stand out above
   the artist without increasing the player card's text size.

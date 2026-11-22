@@ -3,7 +3,7 @@
 
 use std::cell::Cell;
 use std::rc::Rc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gtk4::glib;
 use gtk4::prelude::*;
@@ -13,7 +13,7 @@ use crate::config::ControlLayout;
 use crate::services::Services;
 use crate::services::network::NetworkState;
 use crate::services::audio::MAX_PERCENT;
-use crate::{menu, ui};
+use crate::{menu, ui, watch::Watch};
 
 /// A dangerous button (reboot, power off) acts on a second click within this time.
 const CONFIRM_TIME: Duration = Duration::from_secs(3);
@@ -57,7 +57,7 @@ fn content(services: &Rc<Services>, layout: ControlLayout) -> gtk4::Box {
     column.append(&system_stats());
     column.append(&player(services));
     column.append(&power_profiles::build(services));
-    column.append(&session_buttons(services));
+    column.append(&session_menu(services));
     column
 }
 
@@ -485,67 +485,96 @@ fn player(services: &Rc<Services>) -> gtk4::Box {
     card
 }
 
-fn session_buttons(services: &Rc<Services>) -> gtk4::Box {
-    let row = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
-    row.add_css_class("session-buttons");
-    row.set_homogeneous(true);
-    let s = services.clone();
-    row.append(&session_button("system-lock-screen-symbolic", "Lock", false, move || {
-        menu::close();
-        s.session().lock();
-    }));
-    let s = services.clone();
-    row.append(&session_button("weather-clear-night-symbolic", "Sleep", false, move || {
-        menu::close();
-        s.session().suspend();
-    }));
-    let s = services.clone();
-    row.append(&session_button("system-reboot-symbolic", "Restart", true, move || {
-        s.session().reboot();
-    }));
-    let s = services.clone();
-    row.append(&session_button("system-shutdown-symbolic", "Shut down", true, move || {
-        s.session().power_off();
-    }));
-    row
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SessionAction {
+    Lock,
+    Sleep,
+    Restart,
+    ShutDown,
 }
 
-/// Round icon button with a caption. With `confirm`, the first click only arms it
-/// ("Again?") for a few seconds.
-fn session_button(icon: &str, caption: &str, confirm: bool, action: impl Fn() + 'static) -> gtk4::Box {
-    let holder = gtk4::Box::new(gtk4::Orientation::Vertical, 4);
-    let button = gtk4::Button::from_icon_name(icon);
-    button.add_css_class("session-button");
-    button.set_halign(gtk4::Align::Center);
-    let label = gtk4::Label::new(Some(caption));
-    label.add_css_class("session-caption");
-    holder.append(&button);
-    holder.append(&label);
+fn session_menu(services: &Rc<Services>) -> gtk4::Box {
+    use SessionAction::{Lock, Restart, ShutDown, Sleep};
 
-    let armed = Rc::new(Cell::new(false));
-    let caption = caption.to_string();
-    let label_weak = label.downgrade();
-    button.connect_clicked(move |button| {
-        if !confirm || armed.get() {
-            action();
-            return;
+    let section = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    section.add_css_class("session-menu");
+    section.append(&ui::separator());
+    let (toggle, _) = ui::icon_row("system-shutdown-symbolic", "Session", "");
+    toggle.add_css_class("session-row");
+    ui::trailing_icon(&toggle, "pan-down-symbolic");
+    toggle.update_state(&[gtk4::accessible::State::Expanded(Some(false))]);
+    section.append(&toggle);
+
+    let actions = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    actions.set_sensitive(false);
+    let pending = Watch::new(None::<(SessionAction, Instant)>);
+    for action in [Lock, Sleep, Restart, ShutDown] {
+        let (icon, caption, confirmation) = match action {
+            Lock => ("system-lock-screen-symbolic", "Lock", None),
+            Sleep => ("weather-clear-night-symbolic", "Sleep", None),
+            Restart => ("system-reboot-symbolic", "Restart", Some("Confirm restart")),
+            ShutDown => ("system-shutdown-symbolic", "Shut down", Some("Confirm shut down")),
+        };
+        if action == Restart {
+            actions.append(&ui::separator());
         }
-        armed.set(true);
-        button.add_css_class("armed");
-        if let Some(label) = label_weak.upgrade() {
-            label.set_label("Again?");
+        let (button, label) = ui::icon_row(icon, caption, "");
+        button.add_css_class("session-row");
+        if let Some(confirmation) = confirmation {
+            pending.bind(&button, move |button, watched| {
+                let armed = watched.is_some_and(|(armed, _)| armed == action);
+                label.set_label(if armed { confirmation } else { caption });
+                if armed {
+                    button.add_css_class("armed");
+                } else {
+                    button.remove_css_class("armed");
+                }
+            });
         }
-        let (armed, button, label, caption) =
-            (armed.clone(), button.downgrade(), label_weak.clone(), caption.clone());
-        glib::timeout_add_local_once(CONFIRM_TIME, move || {
-            armed.set(false);
-            if let Some(button) = button.upgrade() {
-                button.remove_css_class("armed");
+        let (s, pending) = (services.clone(), pending.clone());
+        button.connect_clicked(move |_| {
+            let confirmed = pending.get().is_some_and(|(armed, at)| armed == action && at.elapsed() < CONFIRM_TIME);
+            if confirmation.is_some() && !confirmed {
+                let attempt = Some((action, Instant::now()));
+                pending.set(attempt);
+                let pending = pending.clone();
+                glib::timeout_add_local_once(CONFIRM_TIME, move || {
+                    if *pending.get() == attempt {
+                        pending.set(None);
+                    }
+                });
+                return;
             }
-            if let Some(label) = label.upgrade() {
-                label.set_label(&caption);
+            pending.set(None);
+            menu::close();
+            let session = s.session();
+            match action {
+                Lock => session.lock(),
+                Sleep => session.suspend(),
+                Restart => session.reboot(),
+                ShutDown => session.power_off(),
             }
         });
+        actions.append(&button);
+    }
+
+    let revealer = gtk4::Revealer::new();
+    revealer.set_transition_type(gtk4::RevealerTransitionType::SlideDown);
+    revealer.set_transition_duration(ui::ANIMATION_MS);
+    revealer.set_child(Some(&actions));
+    section.append(&revealer);
+    toggle.update_relation(&[gtk4::accessible::Relation::Controls(&[revealer.upcast_ref()])]);
+    toggle.connect_clicked(move |toggle| {
+        let open = !revealer.reveals_child();
+        actions.set_sensitive(open);
+        revealer.set_reveal_child(open);
+        toggle.update_state(&[gtk4::accessible::State::Expanded(Some(open))]);
+        if open {
+            toggle.add_css_class("expanded");
+        } else {
+            toggle.remove_css_class("expanded");
+            pending.set(None);
+        }
     });
-    holder
+    section
 }
