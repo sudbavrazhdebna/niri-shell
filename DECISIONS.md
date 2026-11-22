@@ -451,8 +451,8 @@ each section. Read before changing any of these.
   other menus and media seeking keep their existing update behaviour.
   The original stats/player/power layout remains. Four
   round session buttons share one `--inner` surface with the stats/player padding
-  and radius. Inner surfaces have a small soft shadow, while the grid tiles use a
-  subdued fill. The full grouped-popup study remains a reference only. The bar chevron's
+  and radius. The grid tiles share the other inner surfaces' `--inner` fill.
+  The full grouped-popup study remains a reference only. The bar chevron's
   open/close animation stays enabled independently.
   The last control-center child has no bottom margin: the row's old 8 px margin
   stacked with the popup padding, making its bottom field wider than its other edges.
