@@ -108,6 +108,10 @@ each section. Read before changing any of these.
   stores desktop IDs in `nshell/dock-recents` under the user state directory. Up to
   three launchable entries that are neither pinned nor running appear after the
   app rows. `dock { recent-apps "off"; }` hides the section and stops recording.
+- App lookup can use an executable name when one visible desktop entry matches.
+  GNOME Disks reports `gnome-disks` as its window ID. The visible
+  `org.gnome.DiskUtility.desktop` entry supplies its icon and launch action, while
+  the hidden disk image writer shares the executable.
 - **A fully transparent GTK window never reaches the compositor**: with nothing to draw, GTK
   attaches no buffer, the layer surface stays unmapped and gets no pointer (seen with
   WAYLAND_DEBUG: no `wl_surface.attach`). The dock's hot edge and the menu catcher therefore

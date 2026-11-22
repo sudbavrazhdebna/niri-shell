@@ -89,14 +89,32 @@ fn desktop_entry(app_id: &str) -> Option<DesktopAppInfo> {
             return Some(info);
         }
     }
-    gio::AppInfo::all()
+    let entries: Vec<_> = gio::AppInfo::all()
         .into_iter()
         .filter_map(|info| info.downcast::<DesktopAppInfo>().ok())
-        .find(|info| {
-            info.startup_wm_class()
-                .is_some_and(|class| class.eq_ignore_ascii_case(app_id))
-                || info.name().eq_ignore_ascii_case(app_id)
-        })
+        .collect();
+    if let Some(info) = entries.iter().find(|info| {
+        info.startup_wm_class()
+            .is_some_and(|class| class.eq_ignore_ascii_case(app_id))
+            || info.name().eq_ignore_ascii_case(app_id)
+    }) {
+        return Some(info.clone());
+    }
+
+    // Some windows use the executable name as their app ID, for example gnome-disks
+    // with org.gnome.DiskUtility.desktop. Only use an unambiguous launcher entry.
+    let executable = app_id.strip_suffix(".desktop").unwrap_or(app_id);
+    unique_executable_entry(executable, entries)
+}
+
+fn unique_executable_entry(executable: &str, entries: impl IntoIterator<Item = DesktopAppInfo>) -> Option<DesktopAppInfo> {
+    let mut matches = entries.into_iter().filter(|info| {
+        info.should_show()
+            && info.executable().file_name().and_then(|name| name.to_str())
+                .is_some_and(|name| name.eq_ignore_ascii_case(executable))
+    });
+    let matching = matches.next()?;
+    matches.next().is_none().then_some(matching)
 }
 
 /// Whether a window's app id belongs to an app (a pinned name, a desktop id): equal, or
@@ -109,4 +127,30 @@ pub fn same_app(key: &str, app_id: &str) -> bool {
         return false;
     };
     a.id() == b.id()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gtk4::glib;
+
+    fn entry_with_exec(name: &str, exec: &str, hidden: bool) -> DesktopAppInfo {
+        let file = glib::KeyFile::new();
+        file.set_string("Desktop Entry", "Type", "Application");
+        file.set_string("Desktop Entry", "Name", name);
+        file.set_string("Desktop Entry", "Exec", exec);
+        file.set_boolean("Desktop Entry", "NoDisplay", hidden);
+        DesktopAppInfo::from_keyfile(&file).unwrap_or_else(|| panic!("invalid test entry {name}"))
+    }
+
+    #[test]
+    fn executable_lookup_prefers_the_unique_visible_launcher() {
+        let launcher = entry_with_exec("Disks", "/bin/sh", false);
+        let handler = entry_with_exec("Disk Image Writer", "/bin/sh --restore-disk-image %U", true);
+        let matching = unique_executable_entry("sh", [handler, launcher.clone()]);
+        assert_eq!(matching.map(|info| info.name().to_string()).as_deref(), Some("Disks"));
+
+        let another = entry_with_exec("Another launcher", "/bin/sh --other", false);
+        assert!(unique_executable_entry("sh", [launcher, another]).is_none());
+    }
 }
